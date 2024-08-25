@@ -5,7 +5,7 @@ local Pipeline = require("pipeline")
 
 -- Ensure a file is provided
 if #arg < 1 then
-    print("Usage: ./shitface <file.lua>")
+    print("Usage: ./hercules <file.lua>")
     os.exit(1)
 end
 
