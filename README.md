@@ -1,4 +1,4 @@
-# Hercules Lua Obfuscator
+# 🪨 Hercules Lua Obfuscator
 
 **Hercules** is a powerful Lua obfuscator designed to make your Lua code nearly impossible to reverse-engineer. With multiple layers of advanced obfuscation techniques, Hercules ensures your scripts are secure from prying eyes.
 <br>
@@ -70,7 +70,7 @@ Output:
 ## Project Structure
 
 ```
-hercules/
+src/
 │
 ├── hercules            # Main entry point (executable)
 ├── pipeline.lua        # Obfuscation pipeline
