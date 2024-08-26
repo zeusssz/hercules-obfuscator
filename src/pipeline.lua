@@ -1,19 +1,53 @@
--- pipeline.lua
-local StringEncoder = require("modules.string_encoder")
-local VariableRenamer = require("modules.variable_renamer")
-local ControlFlowObfuscator = require("modules.control_flow_obfuscator")
-local GarbageCodeInserter = require("modules.garbage_code_inserter")
-local Watermark = require("modules.watermark")
+-- config.lua
 
-local Pipeline = {}
+local config = {}
 
-function Pipeline.process(code)
-    code = StringEncoder.process(code)
-    code = VariableRenamer.process(code)
-    code = ControlFlowObfuscator.process(code)
-    code = GarbageCodeInserter.process(code)
-    code = Watermark.add_watermark(code)
-    return code
+config.settings = {
+    output_suffix = "_obfuscated.lua",
+    watermark_enabled = true,
+    control_flow = {
+        enabled = true,
+        max_fake_blocks = 5,
+    },
+    string_encoding = {
+        enabled = true,
+        encoding_type = 'base64',
+    },
+    variable_renaming = {
+        enabled = true,
+        min_name_length = 8,
+        max_name_length = 12,
+    },
+    garbage_code = {
+        enabled = true,
+        garbage_blocks = 3,
+    },
+    opaque_predicates = {
+        enabled = true,
+    },
+    function_inlining = {
+        enabled = true,
+    },
+    dynamic_code = {
+        enabled = true,
+    },
+    bytecode_encoding = {
+        enabled = true,
+    }
+}
+
+function config.get(key)
+    local keys = {}
+    for k in key:gmatch("[^.]+") do table.insert(keys, k) end
+
+    local value = config
+    for _, k in ipairs(keys) do
+        value = value[k]
+        if value == nil then
+            return nil
+        end
+    end
+    return value
 end
 
-return Pipeline
+return config
