@@ -21,6 +21,18 @@ config.settings = {
     garbage_code = {
         enabled = true,
         garbage_blocks = 3,
+    },
+    opaque_predicates = {
+        enabled = true,
+    },
+    function_inlining = {
+        enabled = true,
+    },
+    dynamic_code = {
+        enabled = true,
+    },
+    bytecode_encoding = {
+        enabled = true,
     }
 }
 
