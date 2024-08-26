@@ -1,53 +1,24 @@
--- config.lua
+local StringEncoder = require("string_encoder")
+local VariableRenamer = require("variable_renamer")
+local ControlFlowObfuscator = require("control_flow_obfuscator")
+local GarbageCodeInserter = require("garbage_code_inserter")
+local OpaquePredicateInjector = require("opaque_predicate_injector")
+local FunctionInliner = require("function_inliner")
+local DynamicCodeGenerator = require("dynamic_code_generator")
+local BytecodeEncoder = require("bytecode_encoder")
 
-local config = {}
+local Pipeline = {}
 
-config.settings = {
-    output_suffix = "_obfuscated.lua",
-    watermark_enabled = true,
-    control_flow = {
-        enabled = true,
-        max_fake_blocks = 5,
-    },
-    string_encoding = {
-        enabled = true,
-        encoding_type = 'base64',
-    },
-    variable_renaming = {
-        enabled = true,
-        min_name_length = 8,
-        max_name_length = 12,
-    },
-    garbage_code = {
-        enabled = true,
-        garbage_blocks = 3,
-    },
-    opaque_predicates = {
-        enabled = true,
-    },
-    function_inlining = {
-        enabled = true,
-    },
-    dynamic_code = {
-        enabled = true,
-    },
-    bytecode_encoding = {
-        enabled = true,
-    }
-}
-
-function config.get(key)
-    local keys = {}
-    for k in key:gmatch("[^.]+") do table.insert(keys, k) end
-
-    local value = config
-    for _, k in ipairs(keys) do
-        value = value[k]
-        if value == nil then
-            return nil
-        end
-    end
-    return value
+function Pipeline.process(code)
+    code = StringEncoder.process(code)
+    code = VariableRenamer.process(code)
+    code = ControlFlowObfuscator.process(code)
+    code = GarbageCodeInserter.process(code)
+    code = OpaquePredicateInjector.process(code)
+    code = FunctionInliner.process(code)
+    code = DynamicCodeGenerator.process(code)
+    code = BytecodeEncoder.process(code)
+    return code
 end
 
-return config
+return Pipeline
