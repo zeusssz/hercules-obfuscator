@@ -31,6 +31,8 @@ Hercules is very much still in development, and may not be the best yet, as I've
     ```bash
     ./hercules path/to/your/script.lua
     ```
+    
+Alternatively, you can use the Lua interpreter directly if it is added to your system PATH.
 
 ### Windows
 
@@ -43,8 +45,6 @@ Hercules is very much still in development, and may not be the best yet, as I've
     lua hercules path\to\your\script.lua
     ```
 
-Alternatively, you can use the Lua interpreter directly if it is added to your system PATH.
-
 ## Usage
 
 To obfuscate a Lua script using Hercules, simply run:
@@ -54,7 +54,7 @@ To obfuscate a Lua script using Hercules, simply run:
 lua hercules path\to\your\script.lua  # Windows
 ```
 
-This will generate an obfuscated version of the script in the same directory, with the suffix `_obfuscated.lua`.
+This will generate an obfuscated version of the script in the same directory, with the filename `*_obfuscated.lua`.
 
 ## Example
 
@@ -80,7 +80,6 @@ src/
 │   ├── control_flow_obfuscator.lua
 │   ├── garbage_code_inserter.lua
 │   └── watermark.lua
-└── config.lua          # Optional configuration file (if needed)
 ```
 
 ## Customization
