@@ -18,7 +18,7 @@ Hercules is very much still in development, and may not be the best yet, as I've
 
 1. Clone this repository:
     ```bash
-    git clone https://github.com/yourusername/hercules-obfuscator.git
+    git clone https://github.com/zeusssz/hercules-obfuscator.git
     cd hercules-obfuscator
     ```
 
