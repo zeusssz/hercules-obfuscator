@@ -1,21 +1,22 @@
--- modules/variable_renamer.lua
 local VariableRenamer = {}
 
 local function generate_random_name(len)
-    local res = ""
+    len = len or math.random(8, 12)
+    local name = ""
     for i = 1, len do
-        res = res .. string.char(math.random(97, 122)) -- a-z
+        name = name .. string.char(math.random(97, 122)) -- a-z
     end
-    return res
+    return name
 end
 
 function VariableRenamer.process(code)
     local variables = {}
-    local i = 0
+    local counter = 0
+
     return code:gsub("([%a_][%w_]*)", function(var)
         if not variables[var] then
-            i = i + 1
-            variables[var] = generate_random_name(math.random(8, 12))
+            counter = counter + 1
+            variables[var] = generate_random_name()
         end
         return variables[var]
     end)
