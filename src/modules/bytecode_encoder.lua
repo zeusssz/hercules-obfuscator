@@ -6,8 +6,7 @@ function BytecodeEncoder.process(code)
         if not func then
             error("Failed to compile block: " .. load_error)
         end
-        local bytecode = string.dump(func)
-        return string.format("loadstring(%q)()", bytecode)
+        return string.format("loadstring(%q)()", string.dump(func))
     end
 
     local encoded_code, gsub_error = code:gsub("(.-);", function(block)
