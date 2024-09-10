@@ -1,43 +1,58 @@
 local GarbageCodeInserter = {}
 
+-- Constants
+local LOWERCASE_A = 97
+local LOWERCASE_Z = 122
+local MIN_GARBAGE_BLOCKS = 2
+local MAX_GARBAGE_BLOCKS = 5
+local MAX_RANDOM_NUMBER = 100
+local MAX_LOOP_COUNT = 10
+
+-- Helper functions
 local function generate_random_variable_name()
-    return string.char(math.random(97, 122)) -- random lowercase letter
+    return string.char(math.random(LOWERCASE_A, LOWERCASE_Z))
 end
 
-local function generate_random_code()
-    local code_types = {
-        "local %s = %d",
-        "while true do %s end",
-        "for %s = 1, %d do %s end",
-        "if %s then %s end",
-        "function %s(%s) %s end"
-    }
-    
-    local random_type = code_types[math.random(#code_types)]
-    
-    if random_type == code_types[1] then
-        return string.format(random_type, generate_random_variable_name(), math.random(1, 100))
-    elseif random_type == code_types[2] then
-        return string.format(random_type, generate_random_code())
-    elseif random_type == code_types[3] then
-        return string.format(random_type, generate_random_variable_name(), math.random(1, 10), generate_random_code())
-    elseif random_type == code_types[4] then
-        return string.format(random_type, "true", generate_random_code())
-    elseif random_type == code_types[5] then
-        return string.format(random_type, generate_random_variable_name(), generate_random_variable_name(), generate_random_code())
+local function generate_random_number(max)
+    return math.random(1, max or MAX_RANDOM_NUMBER)
+end
+
+-- Code generation functions
+local code_generators = {
+    variable = function()
+        return string.format("local %s = %d", generate_random_variable_name(), generate_random_number())
+    end,
+    while_loop = function()
+        return string.format("while %s do %s end", tostring(math.random() > 0.5), generate_random_code())
+    end,
+    for_loop = function()
+        return string.format("for %s = 1, %d do %s end", generate_random_variable_name(), generate_random_number(MAX_LOOP_COUNT), generate_random_code())
+    end,
+    if_statement = function()
+        return string.format("if %s then %s end", tostring(math.random() > 0.5), generate_random_code())
+    end,
+    function_def = function()
+        return string.format("local function %s(%s) %s end", generate_random_variable_name(), generate_random_variable_name(), generate_random_code())
     end
+}
+
+function generate_random_code()
+    local code_types = {"variable", "while_loop", "for_loop", "if_statement", "function_def"}
+    local random_type = code_types[math.random(#code_types)]
+    return code_generators[random_type]()
 end
 
 local function generate_garbage()
-    local garbage_code = ""
-    for _ = 1, math.random(2, 5) do
-        garbage_code = garbage_code .. generate_random_code() .. " "
+    local garbage_code = {}
+    for _ = 1, math.random(MIN_GARBAGE_BLOCKS, MAX_GARBAGE_BLOCKS) do
+        table.insert(garbage_code, generate_random_code())
     end
-    return garbage_code
+    return table.concat(garbage_code, " ")
 end
 
 function GarbageCodeInserter.process(code)
-    return generate_garbage() .. code .. generate_garbage()
+    assert(type(code) == "string", "Input code must be a string")
+    return string.format("%s %s %s", generate_garbage(), code, generate_garbage())
 end
 
 return GarbageCodeInserter
