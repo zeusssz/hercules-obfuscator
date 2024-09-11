@@ -5,7 +5,11 @@
 Hercules is very much still in development, and may not be the best yet, but we will make sure that it shall grow to be one of the best
 <br>
 Contact either `roboxer_` or `xthrx0` on discord for queries.
+<br>
+>[!CAUTION]
+Obfuscation is not a foolproof method for protecting your code! Always consider additional security measures depending on your use case.
 
+---
 
 ## Features
 
@@ -14,6 +18,8 @@ Contact either `roboxer_` or `xthrx0` on discord for queries.
 - **Control Flow Obfuscation:** Adds fake control flow structures to confuse static analysis.
 - **Garbage Code Insertion:** Injects junk code to bloat and obscure the script.
 - **Watermarking:** Automatically appends a watermark to indicate that the code has been obfuscated by Hercules.
+
+---
 
 ## Installation
 
@@ -47,6 +53,7 @@ Alternatively, you can use the Lua interpreter directly if it is added to your s
     ```cmd
     lua hercules path\to\your\script.lua
     ```
+---
 
 ## Usage
 
@@ -67,8 +74,13 @@ lua hercules my_script.lua  # Windows
 ```
 
 Output:
-
 `my_script_obfuscated.lua` – the obfuscated version of your script.
+
+## Customization
+
+You can modify or add new modules to the `modules/` directory to create additional layers of obfuscation. The `pipeline.lua` file controls the order of obfuscation steps.
+
+---
 
 ## Project Structure
 
@@ -77,18 +89,7 @@ src/
 │
 ├── hercules            # Main entry point (executable)
 ├── pipeline.lua        # Obfuscation pipeline
-├── modules/            # Obfuscation modules
-│   ├── string_encoder.lua
-│   ├── variable_renamer.lua
-│   ├── control_flow_obfuscator.lua
-│   ├── garbage_code_inserter.lua
-│   └── watermark.lua
+└── modules/            # Obfuscation modules  
 ```
-
-## Customization
-
-You can modify or add new modules to the `modules/` directory to create additional layers of obfuscation. The `pipeline.lua` file controls the order of obfuscation steps.
-
----
-
-**Disclaimer:** Obfuscation is not a foolproof method for protecting your code. Always consider additional security measures depending on your use case.
+> [!IMPORTANT]
+When adding more modules to the `modules/` directory, ensure you maintain integrity of the executable, and remember to add your module to the `pipeline.lua` file
