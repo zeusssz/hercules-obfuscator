@@ -4,7 +4,7 @@
 <br>
 Hercules is very much still in development, and may not be the best yet, but we will make sure that it shall grow to be one of the best
 <br>
-Contact either `roboxer_` or `xthrx0` on discord for queries.
+Contact either `roboxer_` or `xthrx` on discord for queries.
 
 
 ## Features
