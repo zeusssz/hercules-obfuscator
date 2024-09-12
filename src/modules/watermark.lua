@@ -9,7 +9,7 @@ local function compressLuaCode(code)
     return compressedCode:match("^%s*(.-)%s*$")
 end
 
-function Watermark.add_watermark(code)
+function Watermark.process(code)
     local compressedCode = compressLuaCode(code)
     return "--[Obfuscated by Hercules]\n" .. compressedCode
 end
