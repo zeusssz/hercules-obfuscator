@@ -1,4 +1,5 @@
-# 🪨 Hercules Lua Obfuscator
+![herculessmall](https://github.com/user-attachments/assets/ff2ed207-c95e-45c3-831f-04a32675dbb5) 
+# Hercules Lua Obfuscator
 
 **Hercules** is a powerful Lua obfuscator designed to make your Lua code nearly impossible to reverse-engineer. With multiple layers of advanced obfuscation techniques, Hercules ensures your scripts are secure from prying eyes.
 <br>
