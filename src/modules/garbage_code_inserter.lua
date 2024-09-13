@@ -7,10 +7,15 @@ local MIN_GARBAGE_BLOCKS = 2
 local MAX_GARBAGE_BLOCKS = 5
 local MAX_RANDOM_NUMBER = 100
 local MAX_LOOP_COUNT = 10
+local VARIABLE_NAME_LENGTH = 6
 
 -- Helper functions
 local function generate_random_variable_name()
-    return string.char(math.random(LOWERCASE_A, LOWERCASE_Z))
+    local name = ""
+    for _ = 1, VARIABLE_NAME_LENGTH do
+        name = name .. string.char(math.random(LOWERCASE_A, LOWERCASE_Z))
+    end
+    return name
 end
 
 local function generate_random_number(max)
