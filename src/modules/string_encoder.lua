@@ -2,7 +2,7 @@ local StringEncoder = {}
 
 local function base64_encode(data)
     local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-    local encoded = ((data:gsub('.', function(x)
+    return ((data:gsub('.', function(x)
         local r, b = '', x:byte()
         for i = 8, 1, -1 do r = r .. (b % 2^i - b % 2^(i-1) > 0 and '1' or '0') end
         return r
@@ -12,13 +12,17 @@ local function base64_encode(data)
         for i = 1, 6 do c = c + (x:sub(i, i) == '1' and 2^(6 - i) or 0) end
         return b:sub(c + 1, c + 1)
     end) .. ({ '', '==', '=' })[#data % 3 + 1])
-    return encoded
 end
 
 function StringEncoder.process(code)
     return code:gsub('"([^"]-)"', function(str)
-        local encoded_str = base64_encode(str)
-        return '"..("' .. encoded_str .. '"):gsub("%w", function(c) return string.char(c:byte() - 2) end).."'
+        local should_encode = math.random() > 0.5
+        if should_encode then
+            local encoded_str = base64_encode(str)
+            return '"..("' .. encoded_str .. '"):gsub("%w", function(c) return string.char(c:byte() - 2) end):gsub("[A-Za-z]", function(c) return string.char((c:byte() + 5) % 255) end).."'
+        else
+            return str
+        end
     end)
 end
 
