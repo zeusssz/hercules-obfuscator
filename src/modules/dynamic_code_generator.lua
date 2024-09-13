@@ -6,16 +6,23 @@ function DynamicCodeGenerator.process(code)
         return string.format("loadstring(string.reverse(%q))()", reversed_block)
     end
 
-    local processed_code, gsub_error = code:gsub("(.-);", function(block)
+    local processed_code, position = "", 1
+
+    while position <= #code do
+        local next_position = code:find(";", position)
+        if not next_position then
+            next_position = #code + 1
+        end
+        
+        local block = code:sub(position, next_position - 1)
         local success, result = pcall(dynamic_wrapper, block)
+        
         if not success then
             error("Error generating dynamic code: " .. result)
         end
-        return result .. ";"
-    end)
-
-    if not processed_code then
-        error("Failed to process code: " .. gsub_error)
+        
+        processed_code = processed_code .. result .. ";"
+        position = next_position + 1
     end
 
     return processed_code
