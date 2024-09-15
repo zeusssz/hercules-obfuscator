@@ -2,12 +2,10 @@ local FunctionInliner = {}
 
 function FunctionInliner.process(code)
     local functions = {}
-
     code = code:gsub("function%s+([%w_]+)%s*%((.-)%)%s*(.-)%s*end", function(func_name, params, func_body)
         functions[func_name] = { body = func_body, params = params }
         return ""
     end)
-
     code = code:gsub("([%w_]+)%((.-)%)", function(func_name, args)
         local func = functions[func_name]
         if func then
@@ -21,7 +19,6 @@ function FunctionInliner.process(code)
             for arg in args:gmatch("[^,%s]+") do
                 table.insert(arg_values, arg)
             end
-
             for i = 1, #param_names do
                 local param = param_names[i]
                 local arg = arg_values[i] or ""
