@@ -79,6 +79,7 @@ lua hercules my_script.lua  # Windows
 
 Output:
 `my_script_obfuscated.lua` – the obfuscated version of your script.
+Or, if you specify overwrite with the `--overwrite` flag, it will write back to the specified script
 
 ## Customization
 
