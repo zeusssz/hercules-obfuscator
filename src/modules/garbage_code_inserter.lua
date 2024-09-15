@@ -57,6 +57,7 @@ end
 
 function GarbageCodeInserter.process(code)
     assert(type(code) == "string", "Input code must be a string")
+    -- Inserting garbage code before and after the original code
     return string.format("%s %s %s", generate_garbage(), code, generate_garbage())
 end
 
