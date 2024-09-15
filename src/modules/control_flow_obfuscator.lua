@@ -7,7 +7,7 @@ function ControlFlowObfuscator.process(code)
             "if math.random(0, 1) == 0 then " ..
             "local _ = %d " ..
             "else break end " ..
-            "%s " ..
+            "%s " .. 
             "if false then break end " ..
             "end",
             math.random(1, 1000),
@@ -15,9 +15,7 @@ function ControlFlowObfuscator.process(code)
         )
         return obfuscated_code
     end
-
-    local obfuscated_code = insert_fake_control_flow(code)
-    return obfuscated_code
+    return insert_fake_control_flow(code)
 end
 
 return ControlFlowObfuscator
