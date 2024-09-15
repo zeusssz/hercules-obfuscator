@@ -20,7 +20,7 @@ function DynamicCodeGenerator.process(code)
         if not success then
             error("Error generating dynamic code: " .. result)
         end
-        
+
         processed_code = processed_code .. result .. ";"
         position = next_position + 1
     end
