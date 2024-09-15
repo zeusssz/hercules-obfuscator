@@ -51,3 +51,12 @@ function config.get(key)
 end
 
 return config
+
+--[[
+TODO: cleanup. (@xthrx0)
+TODO: fix garbage code (@xthrx0, @zeusssz)
+TODO: patch issues, release GUI (@zeusssz)
+TODO: clean this file (@xthrx0)
+TODO: fix bytecode mutator (@xthrx0)
+]]--
+
