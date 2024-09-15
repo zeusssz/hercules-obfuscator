@@ -1,5 +1,6 @@
 local VariableRenamer = {}
 
+-- lua keywords to avoid renaming
 local lua_keywords = {
     ["and"] = true, ["break"] = true, ["do"] = true, ["else"] = true,
     ["elseif"] = true, ["end"] = true, ["false"] = true, ["for"] = true,
@@ -21,7 +22,6 @@ end
 function VariableRenamer.process(code)
     local variables = {}
     local counter = 0
-
     return code:gsub("([%a_][%w_]*)", function(var)
         if not lua_keywords[var] and not variables[var] then
             counter = counter + 1
