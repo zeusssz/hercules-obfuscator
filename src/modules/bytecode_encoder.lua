@@ -8,8 +8,7 @@ function BytecodeEncoder.process(code)
         end
         return string.format("load(%q)()", string.dump(func))
     end
-
-    local encoded_code, gsub_error = code:gsub("(.-);", function(block)
+    local encoded_code, gsub_error = code:gsub("([^;]+);", function(block)
         local success, result = pcall(encode_to_bytecode, block)
         if not success then
             error("Error encoding block: " .. result)
