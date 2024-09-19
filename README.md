@@ -27,8 +27,9 @@ Obfuscation is not a foolproof method for protecting your code! Always consider 
 - **Garbage Code Insertion:** Injects junk code to bloat and obscure the script.
 - **Watermarking:** Automatically appends a watermark to indicate that the code has been obfuscated by Hercules.
 
+>[!TIP]
+>You can customise your level of obfuscation through the `config.py` file.
 ---
-
 ## Installation
 
 ### macOS and Linux
@@ -37,6 +38,7 @@ Obfuscation is not a foolproof method for protecting your code! Always consider 
     ```bash
     git clone https://github.com/zeusssz/hercules-obfuscator.git
     cd hercules-obfuscator
+    cd src
     ```
 
 2. Make the `hercules` script executable:
@@ -48,7 +50,8 @@ Obfuscation is not a foolproof method for protecting your code! Always consider 
     ```bash
     ./hercules path/to/your/script.lua
     ```
-    
+>[!NOTE]
+>Ensure you are in the working directory of the executable, i.e, `src` by default
 Alternatively, you can use the Lua interpreter directly if it is added to your system PATH.
 
 ### Windows
