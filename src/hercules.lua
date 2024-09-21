@@ -3,7 +3,7 @@
 local Pipeline = require("pipeline")
 
 local function print_usage()
-    print("Usage: ./hercules <file.lua> [--overwrite]")
+    print("Usage: ./hercules <file.lua> [--overwrite] [--pipeline <pipeline.lua>]")
     os.exit(1)
 end
 
@@ -13,11 +13,19 @@ end
 
 local input_file = arg[1]
 local overwrite = false
+local custom_pipeline_file = nil
 
-if #arg > 1 and arg[2] == "--overwrite" then
-    overwrite = true
-elseif #arg > 1 then
-    print_usage()
+for i = 2, #arg do
+    if arg[i] == "--overwrite" then
+        overwrite = true
+    elseif arg[i] == "--pipeline" then
+        if arg[i + 1] then
+            custom_pipeline_file = arg[i + 1]:gsub("%.lua$", "")
+            i = i + 1
+        else
+            print_usage()
+        end
+    end
 end
 
 local file = io.open(input_file, "r")
@@ -29,7 +37,17 @@ end
 local code = file:read("*all")
 file:close()
 
-local obfuscated_code = Pipeline.process(code)
+local obfuscated_code
+if custom_pipeline_file then
+    local success, custom_pipeline = pcall(require, custom_pipeline_file)
+    if not success then
+        print("Error: Could not load custom pipeline module: " .. custom_pipeline)
+        os.exit(1)
+    end
+    obfuscated_code = custom_pipeline.process(code)
+else
+    obfuscated_code = Pipeline.process(code)
+end
 
 local output_file
 if overwrite then
