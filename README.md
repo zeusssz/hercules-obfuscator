@@ -86,7 +86,17 @@ lua hercules my_script.lua  # Windows
 
 Output:
 `my_script_obfuscated.lua` – the obfuscated version of your script.
-Or, if you specify overwrite with the `--overwrite` flag, it will write back to the specified script
+<br>
+<br>
+Or, if you specify overwrite with the `--overwrite` flag, it will write back to the specified script.
+<br>
+You may also specify an alternate pipeline file using `--pipeline`, along with a file argument. eg,
+<br>
+```sh
+lua hercules.lua my_script.lua --pipeline custom_pipeline.lua 
+```
+>[!NOTE]
+> Ensure that your custom pipeline file is **in the same directory** as `hercules.lua`
 
 ## Customization
 
