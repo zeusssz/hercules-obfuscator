@@ -6,7 +6,7 @@ function FunctionInliner.process(code)
         functions[func_name] = { body = func_body, params = params }
         return ""
     end)
-    
+
     code = code:gsub("([%w_]+)%((.-)%)", function(func_name, args)
         local func = functions[func_name]
         if func then
@@ -24,7 +24,7 @@ function FunctionInliner.process(code)
             for i = 1, #param_names do
                 local param = param_names[i]
                 local arg = arg_values[i] or ""
-                inlined_body = inlined_body:gsub("%f[%w_]" .. param .. "%f[^%w_]", arg)
+                inlined_body = inlined_body:gsub("%f[%a]" .. param .. "%f[%A]", arg)
             end
 
             return inlined_body
