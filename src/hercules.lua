@@ -42,10 +42,9 @@ local function print_final(input_file, output_file, time_taken)
     print(colors.cyan .. "Obfuscated Size   : " .. obfuscated_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Size Difference   : " .. (obfuscated_size - original_size) .. " bytes (" ..
           string.format("%.2f", ((obfuscated_size - original_size) / original_size) * 100) .. "%)" .. colors.reset)
+    print(colors.cyan .. "Overwrite         : " .. (overwrite and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset))
+    print(colors.cyan .. "Custom Pipeline   : " .. (custom_pipeline and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset))
     print(colors.white .. "Output File       : " .. output_file .. colors.reset)
-
-    print(colors.white .. "Overwrite         : " .. (overwrite and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset))
-    print(colors.white .. "Custom Pipeline   : " .. (custom_pipeline and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset))
 
     local control_flow_enabled = config.get("settings.control_flow.enabled")
     local string_encoding_enabled = config.get("settings.string_encoding.enabled")
