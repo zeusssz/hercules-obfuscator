@@ -1,6 +1,7 @@
 #!/usr/bin/env lua
 
 local Pipeline = require("pipeline")
+local config = require("config")
 
 local function print_usage()
     print("Usage: ./hercules <file.lua> [--overwrite] [--pipeline <pipeline.lua>]")
@@ -53,7 +54,8 @@ local output_file
 if overwrite then
     output_file = input_file
 else
-    output_file = input_file:gsub("%.lua$", "_obfuscated.lua")
+    local output_suffix = config.get("settings.output_suffix") or "_obfuscated.lua" --fallback because im not going to trust the user
+    output_file = input_file:gsub("%.lua$", output_suffix)
 end
 
 file = io.open(output_file, "w")
