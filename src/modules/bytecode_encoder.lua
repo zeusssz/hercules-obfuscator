@@ -2,12 +2,13 @@ local BytecodeEncoder = {}
 
 function BytecodeEncoder.process(code)
     local function encode_to_bytecode(block)
-        local func, load_error = load(block) 
+        local func, load_error = load(block)
         if not func then
             error("Failed to compile block: " .. load_error)
         end
         return string.format("load(%q)()", string.dump(func))
     end
+
     local encoded_code, gsub_error = code:gsub("([^;]+);", function(block)
         local success, result = pcall(encode_to_bytecode, block)
         if not success then

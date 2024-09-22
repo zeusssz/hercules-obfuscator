@@ -41,7 +41,7 @@ local code_generators = {
     end
 }
 
-function generate_random_code()
+local function generate_random_code()
     local code_types = {"variable", "while_loop", "for_loop", "if_statement", "function_def"}
     local random_type = code_types[math.random(#code_types)]
     return code_generators[random_type]()
