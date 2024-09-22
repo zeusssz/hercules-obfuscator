@@ -46,10 +46,14 @@ local function print_final(input_file, output_file, time_taken)
     print(colors.cyan .. "Size Difference   : " .. (obfuscated_size - original_size) .. " bytes (" ..
           string.format("%.2f", ((obfuscated_size - original_size) / original_size) * 100) .. "%)" .. colors.reset)
     print(colors.white .. "Output File       : " .. output_file .. colors.reset)
-    print(colors.white .. "Control Flow      : " .. (control_flow_enabled == "Enabled" and colors.green .. control_flow_enabled .. colors.reset or colors.red .. control_flow_enabled .. colors.reset))
-    print(colors.white .. "Variable Renaming : " .. (variable_renaming_enabled == "Enabled" and colors.green .. variable_renaming_enabled .. colors.reset or colors.red .. variable_renaming_enabled .. colors.reset))
-    print(colors.white .. "Garbage Code      : " .. (garbage_code_enabled == "Enabled" and colors.green .. garbage_code_enabled .. colors.reset or colors.red .. garbage_code_enabled .. colors.reset))
-    print(colors.white .. "Bytecode Encoding : " .. (bytecode_encoding_enabled == "Enabled" and colors.green .. bytecode_encoding_enabled .. colors.reset or colors.red .. bytecode_encoding_enabled .. colors.reset))
+    print(colors.white .. "Control Flow Obfuscation      : " .. (config.get("control_flow.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "String Encoding   : " .. (config.get("string_encoding.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "Variable Renaming : " .. (config.get("variable_renaming.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "Garbage Code      : " .. (config.get("garbage_code.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "Opaque Predicates  : " .. (config.get("opaque_predicates.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "Function Inlining  : " .. (config.get("function_inlining.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "Dynamic Code       : " .. (config.get("dynamic_code.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "Bytecode Encoding   : " .. (config.get("bytecode_encoding.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
     print(line .. "\n")
 end
 
