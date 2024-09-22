@@ -1,6 +1,6 @@
 local GarbageCodeInserter = {}
 
--- constants
+-- Constants
 local LOWERCASE_A = 97
 local LOWERCASE_Z = 122
 local MIN_GARBAGE_BLOCKS = 2
@@ -9,7 +9,7 @@ local MAX_RANDOM_NUMBER = 100
 local MAX_LOOP_COUNT = 10
 local VARIABLE_NAME_LENGTH = 6
 
--- helper funcs
+-- Helper functions
 local function generate_random_variable_name()
     local name = ""
     for _ = 1, VARIABLE_NAME_LENGTH do
@@ -22,7 +22,7 @@ local function generate_random_number(max)
     return math.random(1, max or MAX_RANDOM_NUMBER)
 end
 
--- code generation funcs
+-- Code generation functions
 local code_generators = {
     variable = function()
         return string.format("local %s = %d", generate_random_variable_name(), generate_random_number())
