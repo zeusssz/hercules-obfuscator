@@ -11,7 +11,7 @@ end
 
 function Watermark.process(code)
     local compressedCode = compressLuaCode(code)
-    return "--[Obfuscated by Hercules V1]\n" .. compressedCode
+    return "--[Obfuscated by Hercules v1.5 | discord.gg/Hx6RuYs8Ku]\n" .. compressedCode
 end
 
 return Watermark
