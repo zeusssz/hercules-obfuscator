@@ -93,16 +93,16 @@ else
     obfuscated_code = Pipeline.process(code)
 end
 
+local end_time = os.clock()
+local time_taken = end_time - start_time
+
 local output_file
 if overwrite then
     output_file = input_file
 else
-    local output_suffix = config.get("settings.output_suffix") or "_obfuscated.lua" --fallback because im not going to trust the user
+    local output_suffix = config.get("settings.output_suffix") or "_obfuscated.lua" -- jos asked me to remove this code comment
     output_file = input_file:gsub("%.lua$", output_suffix)
 end
-
-local end_time = os.clock()
-local time_taken = end_time - start_time
 
 file = io.open(output_file, "w")
 file:write(obfuscated_code)
