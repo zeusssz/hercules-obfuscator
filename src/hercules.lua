@@ -10,7 +10,7 @@ local function get_file_size(file)
     return size
 end
 
-local function print_final(input_file, output_file, time_taken)
+local function print_final(input_file, output_file, time_taken, overwrite, custom_pipeline_file)
     local colors = {
         reset = "\27[0m",
         green = "\27[32m",
@@ -27,7 +27,7 @@ local function print_final(input_file, output_file, time_taken)
 / __  /  __/ | | (__| |_| | |  __/\__ \
 \/ /_/ \___|_|  \___|\__,_|_|\___||___/
                                        ]] .. colors.reset
-                                       
+
     local line = colors.white .. string.rep("=", 50) .. colors.reset
 
     local original_size = get_file_size(input_file)
@@ -35,16 +35,23 @@ local function print_final(input_file, output_file, time_taken)
 
     print("\n" .. line)
     print(ascii_art)
-    print(line)
+    print("     ")
     print(colors.white .. "Obfuscation Complete!" .. colors.reset)
+    print(line)
     print(colors.white .. "Time Taken        : " .. string.format("%.2f", time_taken) .. " seconds" .. colors.reset)
     print(colors.cyan .. "Original Size     : " .. original_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Obfuscated Size   : " .. obfuscated_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Size Difference   : " .. (obfuscated_size - original_size) .. " bytes (" ..
           string.format("%.2f", ((obfuscated_size - original_size) / original_size) * 100) .. "%)" .. colors.reset)
-    print(colors.cyan .. "Overwrite         : " .. (overwrite and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset))
-    print(colors.cyan .. "Custom Pipeline   : " .. (custom_pipeline and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset))
+
+    -- Use a local variable to determine if overwrite and custom pipeline are set
+    local overwrite_str = overwrite and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
+    local custom_pipeline_str = custom_pipeline_file and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
+
+    print(colors.cyan .. "Overwrite         : " .. overwrite_str)
+    print(colors.cyan .. "Custom Pipeline   : " .. custom_pipeline_str)
     print(colors.white .. "Output File       : " .. output_file .. colors.reset)
+    print(line)
 
     local control_flow_enabled = config.get("settings.control_flow.enabled")
     local string_encoding_enabled = config.get("settings.string_encoding.enabled")
@@ -132,4 +139,4 @@ file = io.open(output_file, "w")
 file:write(obfuscated_code)
 file:close()
 
-print_final(input_file, output_file, time_taken)
+print_final(input_file, output_file, time_taken, overwrite, custom_pipeline_file)
