@@ -7,7 +7,7 @@ config.settings = {
     watermark_enabled = true,
     control_flow = {
         enabled = true,
-        max_fake_blocks = 5,
+        max_fake_blocks = 6,
     },
     string_encoding = {
         enabled = true,
@@ -16,11 +16,11 @@ config.settings = {
     variable_renaming = {
         enabled = true,
         min_name_length = 8,
-        max_name_length = 12,
+        max_name_length = 16,
     },
     garbage_code = {
         enabled = true,
-        garbage_blocks = 3,
+        garbage_blocks = 4,
     },
     opaque_predicates = {
         enabled = true,
