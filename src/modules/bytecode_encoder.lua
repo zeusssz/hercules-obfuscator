@@ -1,12 +1,26 @@
 local BytecodeEncoder = {}
 
+local function escape_bytecode(bytecode)
+    return bytecode:gsub(".", function(char)
+        local byte = string.byte(char)
+        if byte < 32 or byte > 126 or char == "\\" or char == "\"" then
+            return string.format("\\x%02X", byte)
+        else
+            return char
+        end
+    end)
+end
+
 function BytecodeEncoder.process(code)
     local function encode_to_bytecode(block)
         local func, load_error = load(block)
         if not func then
             error("Failed to compile block: " .. load_error)
         end
-        return string.format("load(%q)()", string.dump(func))
+
+        local bytecode = string.dump(func)
+        local escaped_bytecode = escape_bytecode(bytecode)
+        return string.format("load(\"%s\")()", escaped_bytecode)
     end
 
     local encoded_code, gsub_error = code:gsub("([^;]+);", function(block)

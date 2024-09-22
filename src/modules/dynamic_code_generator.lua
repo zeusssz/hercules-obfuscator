@@ -3,7 +3,7 @@ local DynamicCodeGenerator = {}
 function DynamicCodeGenerator.process(code)
     local function dynamic_wrapper(block)
         local reversed_block = string.reverse(block)
-        return string.format("loadstring(string.reverse(%q))()", reversed_block)
+        return string.format("load(string.reverse(%q))()", reversed_block)
     end
 
     local processed_code = ""
