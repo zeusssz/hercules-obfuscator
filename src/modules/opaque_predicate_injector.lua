@@ -13,8 +13,7 @@ local predicates = {
 
 local function inject_predicate(block)
     local predicate = predicates[math.random(#predicates)]
-    local end_predicate = " end"
-    return predicate .. block .. end_predicate
+    return predicate .. block .. " end"
 end
 
 function OpaquePredicateInjector.process(code)
