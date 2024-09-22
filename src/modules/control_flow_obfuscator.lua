@@ -15,6 +15,11 @@ function ControlFlowObfuscator.process(code)
         )
         return obfuscated_code
     end
+
+    if type(code) ~= "string" then
+        error("Input code must be a string")
+    end
+
     return insert_fake_control_flow(code)
 end
 
