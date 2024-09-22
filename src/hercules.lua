@@ -11,15 +11,23 @@ local function get_file_size(file)
 end
 
 local function print_final(input_file, output_file, time_taken)
-    local ascii_art = [[
+        local colors = {
+            reset = "\27[0m",
+            green = "\27[32m",
+            red = "\27[31m",
+            white = "\27[37m",
+            cyan = "\27[36m",
+            deep_blue = "\27[34m",
+        }
+    local ascii_art = colors.deep_blue .. [[
                            _           
   /\  /\___ _ __ ___ _   _| | ___  ___ 
  / /_/ / _ \ '__/ __| | | | |/ _ \/ __|
 / __  /  __/ | | (__| |_| | |  __/\__ \
 \/ /_/ \___|_|  \___|\__,_|_|\___||___/
-                                       ]]
+                                       ]] .. colors.reset
                                        
-    local line = string.rep("=", 50)
+    local line = colors.white .. string.rep("=", 50) .. colors.reset
 
     local control_flow_enabled = config.get("settings.control_flow.enabled") and "Enabled" or "Disabled"
     local variable_renaming_enabled = config.get("settings.variable_renaming.enabled") and "Enabled" or "Disabled"
@@ -27,22 +35,24 @@ local function print_final(input_file, output_file, time_taken)
     local bytecode_encoding_enabled = config.get("settings.bytecode_encoding.enabled") and "Enabled" or "Disabled"
     local original_size = get_file_size(input_file)
     local obfuscated_size = get_file_size(output_file)
+
     print("\n" .. line)
     print(ascii_art)
     print(line)
-    print("Obfuscation Complete!")
-    print("Time Taken        : " .. string.format("%.2f", time_taken) .. " seconds")
-    print("Original Size     : " .. original_size .. " bytes")
-    print("Obfuscated Size   : " .. obfuscated_size .. " bytes")
-    print("Size Difference   : " .. (obfuscated_size - original_size) .. " bytes (" ..
-          string.format("%.2f", ((obfuscated_size - original_size) / original_size) * 100) .. "%)")
-    print("Output File       : " .. output_file)
-    print("Control Flow      : " .. control_flow_enabled)
-    print("Variable Renaming : " .. variable_renaming_enabled)
-    print("Garbage Code      : " .. garbage_code_enabled)
-    print("Bytecode Encoding : " .. bytecode_encoding_enabled)
+    print(colors.white .. "Obfuscation Complete!" .. colors.reset)
+    print(colors.white .. "Time Taken        : " .. string.format("%.2f", time_taken) .. " seconds" .. colors.reset)
+    print(colors.cyan .. "Original Size     : " .. original_size .. " bytes" .. colors.reset)
+    print(colors.cyan .. "Obfuscated Size   : " .. obfuscated_size .. " bytes" .. colors.reset)
+    print(colors.cyan .. "Size Difference   : " .. (obfuscated_size - original_size) .. " bytes (" ..
+          string.format("%.2f", ((obfuscated_size - original_size) / original_size) * 100) .. "%)" .. colors.reset)
+    print(colors.white .. "Output File       : " .. output_file .. colors.reset)
+    print(colors.white .. "Control Flow      : " .. (control_flow_enabled == "Enabled" and colors.green .. control_flow_enabled .. colors.reset or colors.red .. control_flow_enabled .. colors.reset))
+    print(colors.white .. "Variable Renaming : " .. (variable_renaming_enabled == "Enabled" and colors.green .. variable_renaming_enabled .. colors.reset or colors.red .. variable_renaming_enabled .. colors.reset))
+    print(colors.white .. "Garbage Code      : " .. (garbage_code_enabled == "Enabled" and colors.green .. garbage_code_enabled .. colors.reset or colors.red .. garbage_code_enabled .. colors.reset))
+    print(colors.white .. "Bytecode Encoding : " .. (bytecode_encoding_enabled == "Enabled" and colors.green .. bytecode_encoding_enabled .. colors.reset or colors.red .. bytecode_encoding_enabled .. colors.reset))
     print(line .. "\n")
 end
+
 
 local function print_usage()
     print("Usage: ./hercules <file.lua> [--overwrite] [--pipeline <pipeline.lua>]")
