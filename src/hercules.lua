@@ -11,14 +11,15 @@ local function get_file_size(file)
 end
 
 local function print_final(input_file, output_file, time_taken)
-        local colors = {
-            reset = "\27[0m",
-            green = "\27[32m",
-            red = "\27[31m",
-            white = "\27[37m",
-            cyan = "\27[36m",
-            deep_blue = "\27[34m",
-        }
+    local colors = {
+        reset = "\27[0m",
+        green = "\27[32m",
+        red = "\27[31m",
+        white = "\27[37m",
+        cyan = "\27[36m",
+        deep_blue = "\27[34m",
+    }
+
     local ascii_art = colors.deep_blue .. [[
                            _           
   /\  /\___ _ __ ___ _   _| | ___  ___ 
@@ -29,10 +30,6 @@ local function print_final(input_file, output_file, time_taken)
                                        
     local line = colors.white .. string.rep("=", 50) .. colors.reset
 
-    local control_flow_enabled = config.get("settings.control_flow.enabled") and "Enabled" or "Disabled"
-    local variable_renaming_enabled = config.get("settings.variable_renaming.enabled") and "Enabled" or "Disabled"
-    local garbage_code_enabled = config.get("settings.garbage_code.enabled") and "Enabled" or "Disabled"
-    local bytecode_encoding_enabled = config.get("settings.bytecode_encoding.enabled") and "Enabled" or "Disabled"
     local original_size = get_file_size(input_file)
     local obfuscated_size = get_file_size(output_file)
 
@@ -46,14 +43,25 @@ local function print_final(input_file, output_file, time_taken)
     print(colors.cyan .. "Size Difference   : " .. (obfuscated_size - original_size) .. " bytes (" ..
           string.format("%.2f", ((obfuscated_size - original_size) / original_size) * 100) .. "%)" .. colors.reset)
     print(colors.white .. "Output File       : " .. output_file .. colors.reset)
-    print(colors.white .. "Control Flow Obfuscation      : " .. (config.get("control_flow.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "String Encoding   : " .. (config.get("string_encoding.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "Variable Renaming : " .. (config.get("variable_renaming.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "Garbage Code      : " .. (config.get("garbage_code.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "Opaque Predicates  : " .. (config.get("opaque_predicates.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "Function Inlining  : " .. (config.get("function_inlining.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "Dynamic Code       : " .. (config.get("dynamic_code.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "Bytecode Encoding   : " .. (config.get("bytecode_encoding.enabled") and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+
+    local control_flow_enabled = config.get("settings.control_flow.enabled")
+    local string_encoding_enabled = config.get("settings.string_encoding.enabled")
+    local variable_renaming_enabled = config.get("settings.variable_renaming.enabled")
+    local garbage_code_enabled = config.get("settings.garbage_code.enabled")
+    local opaque_predicates_enabled = config.get("settings.opaque_predicates.enabled")
+    local function_inlining_enabled = config.get("settings.function_inlining.enabled")
+    local dynamic_code_enabled = config.get("settings.dynamic_code.enabled")
+    local bytecode_encoding_enabled = config.get("settings.bytecode_encoding.enabled")
+
+    print(colors.white .. "Control Flow      : " .. (control_flow_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "String Encoding   : " .. (string_encoding_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "Variable Renaming : " .. (variable_renaming_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "Garbage Code      : " .. (garbage_code_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "Opaque Predicates  : " .. (opaque_predicates_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "Function Inlining  : " .. (function_inlining_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "Dynamic Code       : " .. (dynamic_code_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    print(colors.white .. "Bytecode Encoding   : " .. (bytecode_encoding_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+
     print(line .. "\n")
 end
 
