@@ -28,11 +28,15 @@ end
 function VariableRenamer.process(code)
     local variables = {}
     return code:gsub("([%a_][%w_]*)", function(var)
-        if not lua_keywords[var] and not variables[var] then
-            variables[var] = generate_random_name()
+        if not lua_keywords[var] then
+            if not variables[var] then
+                variables[var] = generate_random_name()
+            end
+            return variables[var]
         end
-        return variables[var] or var
+        return var
     end)
 end
+
 
 return VariableRenamer
