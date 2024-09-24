@@ -29,26 +29,48 @@ end
 function VariableRenamer.process(code)
     local variables = {}
     local result = {}
+    local in_string = false
+    local current_quote
+    local last_position = 1
 
-    local function rename_variables(segment)
-        return segment:gsub("([%a_][%w_]*)", function(var)
+    for i = 1, #code do
+        local char = code:sub(i, i)
+
+        if not in_string then
+            if char == "'" or char == '"' then
+                if last_position < i then
+                    local segment = code:sub(last_position, i - 1)
+                    segment = segment:gsub("([%a_][%w_]*)", function(var)
+                        if not lua_keywords[var] and not variables[var] then
+                            variables[var] = generate_random_name()
+                        end
+                        return variables[var] or var
+                    end)
+                    table.insert(result, segment)
+                end
+                in_string = true
+                current_quote = char
+                table.insert(result, char)
+                last_position = i + 1
+            end
+        else
+            if char == current_quote and (i == 1 or code:sub(i - 1, i - 1) ~= "\\") then
+                table.insert(result, code:sub(last_position, i))
+                in_string = false
+                last_position = i + 1
+            end
+        end
+    end
+    if last_position <= #code then
+        local segment = code:sub(last_position)
+        segment = segment:gsub("([%a_][%w_]*)", function(var)
             if not lua_keywords[var] and not variables[var] then
                 variables[var] = generate_random_name()
             end
             return variables[var] or var
         end)
+        table.insert(result, segment)
     end
-
-    local pattern = "()(['\"])(.-)%2()"
-    local last_pos = 1
-
-    for start_pos, quote_char, string_content, end_pos in code:gmatch(pattern) do
-        local code_segment = code:sub(last_pos, start_pos - 1)
-        result[#result + 1] = rename_variables(code_segment)
-        result[#result + 1] = quote_char .. string_content .. quote_char
-        last_pos = end_pos
-    end
-    result[#result + 1] = rename_variables(code:sub(last_pos))
 
     return table.concat(result)
 end
