@@ -10,7 +10,7 @@ config.settings = {
         max_fake_blocks = 6,
     },
     string_encoding = {
-        enabled = true,
+        enabled = false, --off because bugged
         encoding_type = 'base64',
     },
     variable_renaming = {
