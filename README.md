@@ -116,3 +116,7 @@ src/
 >[!IMPORTANT]
 >When adding more modules to the `modules/` directory, ensure you maintain the integrity of the executable, and remember to add your module to the `pipeline.lua` file.
 <br>If you wish for it to be configurable, add it to the `config.lua` file, along with the necessary logic.
+
+## Incoming Updates
+GUI Update
+Fixes of unreliable modules
