@@ -22,10 +22,10 @@ local function print_final(input_file, output_file, time_taken, overwrite, custo
 
     local ascii_art = colors.deep_blue .. [[
                            _           
-  /\  /\___ _ __ ___ _   _| | ___  ___
- / /_/ / _ \ '__/ __| | | | |/ _ \/ __|
-/ __  /  __/ | | (__| |_| | |  __/\__ \
-\/ /_/ \___|_|  \___|\__,_|_|\___||___/
+  /\  /\___ _ __ ___ _   _| | ___  ___ ;
+ / /_/ / _ \ '__/ __| | | | |/ _ \/ __|;
+/ __  /  __/ | | (__| |_| | |  __/\__ \;
+\/ /_/ \___|_|  \___|\__,_|_|\___||___/;
                                        ]] .. colors.reset
 
     local line = colors.white .. string.rep("=", 50) .. colors.reset
