@@ -24,11 +24,10 @@ Obfuscation is not a foolproof method for protecting your code! Always consider 
 
 ## Features
 
-- **String Encoding:** Obfuscates strings by encoding them in base64 with additional scrambling.
+- **String Encoding:** Obfuscates strings by encoding them in base64 with additional scrambling. **(this module will be decomissioned soon)**
 - **Variable Renaming:** Replaces variable names with randomly generated names.
 - **Control Flow Obfuscation:** Adds fake control flow structures to confuse static analysis.
 - **Garbage Code Insertion:** Injects junk code to bloat and obscure the script.
-- **Watermarking:** Automatically appends a watermark to indicate that the code has been obfuscated by Hercules.
 
 >[!TIP]
 >You can customize your level of obfuscation through the `config.lua` file.
