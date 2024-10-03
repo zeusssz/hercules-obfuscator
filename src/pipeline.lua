@@ -13,7 +13,7 @@ local Watermarker = require("modules/watermark")
 local Pipeline = {}
 
 function Pipeline.process(code)
-    -- String Encoding
+    -- String Encoding (DELETION SOON)
     if config.get("settings.string_encoding.enabled") then
         local encoding_type = config.get("settings.string_encoding.encoding_type")
         code = StringEncoder.process(code, encoding_type)
