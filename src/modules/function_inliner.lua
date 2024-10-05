@@ -1,5 +1,5 @@
 local FunctionInliner = {}
-
+-- fix incoming
 function FunctionInliner.process(code)
     local functions = {}
     code = code:gsub("function%s+([%w_]+)%s*%((.-)%)%s*(.-)%s*end", function(func_name, params, func_body)
