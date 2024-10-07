@@ -3,24 +3,24 @@
 local Pipeline = require("pipeline")
 local config = require("config")
 
-local function get_file_size(file)
+local function size(file)
     local f = io.open(file, "r")
-    local size = f:seek("end")
+    local sz = f:seek("end")
     f:close()
-    return size
+    return sz
 end
 
-local function print_final(input_file, output_file, time_taken, overwrite, custom_pipeline_file)
+local function print_result(input, output, time, overwrite, custom_file)
     local colors = {
         reset = "\27[0m",
         green = "\27[32m",
         red = "\27[31m",
         white = "\27[37m",
         cyan = "\27[36m",
-        deep_blue = "\27[34m",
+        blue = "\27[34m",
     }
 
-    local ascii_art = colors.deep_blue .. [[
+    local art = colors.blue .. [[
                            _           
   /\  /\___ _ __ ___ _   _| | ___  ___ ;
  / /_/ / _ \ '__/ __| | | | |/ _ \/ __|;
@@ -29,114 +29,123 @@ local function print_final(input_file, output_file, time_taken, overwrite, custo
                                        ]] .. colors.reset
 
     local line = colors.white .. string.rep("=", 50) .. colors.reset
-
-    local original_size = get_file_size(input_file)
-    local obfuscated_size = get_file_size(output_file)
+    local orig_size = size(input)
+    local obf_size = size(output)
 
     print("\n" .. line)
-    print(ascii_art)
+    print(art)
     print("     ")
     print(colors.white .. "Obfuscation Complete!" .. colors.reset)
     print(line)
-    print(colors.white .. "Time Taken        : " .. string.format("%.2f", time_taken) .. " seconds" .. colors.reset)
-    print(colors.cyan .. "Original Size     : " .. original_size .. " bytes" .. colors.reset)
-    print(colors.cyan .. "Obfuscated Size   : " .. obfuscated_size .. " bytes" .. colors.reset)
-    print(colors.cyan .. "Size Difference   : " .. (obfuscated_size - original_size) .. " bytes (" ..
-          string.format("%.2f", ((obfuscated_size - original_size) / original_size) * 100) .. "%)" .. colors.reset)
+    print(colors.white .. "Time Taken        : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
+    print(colors.cyan .. "Original Size     : " .. orig_size .. " bytes" .. colors.reset)
+    print(colors.cyan .. "Obfuscated Size   : " .. obf_size .. " bytes" .. colors.reset)
+    print(colors.cyan .. "Size Difference   : " .. (obf_size - orig_size) .. " bytes (" ..
+          string.format("%.2f", ((obf_size - orig_size) / orig_size) * 100) .. "%)" .. colors.reset)
 
-    -- Use a local variable to determine if overwrite and custom pipeline are set
     local overwrite_str = overwrite and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
-    local custom_pipeline_str = custom_pipeline_file and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
+    local custom_str = custom_file and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
 
     print(colors.cyan .. "Overwrite         : " .. overwrite_str)
-    print(colors.cyan .. "Custom Pipeline   : " .. custom_pipeline_str)
-    print(colors.white .. "Output File       : " .. output_file .. colors.reset)
+    print(colors.cyan .. "Custom Pipeline   : " .. custom_str)
+    print(colors.white .. "Output File       : " .. output .. colors.reset)
     print(line)
 
-    local control_flow_enabled = config.get("settings.control_flow.enabled")
-    local string_encoding_enabled = config.get("settings.string_encoding.enabled")
-    local variable_renaming_enabled = config.get("settings.variable_renaming.enabled")
-    local garbage_code_enabled = config.get("settings.garbage_code.enabled")
-    local opaque_predicates_enabled = config.get("settings.opaque_predicates.enabled")
-    local function_inlining_enabled = config.get("settings.function_inlining.enabled")
-    local dynamic_code_enabled = config.get("settings.dynamic_code.enabled")
-    local bytecode_encoding_enabled = config.get("settings.bytecode_encoding.enabled")
+    local settings = {
+        { "Control Flow", config.get("settings.control_flow.enabled") },
+        { "String Encoding", config.get("settings.string_encoding.enabled") },
+        { "Variable Renaming", config.get("settings.variable_renaming.enabled") },
+        { "Garbage Code", config.get("settings.garbage_code.enabled") },
+        { "Opaque Predicates", config.get("settings.opaque_predicates.enabled") },
+        { "Function Inlining", config.get("settings.function_inlining.enabled") },
+        { "Dynamic Code", config.get("settings.dynamic_code.enabled") },
+        { "Bytecode Encoding", config.get("settings.bytecode_encoding.enabled") },
+    }
 
-    print(colors.white .. "Control Flow      : " .. (control_flow_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "String Encoding   : " .. (string_encoding_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "Variable Renaming : " .. (variable_renaming_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "Garbage Code      : " .. (garbage_code_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "Opaque Predicates : " .. (opaque_predicates_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "Function Inlining : " .. (function_inlining_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "Dynamic Code      : " .. (dynamic_code_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
-    print(colors.white .. "Bytecode Encoding : " .. (bytecode_encoding_enabled and colors.green .. "Enabled" .. colors.reset or colors.red .. "Disabled" .. colors.reset))
+    for _, setting in ipairs(settings) do
+        print(colors.white .. setting[1] .. " : " .. (setting[2] and colors.green .. "Enabled" or colors.red .. "Disabled") .. colors.reset)
+    end
 
     print(line .. "\n")
 end
 
-
-local function print_usage()
-    print("Usage: ./hercules <file.lua> [--overwrite] [--pipeline <pipeline.lua>]")
+local function usage()
+    print("Usage: ./hercules <file.lua|folder> [--overwrite] [--pipeline <pipeline.lua>] [--folder true]")
     os.exit(1)
 end
 
 if #arg < 1 then
-    print_usage()
+    usage()
 end
 
-local input_file = arg[1]
+local input = arg[1]
 local overwrite = false
-local custom_pipeline_file = nil
+local custom_file = nil
+local folder_mode = false
 
 for i = 2, #arg do
     if arg[i] == "--overwrite" then
         overwrite = true
     elseif arg[i] == "--pipeline" then
         if arg[i + 1] then
-            custom_pipeline_file = arg[i + 1]:gsub("%.lua$", "")
+            custom_file = arg[i + 1]:gsub("%.lua$", "")
             i = i + 1
         else
-            print_usage()
+            usage()
+        end
+    elseif arg[i] == "--folder" and arg[i + 1] == "true" then
+        folder_mode = true
+        i = i + 1
+    end
+end
+
+local files = {}
+if folder_mode then
+    local handle = io.popen('ls "' .. input .. '"')
+    for file in handle:lines() do
+        if file:match("%.lua$") then
+            table.insert(files, input .. "/" .. file)
         end
     end
+    handle:close()
+else
+    table.insert(files, input)
 end
-
-local file = io.open(input_file, "r")
-if not file then
-    print("Error: Could not open file " .. input_file)
-    os.exit(1)
-end
-
-local code = file:read("*all")
-file:close()
 
 local start_time = os.clock()
-
-local obfuscated_code
-if custom_pipeline_file then
-    local success, custom_pipeline = pcall(require, custom_pipeline_file)
-    if not success then
-        print("Error: Could not load custom pipeline module: " .. custom_pipeline)
+for _, file_path in ipairs(files) do
+    local file = io.open(file_path, "r")
+    if not file then
+        print("Error: Could not open file " .. file_path)
         os.exit(1)
     end
-    obfuscated_code = custom_pipeline.process(code)
-else
-    obfuscated_code = Pipeline.process(code)
+
+    local code = file:read("*all")
+    file:close()
+
+    local obf_code
+    if custom_file then
+        local success, custom = pcall(require, custom_file)
+        if not success then
+            print("Error: Could not load custom pipeline module: " .. custom)
+            os.exit(1)
+        end
+        obf_code = custom.process(code)
+    else
+        obf_code = Pipeline.process(code)
+    end
+
+    local output_file
+    if overwrite then
+        output_file = file_path
+    else
+        local suffix = config.get("settings.output_suffix") or "_obfuscated.lua"
+        output_file = file_path:gsub("%.lua$", suffix)
+    end
+
+    local out = io.open(output_file, "w")
+    out:write(obf_code)
+    out:close()
+
+    print_result(file_path, output_file, os.clock() - start_time, overwrite, custom_file)
 end
-
-local end_time = os.clock()
-local time_taken = end_time - start_time
-
-local output_file
-if overwrite then
-    output_file = input_file
-else
-    local output_suffix = config.get("settings.output_suffix") or "_obfuscated.lua" -- jos asked me to remove this code comment
-    output_file = input_file:gsub("%.lua$", output_suffix)
-end
-
-file = io.open(output_file, "w")
-file:write(obfuscated_code)
-file:close()
-
-print_final(input_file, output_file, time_taken, overwrite, custom_pipeline_file)
