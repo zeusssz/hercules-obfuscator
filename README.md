@@ -1,4 +1,7 @@
-![herculessmall](https://github.com/user-attachments/assets/ff2ed207-c95e-45c3-831f-04a32675dbb5?size=32) 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/ff2ed207-c95e-45c3-831f-04a32675dbb5?size=32" alt="Banner Image">
+</p>
+
 # Hercules Lua Obfuscator
 ![Stars](https://img.shields.io/github/stars/zeusssz/hercules-obfuscator?style=flat-square)
 ![Forks](https://img.shields.io/github/forks/zeusssz/hercules-obfuscator?style=flat-square)
