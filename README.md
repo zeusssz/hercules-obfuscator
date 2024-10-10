@@ -34,6 +34,7 @@ Obfuscation is not a foolproof method for protecting your code! Always consider 
 - **Bytecode Encoding:** Converts parts of a script into bytecode, making them harder to follow.
 - **Function Inlining:** Integrates function code directly into calls, obscuring the original structure and logic.
 - **Opaque Predicates:** Uses complex conditions that always evaluate to true or false, obscuring actual purpose.
+- **Dynamic Code Generator:** Generates code blocks from the script itself, to complicate static analysis.
 
 Let me know if this works for you!
 
