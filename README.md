@@ -31,6 +31,11 @@ Obfuscation is not a foolproof method for protecting your code! Always consider 
 - **Variable Renaming:** Replaces variable names with randomly generated names.
 - **Control Flow Obfuscation:** Adds fake control flow structures to confuse static analysis.
 - **Garbage Code Insertion:** Injects junk code to bloat and obscure the script.
+- **Bytecode Encoding:** Converts parts of a script into bytecode, making them harder to follow.
+- **Function Inlining:** Integrates function code directly into calls, obscuring the original structure and logic.
+- **Opaque Predicates:** Uses complex conditions that always evaluate to true or false, obscuring actual purpose.
+
+Let me know if this works for you!
 
 >[!TIP]
 >You can customize your level of obfuscation through the `config.lua` file.
