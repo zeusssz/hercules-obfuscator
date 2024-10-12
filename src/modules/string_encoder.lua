@@ -25,18 +25,32 @@ local function caesar_cipher(data, offset)
     return table.concat(result)
 end
 
+local function generate_random_name(len)
+    len = len or math.random(8, 12)
+    local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    local name = ""
+    for _ = 1, len do
+        local index = math.random(1, #charset)
+        name = name .. charset:sub(index, index)
+    end
+    return name
+end
+
 function StringEncoder.process(code)
+    local random_decrypt_name = generate_random_name()
+    local random_isvalidchar_name = generate_random_name()
+
     local decode_function = [[
-local function is_valid_char(byte)
+local function ]] .. random_isvalidchar_name .. [[(byte)
     return (byte >= 48 and byte <= 57) or (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122)
 end
 	
-local function decrypt_code(code, offset)
+local function ]] .. random_decrypt_name .. [[(code, offset)
     local result = {}
     for i = 1, #code do
         local byte = code:byte(i)
         -- Transformiere nur gültige Zeichen
-        if is_valid_char(byte) then
+        if ]] .. random_isvalidchar_name .. [[(byte) then
             local new_byte
             if byte >= 48 and byte <= 57 then
                 -- Ziffern (48-57)
@@ -56,7 +70,7 @@ local function decrypt_code(code, offset)
     return table.concat(result)
 end
 
-local function is_valid_char(byte)
+local function ]] .. random_isvalidchar_name .. [[(byte)
     return (byte >= 48 and byte <= 57) or (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122)
 end
 ]]
@@ -68,7 +82,7 @@ end
                 offset = math.random(1, 25)
             end
             local encoded_str = caesar_cipher(str, offset)
-            return string.format('decrypt_code("%s", %d)', encoded_str, offset)
+            return string.format('%s("%s", %d)', random_decrypt_name, encoded_str, offset)
         else
             return str
         end
