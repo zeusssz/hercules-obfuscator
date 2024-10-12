@@ -36,8 +36,6 @@ Obfuscation is not a foolproof method for protecting your code! Always consider 
 - **Opaque Predicates:** Uses complex conditions that always evaluate to true or false, obscuring actual purpose.
 - **Dynamic Code Generator:** Generates code blocks from the script itself, to complicate static analysis.
 
-Let me know if this works for you!
-
 >[!TIP]
 >You can customize your level of obfuscation through the `config.lua` file.
 ---
