@@ -15,57 +15,37 @@ local Compressor = require("modules/compressor")
 local Pipeline = {}
 
 function Pipeline.process(code)
-    -- Variable Renaiming has to be placed before String Encoding. Otherwise, they can't work together.
-    -- Variable Renaming
     if config.get("settings.variable_renaming.enabled") then
         local min_length = config.get("settings.variable_renaming.min_name_length")
         local max_length = config.get("settings.variable_renaming.max_name_length")
         code = VariableRenamer.process(code, { min_length = min_length, max_length = max_length })
     end
-
-    -- String Encoding
     if config.get("settings.string_encoding.enabled") then
         code = StringEncoder.process(code)
     end
-
-    -- Control Flow Obfuscation
     if config.get("settings.control_flow.enabled") then
         local max_fake_blocks = config.get("settings.control_flow.max_fake_blocks")
         code = ControlFlowObfuscator.process(code, max_fake_blocks)
     end
-
-    -- Garbage Code Insertion
     if config.get("settings.garbage_code.enabled") then
         local garbage_blocks = config.get("settings.garbage_code.garbage_blocks")
         code = GarbageCodeInserter.process(code, garbage_blocks)
     end
-
-    -- Opaque Predicate Injection
     if config.get("settings.opaque_predicates.enabled") then
         code = OpaquePredicateInjector.process(code)
     end
-
-    -- Function Inlining
     if config.get("settings.function_inlining.enabled") then
         code = FunctionInliner.process(code)
     end
-
-    -- Dynamic Code Generation
     if config.get("settings.dynamic_code.enabled") then
         code = DynamicCodeGenerator.process(code)
     end
-
-    -- Bytecode Encoding
     if config.get("settings.bytecode_encoding.enabled") then
         code = BytecodeEncoder.process(code)
     end
-
-    -- Compressing
     if config.get("settings.compressor.enabled") then
         code = Compressor.process(code)
     end
-
-    -- Watermarking
     if config.get("settings.watermark_enabled") then
         code = Watermarker.process(code)
     end
