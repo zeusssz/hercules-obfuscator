@@ -37,7 +37,7 @@ local function print_result(input, output, time, overwrite, custom_file)
     print("     ")
     print(colors.white .. "Obfuscation Complete!" .. colors.reset)
     print(line)
-    print(colors.white .. "Time Taken       : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
+    print(colors.white .. "Time Taken        : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
     print(colors.cyan .. "Original Size     : " .. orig_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Obfuscated Size   : " .. obf_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Size Difference   : " .. (obf_size - orig_size) .. " bytes (" ..
@@ -48,7 +48,7 @@ local function print_result(input, output, time, overwrite, custom_file)
 
     print(colors.cyan .. "Overwrite         : " .. overwrite_str)
     print(colors.cyan .. "Custom Pipeline   : " .. custom_str)
-    print(colors.white .. "Output File      : " .. output .. colors.reset)
+    print(colors.white .. "Output File       : " .. output .. colors.reset)
     print(line)
 
     local settings = {
@@ -64,8 +64,18 @@ local function print_result(input, output, time, overwrite, custom_file)
         { "Watermark", config.get("settings.watermark_enabled") },
     }
 
+    local max_length = 0
     for _, setting in ipairs(settings) do
-        print(colors.white .. setting[1] .. " : " .. (setting[2] and colors.green .. "Enabled" or colors.red .. "Disabled") .. colors.reset)
+        if #setting[1] > max_length then
+            max_length = #setting[1]
+        end
+    end
+
+    for _, setting in ipairs(settings) do
+        local name = setting[1]
+        local status = (setting[2] and colors.green .. "Enabled" or colors.red .. "Disabled")
+        local padding = string.rep(" ", max_length - #name + 1)
+        print(colors.white .. name .. padding .. ":" .. " " .. status .. colors.reset)
     end
 
     print(line .. "\n")
