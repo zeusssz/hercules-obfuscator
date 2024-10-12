@@ -21,11 +21,11 @@ local function print_result(input, output, time, overwrite, custom_file)
     }
 
     local art = colors.blue .. [[
-                           _           
-  /\  /\___ _ __ ___ _   _| | ___  ___ 
- / /_/ / _ \ '__/ __| | | | |/ _ \/ __|
-/ __  /  __/ | | (__| |_| | |  __/\__ \
-\/ /_/ \___|_|  \___|\__,_|_|\___||___/
+                           _                      _   ____  
+  /\  /\___ _ __ ___ _   _| | ___  ___   /\   /\ / | | ___| 
+ / /_/ / _ \ '__/ __| | | | |/ _ \/ __|  \ \ / / | | |___ \ 
+/ __  /  __/ | | (__| |_| | |  __/\__ \   \ V /  | |_ ___) |
+\/ /_/ \___|_|  \___|\__,_|_|\___||___/    \_/   |_(_)____/ 
                                        ]] .. colors.reset
 
     local line = colors.white .. string.rep("=", 50) .. colors.reset
@@ -41,7 +41,7 @@ local function print_result(input, output, time, overwrite, custom_file)
     print(colors.cyan .. "Original Size     : " .. orig_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Obfuscated Size   : " .. obf_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Size Difference   : " .. (obf_size - orig_size) .. " bytes (" ..
-          string.format("%.2f", ((obf_size - orig_size) / orig_size) * 100) .. "%)" .. colors.reset)
+          string.format("%.2f", ((obf_size - orig_size) / orig_size) * 100 + 100) .. "%)" .. colors.reset)
 
     local overwrite_str = overwrite and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
     local custom_str = custom_file and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
@@ -60,6 +60,8 @@ local function print_result(input, output, time, overwrite, custom_file)
         { "Function Inlining", config.get("settings.function_inlining.enabled") },
         { "Dynamic Code", config.get("settings.dynamic_code.enabled") },
         { "Bytecode Encoding", config.get("settings.bytecode_encoding.enabled") },
+        { "Compressor", config.get("settings.compressor.enabled") },
+        { "Watermark", config.get("settings.watermark_enabled") },
     }
 
     for _, setting in ipairs(settings) do
@@ -147,5 +149,8 @@ for _, file_path in ipairs(files) do
     out:write(obf_code)
     out:close()
 
-    print_result(file_path, output_file, os.clock() - start_time, overwrite, custom_file)
+    final_print = config.get("settings.final_print")
+    if final_print then
+        print_result(file_path, output_file, os.clock() - start_time, overwrite, custom_file)
+    end
 end

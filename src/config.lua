@@ -5,13 +5,13 @@ local config = {}
 config.settings = {
     output_suffix = "_obfuscated.lua",
     watermark_enabled = true,
+    final_print = true,
     control_flow = {
         enabled = true,
         max_fake_blocks = 6,
     },
     string_encoding = {
-        enabled = false, --off because bugged
-        encoding_type = 'base64',
+        enabled = true,
     },
     variable_renaming = {
         enabled = true,
@@ -32,6 +32,9 @@ config.settings = {
         enabled = false, --off because bugged
     },
     bytecode_encoding = {
+        enabled = true,
+    },
+    compressor = {
         enabled = true,
     }
 }
