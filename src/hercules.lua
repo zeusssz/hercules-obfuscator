@@ -37,7 +37,7 @@ local function print_result(input, output, time, overwrite, custom_file)
     print("     ")
     print(colors.white .. "Obfuscation Complete!" .. colors.reset)
     print(line)
-    print(colors.white .. "Time Taken        : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
+    print(colors.white .. "Time Taken       : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
     print(colors.cyan .. "Original Size     : " .. orig_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Obfuscated Size   : " .. obf_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Size Difference   : " .. (obf_size - orig_size) .. " bytes (" ..
@@ -48,7 +48,7 @@ local function print_result(input, output, time, overwrite, custom_file)
 
     print(colors.cyan .. "Overwrite         : " .. overwrite_str)
     print(colors.cyan .. "Custom Pipeline   : " .. custom_str)
-    print(colors.white .. "Output File       : " .. output .. colors.reset)
+    print(colors.white .. "Output File      : " .. output .. colors.reset)
     print(line)
 
     local settings = {
