@@ -10,21 +10,22 @@ local FunctionInliner = require("modules/function_inliner")
 local DynamicCodeGenerator = require("modules/dynamic_code_generator")
 local BytecodeEncoder = require("modules/bytecode_encoder")
 local Watermarker = require("modules/watermark")
+local Compressor = require("modules/compressor")
 
 local Pipeline = {}
 
 function Pipeline.process(code)
-    -- String Encoding (DELETION SOON)
-    if config.get("settings.string_encoding.enabled") then
-        local encoding_type = config.get("settings.string_encoding.encoding_type")
-        code = StringEncoder.process(code, encoding_type)
-    end
-
+    -- Variable Renaiming has to be placed before String Encoding. Otherwise, they can't work together.
     -- Variable Renaming
     if config.get("settings.variable_renaming.enabled") then
         local min_length = config.get("settings.variable_renaming.min_name_length")
         local max_length = config.get("settings.variable_renaming.max_name_length")
         code = VariableRenamer.process(code, { min_length = min_length, max_length = max_length })
+    end
+
+    -- String Encoding
+    if config.get("settings.string_encoding.enabled") then
+        code = StringEncoder.process(code)
     end
 
     -- Control Flow Obfuscation
@@ -57,6 +58,11 @@ function Pipeline.process(code)
     -- Bytecode Encoding
     if config.get("settings.bytecode_encoding.enabled") then
         code = BytecodeEncoder.process(code)
+    end
+
+    -- Compressing
+    if config.get("settings.compressor.enabled") then
+        code = Compressor.process(code)
     end
 
     -- Watermarking

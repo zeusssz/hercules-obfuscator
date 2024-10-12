@@ -26,8 +26,7 @@ local function print_result(input, output, time, overwrite, custom_file)
  / /_/ / _ \ '__/ __| | | | |/ _ \/ __|  \ \ / / | | |___ \ 
 / __  /  __/ | | (__| |_| | |  __/\__ \   \ V /  | |_ ___) |
 \/ /_/ \___|_|  \___|\__,_|_|\___||___/    \_/   |_(_)____/ 
-                                                           
-                                ]] .. colors.reset
+                                       ]] .. colors.reset
 
     local line = colors.white .. string.rep("=", 50) .. colors.reset
     local orig_size = size(input)
@@ -38,18 +37,18 @@ local function print_result(input, output, time, overwrite, custom_file)
     print("     ")
     print(colors.white .. "Obfuscation Complete!" .. colors.reset)
     print(line)
-    print(colors.white .. "Time Taken       : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
+    print(colors.white .. "Time Taken        : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
     print(colors.cyan .. "Original Size     : " .. orig_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Obfuscated Size   : " .. obf_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Size Difference   : " .. (obf_size - orig_size) .. " bytes (" ..
-          string.format("%.2f", ((obf_size - orig_size) / orig_size) * 100) .. "%)" .. colors.reset)
+          string.format("%.2f", ((obf_size - orig_size) / orig_size) * 100 + 100) .. "%)" .. colors.reset)
 
     local overwrite_str = overwrite and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
     local custom_str = custom_file and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
 
     print(colors.cyan .. "Overwrite         : " .. overwrite_str)
     print(colors.cyan .. "Custom Pipeline   : " .. custom_str)
-    print(colors.white .. "Output File      : " .. output .. colors.reset)
+    print(colors.white .. "Output File       : " .. output .. colors.reset)
     print(line)
 
     local settings = {
@@ -61,10 +60,22 @@ local function print_result(input, output, time, overwrite, custom_file)
         { "Function Inlining", config.get("settings.function_inlining.enabled") },
         { "Dynamic Code", config.get("settings.dynamic_code.enabled") },
         { "Bytecode Encoding", config.get("settings.bytecode_encoding.enabled") },
+        { "Compressor", config.get("settings.compressor.enabled") },
+        { "Watermark", config.get("settings.watermark_enabled") },
     }
 
+    local max_length = 0
     for _, setting in ipairs(settings) do
-        print(colors.white .. setting[1] .. " : " .. (setting[2] and colors.green .. "Enabled" or colors.red .. "Disabled") .. colors.reset)
+        if #setting[1] > max_length then
+            max_length = #setting[1]
+        end
+    end
+
+    for _, setting in ipairs(settings) do
+        local name = setting[1]
+        local status = (setting[2] and colors.green .. "Enabled" or colors.red .. "Disabled")
+        local padding = string.rep(" ", max_length - #name + 1)
+        print(colors.white .. name .. padding .. ":" .. " " .. status .. colors.reset)
     end
 
     print(line .. "\n")
@@ -148,5 +159,8 @@ for _, file_path in ipairs(files) do
     out:write(obf_code)
     out:close()
 
-    print_result(file_path, output_file, os.clock() - start_time, overwrite, custom_file)
+    final_print = config.get("settings.final_print")
+    if final_print then
+        print_result(file_path, output_file, os.clock() - start_time, overwrite, custom_file)
+    end
 end
