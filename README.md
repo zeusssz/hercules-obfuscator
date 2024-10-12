@@ -27,7 +27,7 @@ Obfuscation is not a foolproof method for protecting your code! Always consider 
 
 ## Features
 
-- **String Encoding:** Obfuscates strings by encoding them in base64 with additional scrambling. **(this module will be decomissioned soon)**
+- **String Encoding:** Obfuscates strings by encrypting them using a Caesar cipher.
 - **Variable Renaming:** Replaces variable names with randomly generated names.
 - **Control Flow Obfuscation:** Adds fake control flow structures to confuse static analysis.
 - **Garbage Code Insertion:** Injects junk code to bloat and obscure the script.
