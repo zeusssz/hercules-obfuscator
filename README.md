@@ -1,13 +1,16 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/ff2ed207-c95e-45c3-831f-04a32675dbb5?size=32" alt="Banner Image">
+  <img src="https://github.com/user-attachments/assets/ff2ed207-c95e-45c3-831f-04a32675dbb5?size=32" alt="Banner Image" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/stars/zeusssz/hercules-obfuscator?style=flat-square" alt="Stars" />
+  <img src="https://img.shields.io/github/forks/zeusssz/hercules-obfuscator?style=flat-square" alt="Forks" />
+  <img src="https://img.shields.io/github/issues/zeusssz/hercules-obfuscator?style=flat-square" alt="Issues" />
+  <img src="https://img.shields.io/github/license/zeusssz/hercules-obfuscator?style=flat-square" alt="License" />
+  <img src="https://img.shields.io/github/last-commit/zeusssz/hercules-obfuscator?style=flat-square" alt="Last Commit" />
 </p>
 
 # Hercules Lua Obfuscator
-![Stars](https://img.shields.io/github/stars/zeusssz/hercules-obfuscator?style=flat-square)
-![Forks](https://img.shields.io/github/forks/zeusssz/hercules-obfuscator?style=flat-square)
-![Issues](https://img.shields.io/github/issues/zeusssz/hercules-obfuscator?style=flat-square)
-![License](https://img.shields.io/github/license/zeusssz/hercules-obfuscator?style=flat-square)
-![Last Commit](https://img.shields.io/github/last-commit/zeusssz/hercules-obfuscator?style=flat-square)
 <br>
 **Hercules** is a powerful Lua obfuscator designed to make your Lua code nearly impossible to reverse-engineer. With multiple layers of advanced obfuscation techniques, Hercules ensures your scripts are secure from prying eyes.
 <br>
