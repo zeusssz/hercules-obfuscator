@@ -12,7 +12,9 @@ local lua_keywords = {
     ["loadfile"] = true, ["loadstring"] = true, ["pairs"] = true,
     ["ipairs"] = true, ["tonumber"] = true, ["tostring"] = true,
     ["type"] = true, ["print"] = true, ["string"] = true,
-    ["table"] = true, ["math"] = true, ["os"] = true, ["coroutine"] = true
+    ["table"] = true, ["math"] = true, ["os"] = true, ["coroutine"] = true,
+    ["debug"] = true, ["io"] = true, ["utf8"] = true, ["bit32"] = true,
+    ["_G"] = true, ["_VERSION"] = true, ["write"] = true,
 }
 
 local function generate_random_name(len)
