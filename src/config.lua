@@ -26,10 +26,10 @@ config.settings = {
         enabled = true,
     },
     function_inlining = {
-        enabled = false, --off because bugged
+        enabled = false, -- off because bugged
     },
     dynamic_code = {
-        enabled = false, --off because bugged
+        enabled = false, -- off because bugged
     },
     bytecode_encoding = {
         enabled = true,
@@ -53,5 +53,25 @@ function config.get(key)
     return value
 end
 
-return config
+function config.set(key, new_value)
+    local keys = {}
+    for k in key:gmatch("[^.]+") do table.insert(keys, k) end
 
+    local value = config
+    for i = 1, #keys - 1 do
+        value = value[keys[i]]
+        if value == nil then
+            return false
+        end
+    end
+
+    local last_key = keys[#keys]
+    if value[last_key] ~= nil then
+        value[last_key] = new_value
+        return true
+    else
+        return false
+    end
+end
+
+return config
