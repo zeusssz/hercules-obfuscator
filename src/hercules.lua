@@ -211,5 +211,7 @@ for _, file_path in ipairs(files) do
     out:write(obf_code)
     out:close()
 
-    print_result(file_path, output_file, os.clock() - start_time, overwrite, custom_file ~= nil)
+    if config.get("settings.final_print") then
+        print_result(file_path, output_file, os.clock() - start_time, overwrite, custom_file ~= nil)
+    end
 end
