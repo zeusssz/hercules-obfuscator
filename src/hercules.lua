@@ -158,9 +158,20 @@ for i = 2, #arg do
     end
 end
 
--- Set features in config
+-- If one feature from features is enabled
+local one_enabled = false
 for feature in pairs(features) do
-    config.settings[feature].enabled = features[feature]
+    if features[feature] then
+        one_enabled = true
+        break
+    end
+end
+
+-- Set features in config
+if one_enabled then
+    for feature in pairs(features) do
+        config.settings[feature].enabled = features[feature]
+    end
 end
 
 local files = {}
