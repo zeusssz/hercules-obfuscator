@@ -21,17 +21,16 @@ local function print_result(input, output, time, overwrite, custom_file)
     }
 
     local art = colors.blue .. [[
-                           _                      _       ____  
-  /\  /\___ _ __ ___ _   _| | ___  ___   /\   /\ / |     | ___| 
- / /_/ / _ \ '__/ __| | | | |/ _ \/ __|  \ \ / / | |     |___ \ 
-/ __  /  __/ | | (__| |_| | |  __/\__ \   \ V /  | |      ___) |
-\/ /_/ \___|_|  \___|\__,_|_|\___||___/    \_/   |_| (_) |____/ 
-                                                          
+                           _                       _       ____  
+  /\  /\___ _ __ ___ _   _| | ___  ___   /\   /\  / |     | ___| 
+ / /_/ / _ \ '__/ __| | | | |/ _ \/ __|  \ \ / /  | |     |___ \ 
+/ __  /  __/ | | (__| |_| | |  __/\__ \   \ V /   | |  _   ___) |
+\/ /_/ \___|_|  \___|\__,_|_|\___||___/    \_/    |_| (_) |____/ 
                                        ]] .. colors.reset
 
     local line = colors.white .. string.rep("=", 50) .. colors.reset
-    local orig_size = size(input)
-    local obf_size = size(output)
+    local og_size = size(input)
+    local obfuscated_size = size(output)
 
     print("\n" .. line)
     print(art)
@@ -39,10 +38,10 @@ local function print_result(input, output, time, overwrite, custom_file)
     print(colors.white .. "Obfuscation Complete!" .. colors.reset)
     print(line)
     print(colors.white .. "Time Taken        : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
-    print(colors.cyan .. "Original Size     : " .. orig_size .. " bytes" .. colors.reset)
-    print(colors.cyan .. "Obfuscated Size   : " .. obf_size .. " bytes" .. colors.reset)
-    print(colors.cyan .. "Size Difference   : " .. (obf_size - orig_size) .. " bytes (" ..
-          string.format("%.2f", ((obf_size - orig_size) / orig_size) * 100 + 100) .. "%)" .. colors.reset)
+    print(colors.cyan .. "Original Size     : " .. og_size .. " bytes" .. colors.reset)
+    print(colors.cyan .. "Obfuscated Size   : " .. obfuscated_size .. " bytes" .. colors.reset)
+    print(colors.cyan .. "Size Difference   : " .. (obfuscated_size - og_size) .. " bytes (" ..
+          string.format("%.2f", ((obfuscated_size - og_size) / og_size) * 100 + 100) .. "%)" .. colors.reset)
 
     local overwrite_str = overwrite and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
     local custom_str = custom_file and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
@@ -83,7 +82,28 @@ local function print_result(input, output, time, overwrite, custom_file)
 end
 
 local function usage()
-    print("Usage: ./hercules <file.lua|folder> [--overwrite] [--pipeline <pipeline.lua>] [--folder true]")
+    print([[
+Usage:
+    ./hercules.lua *.lua (+ any options)
+
+Flags:
+
+    File:
+    --overwrite          Overwrites the original file with the obfuscated code, instead of creating a new *_obfuscated.lua file.
+    --pipeline <file>    Use a custom pipeline for obfuscation.
+    --folder             Processes all Lua files in the given folder, instead of a single file.
+    
+    Obfuscation:
+    --CF                 Enable control flow obfuscation.
+    --SE                 Enable string encoding.
+    --VR                 Enable variable renaming.
+    --GCI                Enable garbage code insertion.
+    --OPI                Enable opaque predicates injection.
+    --BE                 Enable bytecode encoding.
+    --C                  Enable code compression.
+
+    If one Obfuscation Flag is enabled, all others are disabled unless manually enabled.
+]])
     os.exit(1)
 end
 
@@ -96,6 +116,16 @@ local overwrite = false
 local custom_file = nil
 local folder_mode = false
 
+local features = {
+    control_flow = false,
+    string_encoding = false,
+    variable_renaming = false,
+    garbage_code = false,
+    opaque_predicates = false,
+    bytecode_encoding = false,
+    compressor = false,
+}
+
 for i = 2, #arg do
     if arg[i] == "--overwrite" then
         overwrite = true
@@ -106,9 +136,36 @@ for i = 2, #arg do
         else
             usage()
         end
-    elseif arg[i] == "--folder" and arg[i + 1] == "true" then
+    elseif arg[i] == "--folder" then
         folder_mode = true
-        i = i + 1
+    elseif arg[i] == "--CF" then
+        features.control_flow = true
+    elseif arg[i] == "--SE" then
+        features.string_encoding = true
+    elseif arg[i] == "--VR" then
+        features.variable_renaming = true
+    elseif arg[i] == "--GCI" then
+        features.garbage_code = true
+    elseif arg[i] == "--OPI" then
+        features.opaque_predicates = true
+    elseif arg[i] == "--BE" then
+        features.bytecode_encoding = true
+    elseif arg[i] == "--C" then
+        features.compressor = true
+    end
+end
+
+local single_enabled = false
+for feature in pairs(features) do
+    if features[feature] then
+        single_enabled = true
+        break
+    end
+end
+
+if single_enabled then
+    for feature in pairs(features) do
+        config.settings[feature].enabled = features[feature]
     end
 end
 
@@ -136,16 +193,16 @@ for _, file_path in ipairs(files) do
     local code = file:read("*all")
     file:close()
 
-    local obf_code
+    local obfuscated_code
     if custom_file then
         local success, custom = pcall(require, custom_file)
         if not success then
             print("Error: Could not load custom pipeline module: " .. custom)
             os.exit(1)
         end
-        obf_code = custom.process(code)
+        obfuscated_code = custom.process(code)
     else
-        obf_code = Pipeline.process(code)
+        obfuscated_code = Pipeline.process(code)
     end
 
     local output_file
@@ -157,11 +214,10 @@ for _, file_path in ipairs(files) do
     end
 
     local out = io.open(output_file, "w")
-    out:write(obf_code)
+    out:write(obfuscated_code)
     out:close()
 
-    final_print = config.get("settings.final_print")
-    if final_print then
-        print_result(file_path, output_file, os.clock() - start_time, overwrite, custom_file)
+    if config.get("settings.final_print") then
+        print_result(file_path, output_file, os.clock() - start_time, overwrite, custom_file ~= nil)
     end
 end
