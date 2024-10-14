@@ -82,7 +82,30 @@ local function print_result(input, output, time, overwrite, custom_file)
 end
 
 local function usage()
-    print("Usage: ./hercules <file.lua|folder> [--overwrite] [--pipeline <pipeline.lua>] [--folder true]")
+    print([[
+Usage:
+    ./hercules.lua <file.lua|folder> [OPTIONS]
+
+Description:
+    This script obfuscates Lua files using various techniques. 
+    You can provide a single file or a folder containing multiple Lua files.
+
+Options:
+    --overwrite          Overwrites the original file with the obfuscated code.
+    --pipeline <file>    Uses a custom pipeline script for obfuscation.
+    --folder             Processes all Lua files in the given folder.
+    
+    Available Features (Flags):
+    --control_flow       Enable control flow obfuscation.
+    --string_encoding    Enable string encoding obfuscation.
+    --variable_renaming  Enable variable renaming obfuscation.
+    --garbage_code       Enable garbage code insertion.
+    --opaque_predicates  Enable opaque predicates obfuscation.
+    --bytecode_encoding  Enable bytecode encoding.
+    --compressor         Enable code compression.
+
+    Note: If one feature flag is enabled, all others are disabled unless explicitly enabled.
+]])
     os.exit(1)
 end
 
@@ -95,6 +118,17 @@ local overwrite = false
 local custom_file = nil
 local folder_mode = false
 
+-- Feature flags
+local features = {
+    control_flow = false,
+    string_encoding = false,
+    variable_renaming = false,
+    garbage_code = false,
+    opaque_predicates = false,
+    bytecode_encoding = false,
+    compressor = false,
+}
+
 for i = 2, #arg do
     if arg[i] == "--overwrite" then
         overwrite = true
@@ -105,10 +139,28 @@ for i = 2, #arg do
         else
             usage()
         end
-    elseif arg[i] == "--folder" and arg[i + 1] == "true" then
+    elseif arg[i] == "--folder" then
         folder_mode = true
-        i = i + 1
+    elseif arg[i] == "--control_flow" then
+        features.control_flow = true
+    elseif arg[i] == "--string_encoding" then
+        features.string_encoding = true
+    elseif arg[i] == "--variable_renaming" then
+        features.variable_renaming = true
+    elseif arg[i] == "--garbage_code" then
+        features.garbage_code = true
+    elseif arg[i] == "--opaque_predicates" then
+        features.opaque_predicates = true
+    elseif arg[i] == "--bytecode_encoding" then
+        features.bytecode_encoding = true
+    elseif arg[i] == "--compressor" then
+        features.compressor = true
     end
+end
+
+-- Set features in config
+for feature in pairs(features) do
+    config.settings[feature].enabled = features[feature]
 end
 
 local files = {}
@@ -159,8 +211,5 @@ for _, file_path in ipairs(files) do
     out:write(obf_code)
     out:close()
 
-    final_print = config.get("settings.final_print")
-    if final_print then
-        print_result(file_path, output_file, os.clock() - start_time, overwrite, custom_file)
-    end
+    print_result(file_path, output_file, os.clock() - start_time, overwrite, custom_file ~= nil)
 end
