@@ -49,22 +49,18 @@ local function ]] .. random_decrypt_name .. [[(code, offset)
     local result = {}
     for i = 1, #code do
         local byte = code:byte(i)
-        -- Transformiere nur gültige Zeichen
         if ]] .. random_isvalidchar_name .. [[(byte) then
             local new_byte
             if byte >= 48 and byte <= 57 then
-                -- Ziffern (48-57)
                 new_byte = ((byte - 48 - offset + 10) % 10) + 48
             elseif byte >= 65 and byte <= 90 then
-                -- Großbuchstaben (65-90)
                 new_byte = ((byte - 65 - offset + 26) % 26) + 65
             elseif byte >= 97 and byte <= 122 then
-                -- Kleinbuchstaben (97-122)
                 new_byte = ((byte - 97 - offset + 26) % 26) + 97
             end
             table.insert(result, string.char(new_byte))
         else
-            table.insert(result, string.char(byte)) -- Füge nicht valide Zeichen unverändert hinzu
+            table.insert(result, string.char(byte))
         end
     end
     return table.concat(result)

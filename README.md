@@ -1,13 +1,16 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/ff2ed207-c95e-45c3-831f-04a32675dbb5?size=32" alt="Banner Image">
+  <img src="https://github.com/user-attachments/assets/ff2ed207-c95e-45c3-831f-04a32675dbb5?size=32" alt="Banner Image" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/stars/zeusssz/hercules-obfuscator?style=flat-square" alt="Stars" />
+  <img src="https://img.shields.io/github/forks/zeusssz/hercules-obfuscator?style=flat-square" alt="Forks" />
+  <img src="https://img.shields.io/github/issues/zeusssz/hercules-obfuscator?style=flat-square" alt="Issues" />
+  <img src="https://img.shields.io/github/license/zeusssz/hercules-obfuscator?style=flat-square" alt="License" />
+  <img src="https://img.shields.io/github/last-commit/zeusssz/hercules-obfuscator?style=flat-square" alt="Last Commit" />
 </p>
 
 # Hercules Lua Obfuscator
-![Stars](https://img.shields.io/github/stars/zeusssz/hercules-obfuscator?style=flat-square)
-![Forks](https://img.shields.io/github/forks/zeusssz/hercules-obfuscator?style=flat-square)
-![Issues](https://img.shields.io/github/issues/zeusssz/hercules-obfuscator?style=flat-square)
-![License](https://img.shields.io/github/license/zeusssz/hercules-obfuscator?style=flat-square)
-![Last Commit](https://img.shields.io/github/last-commit/zeusssz/hercules-obfuscator?style=flat-square)
 <br>
 **Hercules** is a powerful Lua obfuscator designed to make your Lua code nearly impossible to reverse-engineer. With multiple layers of advanced obfuscation techniques, Hercules ensures your scripts are secure from prying eyes.
 <br>
@@ -27,7 +30,7 @@ Obfuscation is not a foolproof method for protecting your code! Always consider 
 
 ## Features
 
-- **String Encoding:** Obfuscates strings by encoding them in base64 with additional scrambling. **(this module will be decomissioned soon)**
+- **String Encoding:** Obfuscates strings by encoding them using a Caeser Cipher.
 - **Variable Renaming:** Replaces variable names with randomly generated names.
 - **Control Flow Obfuscation:** Adds fake control flow structures to confuse static analysis.
 - **Garbage Code Insertion:** Injects junk code to bloat and obscure the script.
@@ -35,8 +38,6 @@ Obfuscation is not a foolproof method for protecting your code! Always consider 
 - **Function Inlining:** Integrates function code directly into calls, obscuring the original structure and logic.
 - **Opaque Predicates:** Uses complex conditions that always evaluate to true or false, obscuring actual purpose.
 - **Dynamic Code Generator:** Generates code blocks from the script itself, to complicate static analysis.
-
-Let me know if this works for you!
 
 >[!TIP]
 >You can customize your level of obfuscation through the `config.lua` file.
@@ -97,6 +98,49 @@ Output:
 `my_script_obfuscated.lua` – the obfuscated version of your script.
 <br>
 <br>
+
+---
+Original Script : `file.lua`
+```lua
+-- Function to print a greeting message
+function Greet(name)
+    print("Hello, " .. name .. "!")
+end
+
+-- Function to add two numbers
+function Add(a, b)
+    return a + b
+end
+
+-- Function to test a basic conditional statement
+function CheckNumber(num)
+    if num > 0 then
+        print(num .. " is positive.")
+    elseif num < 0 then
+        print(num .. " is negative.")
+    else
+        print(num .. " is zero.")
+    end
+end
+
+Greet("You")
+
+local sum = Add(5, 10)
+print("The sum of 5 and 10 is: " .. sum)
+
+CheckNumber(5)   -- Output: 5 is positive.
+CheckNumber(-3)  -- Output: -3 is negative.
+CheckNumber(0)   -- Output: 0 is zero.
+```
+<br>
+
+Obfuscated Script : `file_obfuscated.lua` (except Function Inliner & Dynamic Code Generator)
+```lua
+--[Obfuscated by Hercules v1.5 | discord.gg/Hx6RuYs8Ku]
+local function tyymrm(lplljv) local function ododkg(irubjz) local wimnwd = 67 end end local vndskt = 16 local function jsxbai(wpzksz) local jurvpy = 70 end local executed = false while not executed do if math.random(0, 1) == 0 then local _ = 250 else executed = true end end local function pAPkMUmMJgG(byte) return (byte >= 48 and byte <= 57) or (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122) end local function BTeAOpsBVUB(code, offset) local result = {} for i = 1, #code do local byte = code:byte(i) if pAPkMUmMJgG(byte) then local new_byte if byte >= 48 and byte <= 57 then new_byte = ((byte - 48 - offset + 10) % 10) + 48 elseif byte >= 65 and byte <= 90 then new_byte = ((byte - 65 - offset + 26) % 26) + 65 elseif byte >= 97 and byte <= 122 then new_byte = ((byte - 97 - offset + 26) % 26) + 97 end table.insert(result, string.char(new_byte)) else table.insert(result, string.char(byte)) end end return table.concat(result) end local function pAPkMUmMJgG(byte) return (byte >= 48 and byte <= 57) or (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122) end function ytYDTgbo(vzWhayfj) print(BTeAOpsBVUB("Yvccf, ", 17) .. vzWhayfj .. BTeAOpsBVUB("!", 4)) end function YxLYRxiEgb(muCLPSUXq, HMFyWCWQOe) return muCLPSUXq + HMFyWCWQOe end function uAHwInWiT(PcvxKPZzxCMI) if PcvxKPZzxCMI > 0 then print(PcvxKPZzxCMI .. BTeAOpsBVUB(" xh edhxixkt.", 15)) elseif PcvxKPZzxCMI < 0 then print(PcvxKPZzxCMI .. BTeAOpsBVUB(" rb wnpjcren.", 9)) else print(PcvxKPZzxCMI .. BTeAOpsBVUB(" td kpcz.", 11)) end end ytYDTgbo(BTeAOpsBVUB("Oek", 16)) local RRzpmwUHCbzC = YxLYRxiEgb(5, 10) print(BTeAOpsBVUB("Ocz nph ja 6 viy 21 dn: ", 21) .. RRzpmwUHCbzC) uAHwInWiT(5) uAHwInWiT(-3) uAHwInWiT(0)
+```
+---
+
 If you specify the overwrite option with the `--overwrite` flag, it will write back to the specified script.
 <br>
 You may also specify an alternate pipeline file using `--pipeline`, along with a file argument. For example:
