@@ -9,8 +9,12 @@
   <img src="https://img.shields.io/github/license/zeusssz/hercules-obfuscator?style=flat-square" alt="License" />
   <img src="https://img.shields.io/github/last-commit/zeusssz/hercules-obfuscator?style=flat-square" alt="Last Commit" />
   <br>
-  <img src="https://img.shields.io/badge/Add%20Bot-blue?style=flat-square" href="https://discord.com/oauth2/authorize?client_id=1293608330123804682" alt="Bot Invite" />
-  <img src="https://top.gg/api/widget/servers/1293608330123804682.svg" href="https://top.gg/bot/1293608330123804682" alt="TopGG" />
+  <a href="https://discord.com/oauth2/authorize?client_id=1293608330123804682">
+    <img src="https://img.shields.io/badge/Add%20Bot-blue?style=flat-square" alt="Bot Invite" />
+  </a>
+  <a href="https://top.gg/bot/1293608330123804682">
+    <img src="https://top.gg/api/widget/servers/1293608330123804682.svg" alt="TopGG" />
+  </a>
 </p>
 
 # Hercules - Lua Obfuscator
