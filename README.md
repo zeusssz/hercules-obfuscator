@@ -8,6 +8,9 @@
   <img src="https://img.shields.io/github/issues/zeusssz/hercules-obfuscator?style=flat-square" alt="Issues" />
   <img src="https://img.shields.io/github/license/zeusssz/hercules-obfuscator?style=flat-square" alt="License" />
   <img src="https://img.shields.io/github/last-commit/zeusssz/hercules-obfuscator?style=flat-square" alt="Last Commit" />
+  <br>
+  <img src="https://img.shields.io/badge/Add%20Bot-blue" href="https://discord.com/oauth2/authorize?client_id=1293608330123804682" alt="Bot Invite" />
+  <img src="https://top.gg/api/widget/servers/1293608330123804682.svg" href="https://top.gg/bot/1293608330123804682" alt="TopGG" />
 </p>
 
 # Hercules - Lua Obfuscator
@@ -19,7 +22,7 @@ Hercules is very much still in development and may not be the best yet, but we a
 If you do decide to use/fork Hercules, please do star it to show support. It helps out a ton!
 <br>
 
-Contact either `roboxer_` or `xthrx0` on Discord for queries, or join the [Discord server](https://discord.gg/7PnSq7HuJN).
+Contact either `roboxer_` or `xthrx0` on Discord for queries, or join the [Discord server](https://discord.gg/7PnSq7HuJN), to use the **Herucles Bot**.
 <br>
 
 >[!CAUTION]
