@@ -94,13 +94,13 @@ Flags:
     --folder             Processes all Lua files in the given folder, instead of a single file.
     
     Obfuscation:
-    --CF                 Enable control flow obfuscation.
-    --SE                 Enable string encoding.
-    --VR                 Enable variable renaming.
-    --GCI                Enable garbage code insertion.
-    --OPI                Enable opaque predicates injection.
-    --BE                 Enable bytecode encoding.
-    --C                  Enable code compression.
+    --CF, --control_flow                  Enable control flow obfuscation.
+    --SE, --string_encoding               Enable string encoding.
+    --VR, --variable_renaming             Enable variable renaming.
+    --GCI, --garbage_code                 Enable garbage code insertion.
+    --OPI, --opaque_predicates            Enable opaque predicates injection.
+    --BE, --bytecode_encoding             Enable bytecode encoding.
+    --C, --compressor                     Enable code compression.
 
     If one Obfuscation Flag is enabled, all others are disabled unless manually enabled.
 ]])
@@ -138,19 +138,19 @@ for i = 2, #arg do
         end
     elseif arg[i] == "--folder" then
         folder_mode = true
-    elseif arg[i] == "--CF" then
+    elseif arg[i] == "--CF" or arg[i] == "--control_flow" then
         features.control_flow = true
-    elseif arg[i] == "--SE" then
+    elseif arg[i] == "--SE" or arg[i] == "--string_encoding" then
         features.string_encoding = true
-    elseif arg[i] == "--VR" then
+    elseif arg[i] == "--VR" or arg[i] == "--variable_renaming" then
         features.variable_renaming = true
-    elseif arg[i] == "--GCI" then
+    elseif arg[i] == "--GCI" or arg[i] == "--garbage_code_insertion" then
         features.garbage_code = true
-    elseif arg[i] == "--OPI" then
+    elseif arg[i] == "--OPI" or arg[i] == "--opaque_predicates_injection" then
         features.opaque_predicates = true
-    elseif arg[i] == "--BE" then
+    elseif arg[i] == "--BE" or arg[i] == "--bytecode_encoding" then
         features.bytecode_encoding = true
-    elseif arg[i] == "--C" then
+    elseif arg[i] == "--C" or arg[i] == "--compressing" then
         features.compressor = true
     end
 end
