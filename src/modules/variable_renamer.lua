@@ -14,7 +14,7 @@ local lua_keywords = {
     ["type"] = true, ["print"] = true, ["string"] = true,
     ["table"] = true, ["math"] = true, ["os"] = true, ["coroutine"] = true,
     ["debug"] = true, ["io"] = true, ["utf8"] = true, ["bit32"] = true,
-    ["_G"] = true, ["_VERSION"] = true, ["write"] = true, ["sort"] = true
+    ["_G"] = true, ["_VERSION"] = true, ["write"] = true, ["sort"] = true, ["remove"] = true
 }
 
 local function generate_random_name(len)
