@@ -52,7 +52,7 @@ local function print_result(input, output, time, overwrite, custom_file, sanity_
 
     if sanity_failed then
         print(colors.red .. "Sanity Check      : Failed" .. colors.reset)
-        print(colors.red .. "Please file a bug report in our Discord Server --> " .. colors.reset)
+        print(colors.red .. "Please file a bug report in our Discord Server --> discord.gg/Hx6RuYs8Ku" .. colors.reset)
     else
         print(colors.green .. "Sanity Check      : Passed" .. colors.reset)
     end
@@ -100,6 +100,7 @@ Flags:
     --overwrite          Overwrites the original file with the obfuscated code, instead of creating a new *_obfuscated.lua file.
     --pipeline <file>    Use a custom pipeline for obfuscation.
     --folder             Processes all Lua files in the given folder, instead of a single file.
+    --sanity             Checks if obfuscated code output matches the original output.
     
     Obfuscation:
     --CF, --control_flow                  Enable control flow obfuscation.
