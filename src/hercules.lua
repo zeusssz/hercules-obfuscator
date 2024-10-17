@@ -10,7 +10,7 @@ local function size(file)
     return sz
 end
 
-local function print_result(input, output, time, overwrite, custom_file)
+local function print_result(input, output, time, overwrite, custom_file, sanity_failed)
     local colors = {
         reset = "\27[0m",
         green = "\27[32m",
@@ -49,6 +49,14 @@ local function print_result(input, output, time, overwrite, custom_file)
     print(colors.cyan .. "Overwrite         : " .. overwrite_str)
     print(colors.cyan .. "Custom Pipeline   : " .. custom_str)
     print(colors.white .. "Output File       : " .. output .. colors.reset)
+
+    if sanity_failed then
+        print(colors.red .. "Sanity Check      : Failed" .. colors.reset)
+        print(colors.red .. "Please file a bug report in our Discord Server --> " .. colors.reset)
+    else
+        print(colors.green .. "Sanity Check      : Passed" .. colors.reset)
+    end
+
     print(line)
 
     local settings = {
@@ -115,6 +123,7 @@ local input = arg[1]
 local overwrite = false
 local custom_file = nil
 local folder_mode = false
+local sanity_check = false
 
 local features = {
     control_flow = false,
@@ -138,19 +147,21 @@ for i = 2, #arg do
         end
     elseif arg[i] == "--folder" then
         folder_mode = true
+    elseif arg[i] == "--sanity" then
+        sanity_check = true
     elseif arg[i] == "--CF" or arg[i] == "--control_flow" then
         features.control_flow = true
     elseif arg[i] == "--SE" or arg[i] == "--string_encoding" then
         features.string_encoding = true
     elseif arg[i] == "--VR" or arg[i] == "--variable_renaming" then
         features.variable_renaming = true
-    elseif arg[i] == "--GCI" or arg[i] == "--garbage_code_insertion" then
+    elseif arg[i] == "--GCI" or arg[i] == "--garbage_code" then
         features.garbage_code = true
-    elseif arg[i] == "--OPI" or arg[i] == "--opaque_predicates_injection" then
+    elseif arg[i] == "--OPI" or arg[i] == "--opaque_predicates" then
         features.opaque_predicates = true
     elseif arg[i] == "--BE" or arg[i] == "--bytecode_encoding" then
         features.bytecode_encoding = true
-    elseif arg[i] == "--C" or arg[i] == "--compressing" then
+    elseif arg[i] == "--C" or arg[i] == "--compressor" then
         features.compressor = true
     end
 end
@@ -182,6 +193,12 @@ else
     table.insert(files, input)
 end
 
+local function sanecheck(original, obfuscated)
+    local original_func = load(original)
+    local obfuscated_func = load(obfuscated)
+    return original_func() == obfuscated_func()
+end
+
 local start_time = os.clock()
 for _, file_path in ipairs(files) do
     local file = io.open(file_path, "r")
@@ -194,30 +211,39 @@ for _, file_path in ipairs(files) do
     file:close()
 
     local obfuscated_code
-    if custom_file then
-        local success, custom = pcall(require, custom_file)
-        if not success then
-            print("Error: Could not load custom pipeline module: " .. custom)
-            os.exit(1)
+    local attempts = 0
+    local success = false
+    local sanity_failed = false
+
+    repeat
+        attempts = attempts + 1
+        if custom_file then
+            local success, custom = pcall(require, custom_file)
+            if not success then
+                print("Error: Could not load custom pipeline module: " .. custom)
+                os.exit(1)
+            end
+            obfuscated_code = custom.process(code)
+        else
+            obfuscated_code = Pipeline.process(code)
         end
-        obfuscated_code = custom.process(code)
-    else
-        obfuscated_code = Pipeline.process(code)
-    end
 
-    local output_file
-    if overwrite then
-        output_file = file_path
-    else
-        local suffix = config.get("settings.output_suffix") or "_obfuscated.lua"
-        output_file = file_path:gsub("%.lua$", suffix)
-    end
+        if sanity_check then
+            success = sanecheck(code, obfuscated_code)
+            if not success and attempts >= 3 then
+                sanity_failed = true
+                break
+            end
+        else
+            success = true
+        end
+    until success or attempts >= 3
 
-    local out = io.open(output_file, "w")
-    out:write(obfuscated_code)
-    out:close()
+    local output_file = overwrite and file_path or file_path:gsub("%.lua$", "_obfuscated.lua")
+    local out_file_handle = io.open(output_file, "w")
+    out_file_handle:write(obfuscated_code)
+    out_file_handle:close()
 
-    if config.get("settings.final_print") then
-        print_result(file_path, output_file, os.clock() - start_time, overwrite, custom_file ~= nil)
-    end
+    local end_time = os.clock()
+    print_result(file_path, output_file, end_time - start_time, overwrite, custom_file, sanity_failed)
 end
