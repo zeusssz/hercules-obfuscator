@@ -16,7 +16,7 @@
   <img src="https://top.gg/api/widget/servers/1293608330123804682.svg" alt="TopGG" />
 </a>
 <a href="https://github.com/Serpensin/DiscordBots-Hercules">
-<img src="https://img.shields.io/badge/Discord%20Bot%20Repo-121212" alt="Bot Repo"/>
+<img src="https://img.shields.io/badge/Discord%20Bot%20Repo-121212?style=flat-square" alt="Bot Repo"/>
 </a>
 </p>
 
