@@ -26,10 +26,10 @@ config.settings = {
         enabled = true,
     },
     function_inlining = {
-        enabled = false, -- off because bugged
+        enabled = false, -- off because bugged (fix soon)
     },
     dynamic_code = {
-        enabled = false, -- off because bugged
+        enabled = false, -- off because bugged (fix soon)
     },
     bytecode_encoding = {
         enabled = true,
