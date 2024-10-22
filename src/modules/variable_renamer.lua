@@ -43,7 +43,7 @@ local lua_keywords = {
     ["io.output"] = true, ["io.popen"] = true, ["io.read"] = true,
     ["io.tmpfile"] = true, ["io.type"] = true, ["io.write"] = true,
     ["utf8.char"] = true, ["utf8.charbyte"] = true, ["utf8.codepoint"] = true,
-    ["utf8.codes"] = true, ["utf8.len"] = true, ["utf8.offset"] = true
+    ["utf8.codes"] = true, ["utf8.len"] = true, ["utf8.offset"] = true, [".insert"] = true
 }
 
 
