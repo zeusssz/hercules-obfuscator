@@ -15,11 +15,6 @@ local Compressor = require("modules/compressor")
 local Pipeline = {}
 
 function Pipeline.process(code)
-    if config.get("settings.variable_renaming.enabled") then
-        local min_length = config.get("settings.variable_renaming.min_name_length")
-        local max_length = config.get("settings.variable_renaming.max_name_length")
-        code = VariableRenamer.process(code, { min_length = min_length, max_length = max_length })
-    end
     if config.get("settings.string_encoding.enabled") then
         code = StringEncoder.process(code)
     end
@@ -31,17 +26,24 @@ function Pipeline.process(code)
         local garbage_blocks = config.get("settings.garbage_code.garbage_blocks")
         code = GarbageCodeInserter.process(code, garbage_blocks)
     end
-    if config.get("settings.opaque_predicates.enabled") then
-        code = OpaquePredicateInjector.process(code)
-    end
-    if config.get("settings.function_inlining.enabled") then
-        code = FunctionInliner.process(code)
-    end
     if config.get("settings.dynamic_code.enabled") then
         code = DynamicCodeGenerator.process(code)
     end
+    if config.get("settings.variable_renaming.enabled") then
+        local min_length = config.get("settings.variable_renaming.min_name_length")
+        local max_length = config.get("settings.variable_renaming.max_name_length")
+        code = VariableRenamer.process(code, { min_length = min_length, max_length = max_length })
+    end
+
+    if config.get("settings.opaque_predicates.enabled") then
+        code = OpaquePredicateInjector.process(code)
+    end
+
     if config.get("settings.bytecode_encoding.enabled") then
         code = BytecodeEncoder.process(code)
+    end
+    if config.get("settings.function_inlining.enabled") then
+        code = FunctionInliner.process(code)
     end
     if config.get("settings.compressor.enabled") then
         code = Compressor.process(code)
