@@ -11,7 +11,7 @@ local function escape_bytecode(bytecode)
 end
 
 function BytecodeEncoder.process(code)
-    local function encode_to_bytecode(block)
+    --[[local function encode_to_bytecode(block)
         local func, load_error = load(block)
         if not func then
             error("Failed to compile block: " .. load_error)
@@ -29,9 +29,9 @@ function BytecodeEncoder.process(code)
             error("Error encoding block: " .. result)
         end
         return result .. ";"
-    end)
+    end)]]
 
-    return encoded_code
+    return code
 end
 
 return BytecodeEncoder
