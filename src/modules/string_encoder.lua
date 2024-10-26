@@ -41,33 +41,29 @@ function StringEncoder.process(code)
     local random_isvalidchar_name = generate_random_name()
 
     local decode_function = [[
-local function ]] .. random_isvalidchar_name .. [[(byte)
-    return (byte >= 48 and byte <= 57) or (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122)
+local function ]] .. random_isvalidchar_name .. [[(abcdefbyte)
+    return (abcdefbyte >= 48 and abcdefbyte <= 57) or (abcdefbyte >= 65 and abcdefbyte <= 90) or (abcdefbyte >= 97 and abcdefbyte <= 122)
 end
 	
 local function ]] .. random_decrypt_name .. [[(code, offset)
-    local result = {}
+    local abcderesult = {}
     for i = 1, #code do
-        local byte = code:byte(i)
-        if ]] .. random_isvalidchar_name .. [[(byte) then
-            local new_byte
-            if byte >= 48 and byte <= 57 then
-                new_byte = ((byte - 48 - offset + 10) % 10) + 48
-            elseif byte >= 65 and byte <= 90 then
-                new_byte = ((byte - 65 - offset + 26) % 26) + 65
-            elseif byte >= 97 and byte <= 122 then
-                new_byte = ((byte - 97 - offset + 26) % 26) + 97
+        local abcdefbyte2 = code:byte(i)
+        if ]] .. random_isvalidchar_name .. [[(abcdefbyte2) then
+            local new_byte234
+            if abcdefbyte2 >= 48 and abcdefbyte2 <= 57 then
+                new_byte234 = ((abcdefbyte2 - 48 - offset + 10) % 10) + 48
+            elseif abcdefbyte2 >= 65 and abcdefbyte2 <= 90 then
+                new_byte234 = ((abcdefbyte2 - 65 - offset + 26) % 26) + 65
+            elseif abcdefbyte2 >= 97 and abcdefbyte2 <= 122 then
+                new_byte234 = ((abcdefbyte2 - 97 - offset + 26) % 26) + 97
             end
-            table.insert(result, string.char(new_byte))
+            table.insert(abcderesult, string.char(new_byte234))
         else
-            table.insert(result, string.char(byte))
+            table.insert(abcderesult, string.char(abcdefbyte2))
         end
     end
-    return table.concat(result)
-end
-
-local function ]] .. random_isvalidchar_name .. [[(byte)
-    return (byte >= 48 and byte <= 57) or (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122)
+    return table.concat(abcderesult)
 end
 ]]
 
