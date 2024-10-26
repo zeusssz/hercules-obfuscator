@@ -1,4 +1,3 @@
---modules/variable_renamer.lua
 local VariableRenamer = {}
 local varencNames = {}
 
