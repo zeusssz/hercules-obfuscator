@@ -26,13 +26,13 @@ config.settings = {
         enabled = true,
     },
     function_inlining = {
-        enabled = false,
+        enabled = false, -- off because bugged (fix soon)
     },
     dynamic_code = {
-        enabled = false,
+        enabled = false, -- off because bugged (fix soon)
     },
     bytecode_encoding = {
-        enabled = false,
+        enabled = true,
     },
     compressor = {
         enabled = true,
