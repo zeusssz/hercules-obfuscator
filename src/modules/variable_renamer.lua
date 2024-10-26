@@ -2,19 +2,26 @@ local VariableRenamer = {}
 local varencNames = {}
 
 local lua_functions = {
+    -- Lua functions
     "assert", "collectgarbage", "dofile", "loadfile", "loadstring",
     "pairs", "ipairs", "tonumber", "tostring", "type", "print",
     "_G", "_VERSION", "write", "sort",
+
+    -- math
     "math.abs", "math.acos", "math.asin", "math.atan", "math.atan2",
     "math.ceil", "math.cos", "math.cosh", "math.deg", "math.exp",
     "math.floor", "math.fmod", "math.frexp", "math.ldexp", "math.log",
     "math.log10", "math.max", "math.min", "math.modf", "math.pi",
     "math.pow", "math.rad", "math.random", "math.randomseed", "math.sin",
     "math.sinh", "math.sqrt", "math.tan", "math.tanh",
+
+    -- string
     "string.byte", "string.char", "string.dump", "string.find",
     "string.format", "string.gmatch", "string.gsub", "string.len",
     "string.lower", "string.match", "string.rep", "string.reverse",
     "string.sub", "string.upper",
+
+    -- table
     "table.concat", "table.insert", "table.remove", "table.sort",
     "table.pack", "table.unpack"
 }
@@ -34,7 +41,9 @@ local function obfuscate_local_variables(code)
     local local_var_pattern = "local%s+([%w_,%s]+)%s*="
     local local_func_pattern = "local%s+function%s+([%w_]+)%s*%(([%w_,%s]*)%)"
     local obfuscated_code = code
+
     local local_var_map = {}
+
     for local_vars in code:gmatch(local_var_pattern) do
         for var in local_vars:gmatch("[%w_]+") do
             if not local_var_map[var] then
@@ -75,6 +84,7 @@ function VariableRenamer.process(code)
     local renamed_vars = {}
     local assignment_lines = {}
     local replacements = code
+
     for _, function_name in ipairs(lua_functions) do
         if string.find(code, function_name, 1, true) then
             if not varencNames[function_name] then
@@ -86,7 +96,9 @@ function VariableRenamer.process(code)
             replacements = string.gsub(replacements, function_name, varencNames[function_name])
         end
     end
+
     local local_declaration = "local " .. table.concat(renamed_vars, ", ")
+
     return local_declaration .. "\n" .. table.concat(assignment_lines, " ") .. "\n" .. replacements
 end
 
