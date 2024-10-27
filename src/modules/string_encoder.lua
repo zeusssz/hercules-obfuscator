@@ -41,29 +41,29 @@ function StringEncoder.process(code)
     local random_isvalidchar_name = generate_random_name()
 
     local decode_function = [[
-local function ]] .. random_isvalidchar_name .. [[(abcdefbyte)
-    return (abcdefbyte >= 48 and abcdefbyte <= 57) or (abcdefbyte >= 65 and abcdefbyte <= 90) or (abcdefbyte >= 97 and abcdefbyte <= 122)
+local function ]] .. random_isvalidchar_name .. [[(byte_HerculesObfusactorVaraiable)
+    return (byte_HerculesObfusactorVaraiable >= 48 and byte_HerculesObfusactorVaraiable <= 57) or (byte_HerculesObfusactorVaraiable >= 65 and byte_HerculesObfusactorVaraiable <= 90) or (byte_HerculesObfusactorVaraiable >= 97 and byte_HerculesObfusactorVaraiable <= 122)
 end
 	
-local function ]] .. random_decrypt_name .. [[(dfgdsfgcode, dfghdfghoffset)
-    local abcderesult = {}
-    for i = 1, #dfgdsfgcode do
-        local abcdefbyte2 = dfgdsfgcode:byte(i)
+local function ]] .. random_decrypt_name .. [[(code_HerculesObfusactorVaraiable, offset_HerculesObfusactorVaraiable)
+    local result_HerculesObfusactorVaraiable = {}
+    for i = 1, #code_HerculesObfusactorVaraiable do
+        local abcdefbyte2 = code_HerculesObfusactorVaraiable:byte(i)
         if ]] .. random_isvalidchar_name .. [[(abcdefbyte2) then
-            local new_byte234
+            local new_byte_HerculesObfusactorVaraiable
             if abcdefbyte2 >= 48 and abcdefbyte2 <= 57 then
-                new_byte234 = ((abcdefbyte2 - 48 - dfghdfghoffset + 10) % 10) + 48
+                new_byte_HerculesObfusactorVaraiable = ((abcdefbyte2 - 48 - offset_HerculesObfusactorVaraiable + 10) % 10) + 48
             elseif abcdefbyte2 >= 65 and abcdefbyte2 <= 90 then
-                new_byte234 = ((abcdefbyte2 - 65 - dfghdfghoffset + 26) % 26) + 65
+                new_byte_HerculesObfusactorVaraiable = ((abcdefbyte2 - 65 - offset_HerculesObfusactorVaraiable + 26) % 26) + 65
             elseif abcdefbyte2 >= 97 and abcdefbyte2 <= 122 then
-                new_byte234 = ((abcdefbyte2 - 97 - dfghdfghoffset + 26) % 26) + 97
+                new_byte_HerculesObfusactorVaraiable = ((abcdefbyte2 - 97 - offset_HerculesObfusactorVaraiable + 26) % 26) + 97
             end
-            table.insert(abcderesult, string.char(new_byte234))
+            table.insert(result_HerculesObfusactorVaraiable, string.char(new_byte_HerculesObfusactorVaraiable))
         else
-            table.insert(abcderesult, string.char(abcdefbyte2))
+            table.insert(result_HerculesObfusactorVaraiable, string.char(abcdefbyte2))
         end
     end
-    return table.concat(abcderesult)
+    return table.concat(result_HerculesObfusactorVaraiable)
 end
 ]]
 
