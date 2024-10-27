@@ -48,19 +48,19 @@ end
 local function ]] .. random_decrypt_name .. [[(code_HerculesObfusactorVaraiable, offset_HerculesObfusactorVaraiable)
     local result_HerculesObfusactorVaraiable = {}
     for i = 1, #code_HerculesObfusactorVaraiable do
-        local abcdefbyte2 = code_HerculesObfusactorVaraiable:byte(i)
-        if ]] .. random_isvalidchar_name .. [[(abcdefbyte2) then
+        local byte2_HerculesObfusactorVaraiable = code_HerculesObfusactorVaraiable:byte(i)
+        if ]] .. random_isvalidchar_name .. [[(byte2_HerculesObfusactorVaraiable) then
             local new_byte_HerculesObfusactorVaraiable
-            if abcdefbyte2 >= 48 and abcdefbyte2 <= 57 then
-                new_byte_HerculesObfusactorVaraiable = ((abcdefbyte2 - 48 - offset_HerculesObfusactorVaraiable + 10) % 10) + 48
-            elseif abcdefbyte2 >= 65 and abcdefbyte2 <= 90 then
-                new_byte_HerculesObfusactorVaraiable = ((abcdefbyte2 - 65 - offset_HerculesObfusactorVaraiable + 26) % 26) + 65
-            elseif abcdefbyte2 >= 97 and abcdefbyte2 <= 122 then
-                new_byte_HerculesObfusactorVaraiable = ((abcdefbyte2 - 97 - offset_HerculesObfusactorVaraiable + 26) % 26) + 97
+            if byte2_HerculesObfusactorVaraiable >= 48 and byte2_HerculesObfusactorVaraiable <= 57 then
+                new_byte_HerculesObfusactorVaraiable = ((byte2_HerculesObfusactorVaraiable - 48 - offset_HerculesObfusactorVaraiable + 10) % 10) + 48
+            elseif byte2_HerculesObfusactorVaraiable >= 65 and byte2_HerculesObfusactorVaraiable <= 90 then
+                new_byte_HerculesObfusactorVaraiable = ((byte2_HerculesObfusactorVaraiable - 65 - offset_HerculesObfusactorVaraiable + 26) % 26) + 65
+            elseif byte2_HerculesObfusactorVaraiable >= 97 and byte2_HerculesObfusactorVaraiable <= 122 then
+                new_byte_HerculesObfusactorVaraiable = ((byte2_HerculesObfusactorVaraiable - 97 - offset_HerculesObfusactorVaraiable + 26) % 26) + 97
             end
             table.insert(result_HerculesObfusactorVaraiable, string.char(new_byte_HerculesObfusactorVaraiable))
         else
-            table.insert(result_HerculesObfusactorVaraiable, string.char(abcdefbyte2))
+            table.insert(result_HerculesObfusactorVaraiable, string.char(byte2_HerculesObfusactorVaraiable))
         end
     end
     return table.concat(result_HerculesObfusactorVaraiable)
