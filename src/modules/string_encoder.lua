@@ -45,18 +45,18 @@ local function ]] .. random_isvalidchar_name .. [[(abcdefbyte)
     return (abcdefbyte >= 48 and abcdefbyte <= 57) or (abcdefbyte >= 65 and abcdefbyte <= 90) or (abcdefbyte >= 97 and abcdefbyte <= 122)
 end
 	
-local function ]] .. random_decrypt_name .. [[(code, offset)
+local function ]] .. random_decrypt_name .. [[(dfgdsfgcode, dfghdfghoffset)
     local abcderesult = {}
-    for i = 1, #code do
-        local abcdefbyte2 = code:byte(i)
+    for i = 1, #dfgdsfgcode do
+        local abcdefbyte2 = dfgdsfgcode:byte(i)
         if ]] .. random_isvalidchar_name .. [[(abcdefbyte2) then
             local new_byte234
             if abcdefbyte2 >= 48 and abcdefbyte2 <= 57 then
-                new_byte234 = ((abcdefbyte2 - 48 - offset + 10) % 10) + 48
+                new_byte234 = ((abcdefbyte2 - 48 - dfghdfghoffset + 10) % 10) + 48
             elseif abcdefbyte2 >= 65 and abcdefbyte2 <= 90 then
-                new_byte234 = ((abcdefbyte2 - 65 - offset + 26) % 26) + 65
+                new_byte234 = ((abcdefbyte2 - 65 - dfghdfghoffset + 26) % 26) + 65
             elseif abcdefbyte2 >= 97 and abcdefbyte2 <= 122 then
-                new_byte234 = ((abcdefbyte2 - 97 - offset + 26) % 26) + 97
+                new_byte234 = ((abcdefbyte2 - 97 - dfghdfghoffset + 26) % 26) + 97
             end
             table.insert(abcderesult, string.char(new_byte234))
         else
