@@ -60,6 +60,7 @@ local function print_result(input, output, time, overwrite, custom_file, sanity_
     print(line)
 
     local settings = {
+        { "String To Expressions", config.get("settings.StringToExpressions.enabled") },
         { "Control Flow", config.get("settings.control_flow.enabled") },
         { "String Encoding", config.get("settings.string_encoding.enabled") },
         { "Variable Renaming", config.get("settings.variable_renaming.enabled") },
@@ -70,6 +71,7 @@ local function print_result(input, output, time, overwrite, custom_file, sanity_
         { "Bytecode Encoding", config.get("settings.bytecode_encoding.enabled") },
         { "Compressor", config.get("settings.compressor.enabled") },
         { "Watermark", config.get("settings.watermark_enabled") },
+        { "Wrap In Function", config.get("settings.WrapInFunction_enabled") },
     }
 
     local max_length = 0
