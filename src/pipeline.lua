@@ -11,6 +11,7 @@ local DynamicCodeGenerator = require("modules/dynamic_code_generator")
 local BytecodeEncoder = require("modules/bytecode_encoder")
 local Watermarker = require("modules/watermark")
 local Compressor = require("modules/compressor")
+local StringToExpressions = require("modules/StringToExpressions")
 
 local Pipeline = {}
 
@@ -29,15 +30,8 @@ function Pipeline.process(code)
     if config.get("settings.dynamic_code.enabled") then
         code = DynamicCodeGenerator.process(code)
     end
-
     if config.get("settings.opaque_predicates.enabled") then
         code = OpaquePredicateInjector.process(code)
-    end
-
-    if config.get("settings.variable_renaming.enabled") then
-        local min_length = config.get("settings.variable_renaming.min_name_length")
-        local max_length = config.get("settings.variable_renaming.max_name_length")
-        code = VariableRenamer.process(code, { min_length = min_length, max_length = max_length })
     end
 
     if config.get("settings.bytecode_encoding.enabled") then
@@ -45,6 +39,16 @@ function Pipeline.process(code)
     end
     if config.get("settings.function_inlining.enabled") then
         code = FunctionInliner.process(code)
+    end
+    if config.get("settings.StringToExpressions.enabled") then
+        local min_length = config.get("settings.StringToExpressions.min_number_length")
+        local max_length = config.get("settings.StringToExpressions.max_number_length")
+        code = StringToExpressions.process(code, min_length, max_length)
+    end
+    if config.get("settings.variable_renaming.enabled") then
+        local min_length = config.get("settings.variable_renaming.min_name_length")
+        local max_length = config.get("settings.variable_renaming.max_name_length")
+        code = VariableRenamer.process(code, { min_length = min_length, max_length = max_length })
     end
     if config.get("settings.compressor.enabled") then
         code = Compressor.process(code)
