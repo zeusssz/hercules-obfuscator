@@ -29,14 +29,15 @@ function Pipeline.process(code)
     if config.get("settings.dynamic_code.enabled") then
         code = DynamicCodeGenerator.process(code)
     end
+
+    if config.get("settings.opaque_predicates.enabled") then
+        code = OpaquePredicateInjector.process(code)
+    end
+
     if config.get("settings.variable_renaming.enabled") then
         local min_length = config.get("settings.variable_renaming.min_name_length")
         local max_length = config.get("settings.variable_renaming.max_name_length")
         code = VariableRenamer.process(code, { min_length = min_length, max_length = max_length })
-    end
-
-    if config.get("settings.opaque_predicates.enabled") then
-        code = OpaquePredicateInjector.process(code)
     end
 
     if config.get("settings.bytecode_encoding.enabled") then
