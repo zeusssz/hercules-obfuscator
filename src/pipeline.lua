@@ -12,7 +12,7 @@ local BytecodeEncoder = require("modules/bytecode_encoder")
 local Watermarker = require("modules/watermark")
 local Compressor = require("modules/compressor")
 local StringToExpressions = require("modules/StringToExpressions")
-
+local WrapInFunction = require("modules/WrapInFunction")
 local Pipeline = {}
 
 function Pipeline.process(code)
@@ -56,7 +56,9 @@ function Pipeline.process(code)
     if config.get("settings.watermark_enabled") then
         code = Watermarker.process(code)
     end
-
+    if config.get("settings.WrapInFunction_enabled") then
+        code = WrapInFunction.process(code)
+    end
     return code
 end
 
