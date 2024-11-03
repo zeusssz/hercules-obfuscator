@@ -1,14 +1,3 @@
---[[
-  Name: api.lua
-  Author: ByteXenon [Luna Gilbert]
-  Date: 2024-05-21
-  Description:
-    A simple API for the entire project.
-    This is the only file that should be exposed to the user.
-
-  Read the license file in the root of the project directory.
---]]
-
 --* Dependencies *--
 local Helpers = require("Helpers/Helpers")
 local Assembler = require("Assembler/Assembler")
