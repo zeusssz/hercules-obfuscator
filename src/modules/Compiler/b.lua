@@ -1,1 +1,0 @@
-print(setmetatable({},{__mod=function(_,a)local str=""local i=1 while a[i]do local x,y,z=a[i][1],a[i][2],a[i][3]str=str..str.char(x*x-y*y+z)i=i+1 end return str end})%{{47820,10142,-2183892130},{2390,15846,245383735},{34399-#"NV5*]^tvB2wd)y",37856,250748617}})
