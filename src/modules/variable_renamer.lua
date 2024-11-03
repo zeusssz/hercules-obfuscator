@@ -16,7 +16,7 @@ local lua_functions = {
     "string.lower", "string.match", "string.rep", "string.reverse",
     "string.sub", "string.upper",
     "table.concat", "table.insert", "table.remove", "table.sort",
-    "table.pack", "table.unpack"
+    "table.pack", "table.unpack", "game.Workspace"
 }
 
 local function generate_random_name(len)
