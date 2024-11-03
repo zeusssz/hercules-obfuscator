@@ -1,35 +1,23 @@
+-- modules/compressor.lua
 local Compressor = {}
 
-function Compressor.process(code, preserveComments)
-    local string_literals = {}
-    
-    if type(code) ~= "string" then
-        error("Input code must be a string.")
-    end
-    local literal_placeholder = function(literal)
-        local key = "__STR" .. #string_literals + 1 .. "__"
-        table.insert(string_literals, literal)
-        return key
-    end
-    code = code:gsub('"(.-)"', literal_placeholder)
-              :gsub("'(.-)'", literal_placeholder)
-    if not preserveComments then
-        code = code:gsub("%-%-%[%[.-%]%]", "")
-                   :gsub("%-%-[^\n]*", "")
-    end
-    code = code:gsub("\n+", "\n")
-               :gsub("%s*\n%s*", "\n")
-               :gsub("%s+", " ")
-               :gsub("%s*([%[%]{}();:,=<>~+%-*/%^#])%s*", "%1")
-               :gsub("(%a+)%s*%(", "%1(")
-               :gsub("([%)%]])%s*{", "%1{")
-               :gsub("}%s*else", "}else")
-               :gsub("}%s*elseif", "}elseif")
-               :gsub(";+", ";")
-    code = code:match("^%s*(.-)%s*$") or ""
-    code = code:gsub("__STR(%d+)__", function(index)
-        return '"' .. (string_literals[tonumber(index)] or "") .. '"'
-    end)
-    return code
+local function compressLuaCode(code)
+    local compressedCode = code:gsub("%-%-[^\n]*", ""):gsub("%-%-%[(=*)%[.-%]%1%]", "")
+    compressedCode = compressedCode:gsub("%s+", " ")
+    compressedCode = compressedCode:gsub("([%w_])%s*([=+%-*/%%<>~])%s*([%w_])", "%1%2%3")
+    compressedCode = compressedCode:gsub("([=+%-*/%%<>~])%s*([%w_])", "%1%2")
+    compressedCode = compressedCode:gsub("([%w_])%s*([=+%-*/%%<>~])", "%1%2")
+    -- compressedCode = compressedCode:gsub("(%s*%f[%w]end%f[%W])", "end ")
+    -- compressedCode = compressedCode:gsub("(%f[%w]do%f[%W]%s+)", "do ")
+    -- compressedCode = compressedCode:gsub("(%f[%w]then%f[%W]%s+)", "then ")
+    -- compressedCode = compressedCode:gsub("(%f[%w]else%f[%W]%s+)", "else ")
+    -- compressedCode = compressedCode:gsub("(%f[%w]elseif%f[%W]%s+)", "elseif ")
+    compressedCode = compressedCode:gsub("%s*(%b())", "%1"):gsub("([%w_])%s*%(", "%1(")
+    return compressedCode:match("^%s*(.-)%s*$")
 end
+
+function Compressor.process(code)
+    return compressLuaCode(code)
+end
+
 return Compressor
