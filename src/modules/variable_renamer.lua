@@ -16,7 +16,7 @@ local lua_functions = {
     "string.lower", "string.match", "string.rep", "string.reverse",
     "string.sub", "string.upper",
     "table.concat", "table.insert", "table.remove", "table.sort",
-    "table.pack", "table.unpack", "game.Workspace", "game:GetService", "FireServer",
+    "table.pack", "table.unpack", "game:GetService", "FireServer",
     
 }
 
