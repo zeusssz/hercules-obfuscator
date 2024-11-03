@@ -6,11 +6,22 @@ config.settings = {
     output_suffix = "_obfuscated.lua",
     watermark_enabled = true,
     final_print = true,
+    VirtualMachine = {
+        enabled = true,
+    },
     control_flow = {
         enabled = true,
         max_fake_blocks = 6,
     },
+    StringToExpressions = {
+        enabled = false,
+        min_number_length = 100,
+        max_number_length = 999,
+    },
     string_encoding = {
+        enabled = true,
+    },
+    WrapInFunction = {
         enabled = true,
     },
     variable_renaming = {

@@ -1,37 +1,60 @@
 local BytecodeEncoder = {}
 
-local function escape_bytecode(bytecode)
-    return bytecode:gsub(".", function(char)
-        local byte = string.byte(char)
-        if byte < 32 or byte > 126 or char == "\\" or char == "\"" then
-            return string.format("\\x%02X", byte)
-        end
-        return char
-    end)
+-- Shift each byte in the bytecode by an offset value
+local function encode_bytecode(bytecode, offset)
+    local encoded = {}
+    for i = 1, #bytecode do
+        local byte = bytecode:byte(i)
+        local shifted_byte = (byte + offset) % 256 -- Apply the offset and wrap around if necessary
+        table.insert(encoded, string.char(shifted_byte))
+    end
+    return table.concat(encoded)
 end
 
-function BytecodeEncoder.process(code)
-    local function encode_to_bytecode(block)
-        local func, load_error = load(block)
-        if not func then
-            error("Failed to compile block: " .. load_error)
-        end
-        local bytecode = string.dump(func)
-        local escaped_bytecode = escape_bytecode(bytecode)
-        return string.format("load(\"%s\")()", escaped_bytecode)
+-- Reverse the byte shift to decode the obfuscated bytecode
+local function decode_bytecode(encoded_string, offset)
+    local decoded = {}
+    for i = 1, #encoded_string do
+        local byte = encoded_string:byte(i)
+        local original_byte = (byte - offset) % 256 -- Reverse the offset
+        table.insert(decoded, string.char(original_byte))
     end
+    return table.concat(decoded)
+end
 
-    local encoded_code = code:gsub("([^;]+);", function(block)
-        block = block:match("^%s*(.-)%s*$")
-
-        local success, result = pcall(encode_to_bytecode, block)
-        if not success then
-            error("Error encoding block: " .. result)
+-- Main processing function to obfuscate a given Lua script
+function BytecodeEncoder.process(code)
+    -- Step 1: Compile Lua code into bytecode
+    local bytecode = string.dump(load(code))
+    
+    -- Step 2: Apply a random offset to the bytecode for obfuscation
+    local offset = math.random(1, 255) -- Random byte shift offset between 1 and 255
+    local encoded_bytecode = encode_bytecode(bytecode, offset)
+    
+    -- Step 3: Generate a Lua script that decodes and runs the encoded bytecode
+    local decoder_script = [[
+        local function decode(encoded_string, offset)
+            local decoded = {}
+            for i = 1, #encoded_string do
+                local byte = encoded_string:byte(i)
+                local original_byte = (byte - offset) % 256
+                table.insert(decoded, string.char(original_byte))
+            end
+            return table.concat(decoded)
         end
-        return result .. ";"
-    end)
 
-    return encoded_code
+        -- The encoded bytecode (with an offset)
+        local encoded = "]] .. encoded_bytecode:gsub(".", function(c)
+            return "\\" .. string.byte(c)
+        end) .. [["
+        
+        -- Decode and run the bytecode
+        local bytecode = decode(encoded, ]] .. offset .. [[)
+        local fn = load(bytecode)
+        fn()
+    ]]
+    
+    return decoder_script
 end
 
 return BytecodeEncoder
