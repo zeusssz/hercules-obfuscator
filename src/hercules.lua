@@ -10,7 +10,7 @@ local function size(file)
     return sz
 end
 
-local function print_result(input, output, time, overwrite, custom_file, sanity_failed)
+local function print_result(input, output, time, overwrite, custom_file, sanity_failed, sanity_info)
     local colors = {
         reset = "\27[0m",
         green = "\27[32m",
@@ -18,6 +18,7 @@ local function print_result(input, output, time, overwrite, custom_file, sanity_
         white = "\27[37m",
         cyan = "\27[36m",
         blue = "\27[34m",
+        yellow = "\27[33m"
     }
 
     local art = colors.blue .. [[
@@ -52,7 +53,13 @@ local function print_result(input, output, time, overwrite, custom_file, sanity_
 
     if sanity_failed then
         print(colors.red .. "Sanity Check      : Failed" .. colors.reset)
-        print(colors.red .. "Please file a bug report in our Discord Server --> discord.gg/Hx6RuYs8Ku" .. colors.reset)
+        if sanity_info then
+            print(colors.yellow .. "\nExpected output:" .. colors.reset)
+            print(colors.white .. sanity_info.expected .. colors.reset)
+            print(colors.yellow .. "\nGot output:" .. colors.reset)
+            print(colors.white .. sanity_info.got .. colors.reset)
+        end
+        print(colors.red .. "\nPlease file a bug report in our Discord Server --> discord.gg/Hx6RuYs8Ku" .. colors.reset)
     else
         print(colors.green .. "Sanity Check      : Passed" .. colors.reset)
     end
@@ -86,6 +93,37 @@ local function print_result(input, output, time, overwrite, custom_file, sanity_
     end
 
     print(line .. "\n")
+end
+
+local function sanecheck(original_code, obfuscated_code)
+    local function capture(code)
+        local output = {}
+        local original_print = _G.print
+        
+        _G.print = function(...)
+            local args = {...}
+            local str = ""
+            for i, v in ipairs(args) do
+                str = str .. tostring(v)
+                if i < #args then str = str .. "\t" end
+            end
+            table.insert(output, str)
+        end
+        
+        local func = load(code)
+        pcall(func)
+        _G.print = original_print
+        
+        return table.concat(output, "\n")
+    end
+
+    local original_output = capture(original_code)
+    local obfuscated_output = capture(obfuscated_code)
+    
+    return original_output == obfuscated_output, {
+        expected = original_output,
+        got = obfuscated_output
+    }
 end
 
 local function usage()
@@ -193,12 +231,6 @@ else
     table.insert(files, input)
 end
 
-local function sanecheck(original, obfuscated)
-    local original_func = load(original)
-    local obfuscated_func = load(obfuscated)
-    return original_func() == obfuscated_func()
-end
-
 local start_time = os.clock()
 for _, file_path in ipairs(files) do
     local file = io.open(file_path, "r")
@@ -214,6 +246,7 @@ for _, file_path in ipairs(files) do
     local attempts = 0
     local success = false
     local sanity_failed = false
+    local sanity_info = nil
 
     repeat
         attempts = attempts + 1
@@ -229,7 +262,7 @@ for _, file_path in ipairs(files) do
         end
 
         if sanity_check then
-            success = sanecheck(code, obfuscated_code)
+            success, sanity_info = sanecheck(code, obfuscated_code)
             if not success and attempts >= 3 then
                 sanity_failed = true
                 break
@@ -245,5 +278,5 @@ for _, file_path in ipairs(files) do
     out_file_handle:close()
 
     local end_time = os.clock()
-    print_result(file_path, output_file, end_time - start_time, overwrite, custom_file, sanity_failed)
+    print_result(file_path, output_file, end_time - start_time, overwrite, custom_file, sanity_failed, sanity_info)
 end
