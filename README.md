@@ -27,7 +27,7 @@
 If you do decide to use/fork Hercules, please do star it to show support. It helps out a ton!
 <br>
 
-Contact either `roboxer_` or `xthrx0` on Discord for queries, or join the [Discord](https://discord.gg/7PnSq7HuJN), to use the **Herucles Bot**.
+Contact either `roboxer_` or `xthrx0` on Discord for queries, or join the [Discord (currently deleted)](https://discord.gg/7PnSq7HuJN), to use the **Herucles Bot**.
 <br>
 
 >[!CAUTION]
