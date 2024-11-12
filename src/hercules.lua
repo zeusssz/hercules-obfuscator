@@ -78,8 +78,8 @@ local function print_result(input, output, time, overwrite, custom_file, sanity_
         { "Bytecode Encoding", config.get("settings.bytecode_encoding.enabled") },
         { "Compressor", config.get("settings.compressor.enabled") },
         { "Watermark", config.get("settings.watermark_enabled") },
-        { "Wrap In Function", config.get("settings.WrapInFunction.enabled") },
-        { "Virtual Machinery", config.get("settings.VirtualMachine.enabled") },
+        { "Function Wrapping", config.get("settings.WrapInFunction.enabled") },
+        { "Virtual Machine", config.get("settings.VirtualMachine.enabled") },
     }
 
     local max_length = 0
@@ -151,6 +151,10 @@ Flags:
     --OPI, --opaque_predicates            Enable opaque predicates injection.
     --BE, --bytecode_encoding             Enable bytecode encoding.
     --C, --compressor                     Enable code compression.
+    --ST, --string_to_expr                Enable string to expressions.
+    --VM, --virtual_machine               Enable virtual machinery.
+    --WIF, --wrap_in_func                 Enable function wrapping.
+    --ST, --string_to_expr                Enable string to expressions.
 
     If one Obfuscation flag is enabled, all others are disabled unless manually enabled!
 ]])
@@ -175,6 +179,9 @@ local features = {
     opaque_predicates = false,
     bytecode_encoding = false,
     compressor = false,
+    StringToExpressions = false,
+    VirtualMachine = false,
+    WrapInFunction = false
 }
 
 for i = 2, #arg do
@@ -203,6 +210,12 @@ for i = 2, #arg do
         features.opaque_predicates = true
     elseif arg[i] == "--BE" or arg[i] == "--bytecode_encoding" then
         features.bytecode_encoding = true
+    elseif arg[i] == "--ST" or arg[i] == "--string_to_expr" then
+        features.StringToExpressions = true
+    elseif arg[i] == "--VM" or arg[i] == "--virtual_machine" then
+        features.VirtualMachine = true
+    elseif arg[i] == "--WIF" or arg[i] == "--wrap_in_func" then
+        features.WrapInFunction = true
     elseif arg[i] == "--C" or arg[i] == "--compressor" then
         features.compressor = true
     end
