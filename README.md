@@ -41,14 +41,27 @@ Obfuscation is not a foolproof method for protecting your code! Always consider 
 
 ## Features
 
-- **String Encoding:** Obfuscates strings by encoding them using a Caeser Cipher.
-- **Variable Renaming:** Replaces variable names with randomly generated names.
-- **Control Flow Obfuscation:** Adds fake control flow structures to confuse static analysis.
-- **Garbage Code Insertion:** Injects junk code to bloat and obscure the script.
-- **Bytecode Encoding:** Converts parts of a script into bytecode, making them harder to follow.
-- **Function Inlining:** Integrates function code directly into calls, obscuring the original structure and logic.
-- **Opaque Predicates:** Uses complex conditions that always evaluate to true or false, obscuring actual purpose.
-- **Dynamic Code Generator:** Generates code blocks from the script itself, to complicate static analysis.
+- **String Encoding:** Transform strings into seemingly indecipherable formats using an advanced Caesar Cipher, making reverse engineering a daunting task.
+
+- **Variable Renaming:** Elevate your code's security by replacing original variable names with a unique set of randomly generated identifiers, effectively masking their true intent.
+
+- **Control Flow Obfuscation:** Introduce intricate, deceptive control flow structures to mislead static analysis tools, ensuring your logic remains obscured from prying eyes.
+
+- **Garbage Code Insertion:** Strategically inject meaningless code snippets that bloat your scripts, complicating the analysis and deterring attackers.
+
+- **Bytecode Encoding:** Seamlessly convert critical sections of your script into bytecode, adding an additional layer of complexity that hinders comprehension.
+
+- **Function Inlining:** Enhance obfuscation by embedding function bodies directly into their calls, effectively disguising the original flow and logic of the code.
+
+- **Opaque Predicates:** Utilize cleverly constructed conditions that always evaluate to true or false, creating confusion about the actual functionality of your code.
+
+- **Dynamic Code Generator:** Innovatively generate code blocks dynamically from the script itself, complicating static analysis and enhancing security.
+
+- **String to Expressions:** Transform string literals into complex mathematical expressions, making it nearly impossible to deduce their original meaning.
+
+- **Virtual Machinery:** Employ a sophisticated virtual machine environment to execute obfuscated code, adding a layer of execution complexity that challenges traditional analysis techniques.
+
+- **Wrap In Function:** Encapsulate entire scripts within a function, further obscuring the code's entry points and enhancing overall security.
 
 >[!TIP]
 >You can customize your level of obfuscation through the `config.lua` file.
