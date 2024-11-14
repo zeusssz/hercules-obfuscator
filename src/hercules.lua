@@ -155,7 +155,7 @@ Flags:
     --VM, --virtual_machine               Enable virtual machinery.
     --WIF, --wrap_in_func                 Enable function wrapping.
 
-    If one Obfuscation flag is enabled, all others are disabled unless manually enabled!
+    If one Obfuscation flag is enabled, all others are disabled unless manually enabled.
 ]])
     os.exit(1)
 end
