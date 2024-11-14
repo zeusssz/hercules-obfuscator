@@ -154,7 +154,6 @@ Flags:
     --ST, --string_to_expr                Enable string to expressions.
     --VM, --virtual_machine               Enable virtual machinery.
     --WIF, --wrap_in_func                 Enable function wrapping.
-    --ST, --string_to_expr                Enable string to expressions.
 
     If one Obfuscation flag is enabled, all others are disabled unless manually enabled!
 ]])
