@@ -1,8 +1,7 @@
 local StringEncoder = {}
 
--- Generates a random name with specified length and character set
 local function generate_random_name(len)
-    len = len or math.random(10, 15)  -- Random length between 10 and 15
+    len = len or math.random(10, 15)
     local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY0123456789"
     local name = ""
     for _ = 1, len do
@@ -12,12 +11,10 @@ local function generate_random_name(len)
     return name
 end
 
--- Checks if the character byte is valid (alphanumeric)
 local function is_valid_char(byte)
     return (byte >= 48 and byte <= 57) or (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122)
 end
 
--- Encrypts or decrypts the data using Caesar cipher with random offset (positive/negative)
 local function caesar_cipher(data, offset)
     local result = {}
     for i = 1, #data do
@@ -33,13 +30,11 @@ local function caesar_cipher(data, offset)
             end
             table.insert(result, string.char(new_byte))
         else
-            table.insert(result, string.char(byte)) -- Keep non-valid chars as is
+            table.insert(result, string.char(byte))
         end
     end
     return table.concat(result)
 end
-
--- Main processing function for encoding strings
 function StringEncoder.process(code)
     local random_decrypt_name = generate_random_name()
     local random_isvalidchar_name = generate_random_name()
@@ -49,7 +44,6 @@ function StringEncoder.process(code)
     local random_byte_name = generate_random_name()
     local random_new_byte_name = generate_random_name()
 
-    -- Generate the decoding function with some added dummy logic for obfuscation
     local decode_function = [[
 local function ]] .. random_isvalidchar_name .. [[(]] .. random_byte_name .. [[)
     return (]] .. random_byte_name .. [[ >= 48 and ]] .. random_byte_name .. [[ <= 57) or 
@@ -79,7 +73,6 @@ local function ]] .. random_decrypt_name .. [[(]] .. random_code_name .. [[, ]] 
 end
 ]]
 
-    -- Encode the provided code with the caesar cipher, preserving the logic flow
     return decode_function .. "\n" .. code:gsub('"([^"]-)"', function(str)
         local offset = math.random(-(os.time()), os.time())
         local encoded_str = caesar_cipher(str, offset)
