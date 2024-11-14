@@ -1,8 +1,8 @@
 local StringEncoder = {}
 
 local function generate_random_name(len)
-    len = len or math.random(10, 15)
-    local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY0123456789"
+    len = len or math.random(8, 12)
+    local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     local name = ""
     for _ = 1, len do
         local index = math.random(1, #charset)
@@ -35,6 +35,7 @@ local function caesar_cipher(data, offset)
     end
     return table.concat(result)
 end
+
 function StringEncoder.process(code)
     local random_decrypt_name = generate_random_name()
     local random_isvalidchar_name = generate_random_name()
@@ -46,11 +47,9 @@ function StringEncoder.process(code)
 
     local decode_function = [[
 local function ]] .. random_isvalidchar_name .. [[(]] .. random_byte_name .. [[)
-    return (]] .. random_byte_name .. [[ >= 48 and ]] .. random_byte_name .. [[ <= 57) or 
-           (]] .. random_byte_name .. [[ >= 65 and ]] .. random_byte_name .. [[ <= 90) or 
-           (]] .. random_byte_name .. [[ >= 97 and ]] .. random_byte_name .. [[ <= 122)
+    return (]] .. random_byte_name .. [[ >= 48 and ]] .. random_byte_name .. [[ <= 57) or (]] .. random_byte_name .. [[ >= 65 and ]] .. random_byte_name .. [[ <= 90) or (]] .. random_byte_name .. [[ >= 97 and ]] .. random_byte_name .. [[ <= 122)
 end
-
+	
 local function ]] .. random_decrypt_name .. [[(]] .. random_code_name .. [[, ]] .. random_offset_name .. [[)
     local ]] .. random_result_name .. [[ = {}
     for i = 1, #]] .. random_code_name .. [[ do
@@ -71,12 +70,23 @@ local function ]] .. random_decrypt_name .. [[(]] .. random_code_name .. [[, ]] 
     end
     return table.concat(]] .. random_result_name .. [[)
 end
+
+local function ]] .. random_isvalidchar_name .. [[(]] .. random_byte_name .. [[)
+    return (]] .. random_byte_name .. [[ >= 48 and ]] .. random_byte_name .. [[ <= 57) or (]] .. random_byte_name .. [[ >= 65 and ]] .. random_byte_name .. [[ <= 90) or (]] .. random_byte_name .. [[ >= 97 and ]] .. random_byte_name .. [[ <= 122)
+end
 ]]
 
     return decode_function .. "\n" .. code:gsub('"([^"]-)"', function(str)
-        local offset = math.random(-(os.time()), os.time())
-        local encoded_str = caesar_cipher(str, offset)
-        return string.format('%s("%s", %d)', random_decrypt_name, encoded_str, offset)
+        if type(str) == "string" then
+            local offset = math.random(1, 9)
+            if str:match("%a") then
+                offset = math.random(1, 25)
+            end
+            local encoded_str = caesar_cipher(str, offset)
+            return string.format('%s("%s", %d)', random_decrypt_name, encoded_str, offset)
+        else
+            return str
+        end
     end)
 end
 
