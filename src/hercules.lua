@@ -131,32 +131,43 @@ local function sanecheck(original_code, obfuscated_code)
 end
 
 local function usage()
-    print([[
-Usage:
+    print(colors.white .. [[
+Usage: ]] .. colors.reset) 
+print(colors.cyan .. [[
     ./hercules.lua *.lua (+ any options)
-
+]] .. colors.white .. [[
 Flags:
+]] .. colors.reset)
 
+    print(colors.white .. [[
     File:
-    --overwrite          Overwrites the original file with the obfuscated code, instead of creating a new *_obfuscated.lua file.
-    --pipeline <file>    Use a custom pipeline for obfuscation.
-    --folder             Processes all Lua files in the given folder, instead of a single file.
-    --sanity             Checks if obfuscated code output matches the original output.
-    
-    Obfuscation:
-    --CF, --control_flow                  Enable control flow obfuscation.
-    --SE, --string_encoding               Enable string encoding.
-    --VR, --variable_renaming             Enable variable renaming.
-    --GCI, --garbage_code                 Enable garbage code insertion.
-    --OPI, --opaque_predicates            Enable opaque predicates injection.
-    --BE, --bytecode_encoding             Enable bytecode encoding.
-    --C, --compressor                     Enable code compression.
-    --ST, --string_to_expr                Enable string to expressions.
-    --VM, --virtual_machine               Enable virtual machinery.
-    --WIF, --wrap_in_func                 Enable function wrapping.
-
-    If one Obfuscation flag is enabled, all others are disabled unless manually enabled.
+    ]] .. colors.cyan .. [[--overwrite          ]] .. colors.green .. [[Overwrites the original file with the obfuscated code, 
+                         instead of creating a new *_obfuscated.lua file.
+    ]] .. colors.cyan .. [[--pipeline <file>    ]] .. colors.green .. [[Use a custom pipeline for obfuscation.
+    ]] .. colors.cyan .. [[--folder             ]] .. colors.green .. [[Processes all Lua files in the given folder, 
+                         instead of a single file.
+    ]] .. colors.cyan .. [[--sanity             ]] .. colors.green .. [[Checks if obfuscated code output matches 
+                         the original output.
 ]])
+
+    print(colors.white .. [[
+    Obfuscation:
+    ]] .. colors.cyan .. [[--CF, --control_flow                  ]] .. colors.green .. [[Enable control flow obfuscation.
+    ]] .. colors.cyan .. [[--SE, --string_encoding               ]] .. colors.green .. [[Enable string encoding.
+    ]] .. colors.cyan .. [[--VR, --variable_renaming             ]] .. colors.green .. [[Enable variable renaming.
+    ]] .. colors.cyan .. [[--GCI, --garbage_code                 ]] .. colors.green .. [[Enable garbage code insertion.
+    ]] .. colors.cyan .. [[--OPI, --opaque_predicates            ]] .. colors.green .. [[Enable opaque predicates injection.
+    ]] .. colors.cyan .. [[--BE, --bytecode_encoding             ]] .. colors.green .. [[Enable bytecode encoding.
+    ]] .. colors.cyan .. [[--C, --compressor                     ]] .. colors.green .. [[Enable code compression.
+    ]] .. colors.cyan .. [[--ST, --string_to_expr                ]] .. colors.green .. [[Enable string to expressions.
+    ]] .. colors.cyan .. [[--VM, --virtual_machine               ]] .. colors.green .. [[Enable virtual machinery.
+    ]] .. colors.cyan .. [[--WIF, --wrap_in_func                 ]] .. colors.green .. [[Enable function wrapping.
+]])
+
+    print(colors.yellow .. [[
+    If one Obfuscation flag is enabled, all others are disabled unless manually enabled.
+]] .. colors.reset)
+
     os.exit(1)
 end
 
