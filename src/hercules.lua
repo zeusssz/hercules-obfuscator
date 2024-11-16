@@ -10,23 +10,23 @@ local function size(file)
     return sz
 end
 
-local function print_result(input, output, time, overwrite, custom_file, sanity_failed, sanity_info)
-    local colors = {
-        reset = "\27[0m",
-        green = "\27[32m",
-        red = "\27[31m",
-        white = "\27[37m",
-        cyan = "\27[36m",
-        blue = "\27[34m",
-        yellow = "\27[33m"
-    }
+local colors = {
+    reset = "\27[0m",
+    green = "\27[32m",
+    red = "\27[31m",
+    white = "\27[37m",
+    cyan = "\27[36m",
+    blue = "\27[34m",
+    yellow = "\27[33m"
+}
 
+local function print_result(input, output, time, overwrite, custom_file, sanity_failed, sanity_info)
     local art = colors.blue .. [[
-                                _                     _     __   
-  /\  /\ ___  _ __  ___  _   _ | |  ___  ___  __   __/ |   / /_  
- / /_/ // _ \| '__|/ __|| | | || | / _ \/ __| \ \ / /| |  | '_ \ 
-/ __  /|  __/| |  | (__ | |_| || ||  __/\__ \  \ V / | | _| (_) |
-\/ /_/  \___||_|   \___| \__,_||_| \___||___/   \_/  |_|(_)\___/ 
+                                _                      _        __   
+  /\  /\ ___  _ __  ___  _   _ | |  ___  ___   __   __/ |      / /_  
+ / /_/ // _ \| '__|/ __|| | | || | / _ \/ __|  \ \ / /| |     | '_ \ 
+/ __  /|  __/| |  | (__ | |_| || ||  __/\__ \   \ V / | |  _  | (_) |
+\/ /_/  \___||_|   \___| \__,_||_| \___||___/    \_/  |_| (_)  \___/ 
                                        ]] .. colors.reset
 
     local line = colors.white .. string.rep("=", 50) .. colors.reset
