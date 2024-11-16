@@ -26,12 +26,12 @@ config.settings = {
     },
     variable_renaming = {
         enabled = true,
-        min_name_length = 8,
-        max_name_length = 16,
+        min_name_length = 60,
+        max_name_length = 70,
     },
     garbage_code = {
         enabled = true,
-        garbage_blocks = 4,
+        garbage_blocks = 20,
     },
     opaque_predicates = {
         enabled = true,
