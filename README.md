@@ -40,9 +40,7 @@ Contact either `roboxer_` or `xthrx0` on Discord for queries, or join the [Disco
 Obfuscation is not a foolproof method for protecting your code! Always consider additional security measures depending on your use case.
 
 >[!NOTE]
-**Hercules** is mainly a base Lua obfuscator, and a gLua/Luau patch is coming soon.
-
-### Hercules is very much still in development and may not be the best yet, but we are committed to making it one of the best.
+Hercules is very much still in development and may not be the best yet, but we are committed to making it one of the best.
 ---
 
 ## Features
