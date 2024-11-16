@@ -1,6 +1,13 @@
 <p align="center">
   <img src="https://github.com/user-attachments/assets/ff2ed207-c95e-45c3-831f-04a32675dbb5?size=32" alt="Banner Image" />
 </p>
+<pre align="center">
+                                _            
+  /\  /\ ___  _ __  ___  _   _ | |  ___  ___ 
+ / /_/ // _ \| '__|/ __|| | | || | / _ \/ __|
+/ __  /|  __/| |  | (__ | |_| || ||  __/\__ \
+\/ /_/  \___||_|   \___| \__,_||_| \___||___/
+</pre>
 <p align="center">
   <img src="https://img.shields.io/github/stars/zeusssz/hercules-obfuscator?style=flat-square" alt="Stars" />
   <img src="https://img.shields.io/github/forks/zeusssz/hercules-obfuscator?style=flat-square" alt="Forks" />
@@ -18,14 +25,8 @@
 <img src="https://img.shields.io/badge/Discord%20Bot%20Repo-5865F2" alt="Bot Repo"/>
 </a>
 </p>
-<pre align="center">
-                                _            
-  /\  /\ ___  _ __  ___  _   _ | |  ___  ___ 
- / /_/ // _ \| '__|/ __|| | | || | / _ \/ __|
-/ __  /|  __/| |  | (__ | |_| || ||  __/\__ \
-\/ /_/  \___||_|   \___| \__,_||_| \___||___/
-    </pre>
 
+---
 **Hercules** is a powerful Lua obfuscator designed to make your Lua code nearly impossible to reverse-engineer. With multiple layers of advanced obfuscation techniques, Hercules ensures your scripts are secure from prying eyes.
 <br>
 <br>
