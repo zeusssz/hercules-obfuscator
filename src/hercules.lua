@@ -194,7 +194,9 @@ local features = {
     compressor = false,
     StringToExpressions = false,
     VirtualMachine = false,
-    WrapInFunction = false
+    WrapInFunction = false,
+    function_inlining = false,
+    dynamic_code = false,
 }
 
 for i = 2, #arg do
