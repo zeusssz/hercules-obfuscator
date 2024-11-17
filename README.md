@@ -201,3 +201,7 @@ src/
 GUI Update
 <br>
 Fixes of unreliable modules
+
+---
+![image](https://github.com/user-attachments/assets/f0ee0abd-f4d5-4e6c-8801-07e32eec2ad9)
+
