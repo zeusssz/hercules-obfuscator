@@ -3,7 +3,7 @@ local math_methods = {
     add_sub = function(char, base1, base2)
         local base = math.random(base1, base2)
         local chance = math.random(0, 1)
-        local add_sub_expression = chance == 1 and string.format("%d - %d", base, base - char) or string.format("%d + %d", char - base, base)
+        local add_sub_expression = chance == 1 and string.format("%d - (%d)", base, base - char) or string.format("%d + %d", char - base, base)
         return add_sub_expression
     end,
 }
