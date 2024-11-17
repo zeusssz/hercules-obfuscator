@@ -29,7 +29,7 @@ local function print_result(input, output, time, overwrite, custom_file, sanity_
 \/ /_/  \___||_|   \___| \__,_||_| \___||___/    \_/  |_| (_)  \___/ 
                                        ]] .. colors.reset
 
-    local line = colors.white .. string.rep("=", 50) .. colors.reset
+    local line = colors.white .. string.rep("=", 65) .. colors.reset
     local og_size = size(input)
     local obfuscated_size = size(output)
 
@@ -150,19 +150,22 @@ Flags:
                          the original output.
 ]])
 
-    print(colors.white .. [[
-    Obfuscation:
-    ]] .. colors.cyan .. [[--CF, --control_flow                  ]] .. colors.green .. [[Enable control flow obfuscation.
-    ]] .. colors.cyan .. [[--SE, --string_encoding               ]] .. colors.green .. [[Enable string encoding.
-    ]] .. colors.cyan .. [[--VR, --variable_renaming             ]] .. colors.green .. [[Enable variable renaming.
-    ]] .. colors.cyan .. [[--GCI, --garbage_code                 ]] .. colors.green .. [[Enable garbage code insertion.
-    ]] .. colors.cyan .. [[--OPI, --opaque_predicates            ]] .. colors.green .. [[Enable opaque predicates injection.
-    ]] .. colors.cyan .. [[--BE, --bytecode_encoding             ]] .. colors.green .. [[Enable bytecode encoding.
-    ]] .. colors.cyan .. [[--C, --compressor                     ]] .. colors.green .. [[Enable code compression.
-    ]] .. colors.cyan .. [[--ST, --string_to_expr                ]] .. colors.green .. [[Enable string to expressions.
-    ]] .. colors.cyan .. [[--VM, --virtual_machine               ]] .. colors.green .. [[Enable virtual machinery.
-    ]] .. colors.cyan .. [[--WIF, --wrap_in_func                 ]] .. colors.green .. [[Enable function wrapping.
+print(colors.white .. [[
+Obfuscation:
+]] .. colors.cyan .. [[--CF, --control_flow                  ]] .. colors.green .. [[Enable control flow obfuscation.
+]] .. colors.cyan .. [[--SE, --string_encoding               ]] .. colors.green .. [[Enable string encoding.
+]] .. colors.cyan .. [[--VR, --variable_renaming             ]] .. colors.green .. [[Enable variable renaming.
+]] .. colors.cyan .. [[--GCI, --garbage_code                 ]] .. colors.green .. [[Enable garbage code insertion.
+]] .. colors.cyan .. [[--OPI, --opaque_predicates            ]] .. colors.green .. [[Enable opaque predicates injection.
+]] .. colors.cyan .. [[--BE, --bytecode_encoding             ]] .. colors.green .. [[Enable bytecode encoding.
+]] .. colors.cyan .. [[--C, --compressor                     ]] .. colors.green .. [[Enable code compression.
+]] .. colors.cyan .. [[--ST, --string_to_expr                ]] .. colors.green .. [[Enable string to expressions.
+]] .. colors.cyan .. [[--VM, --virtual_machine               ]] .. colors.green .. [[Enable virtual machinery.
+]] .. colors.cyan .. [[--WIF, --wrap_in_func                 ]] .. colors.green .. [[Enable function wrapping.
+]] .. colors.cyan .. [[--FI, --func_inlining                 ]] .. colors.green .. [[Enable function inlining.
+]] .. colors.cyan .. [[--DC, --dynamic_code                  ]] .. colors.green .. [[Enable dynamic code execution.
 ]])
+d
 
     print(colors.yellow .. [[
     If one Obfuscation flag is enabled, all others are disabled unless manually enabled.
@@ -226,7 +229,9 @@ for i = 2, #arg do
         features.VirtualMachine = true
     elseif arg[i] == "--WIF" or arg[i] == "--wrap_in_func" then
         features.WrapInFunction = true
-    elseif arg[i] == "--C" or arg[i] == "--compressor" then
+    elseif arg[i] == "--FI" or arg[i] == "--func_inlining" then
+        features.compressor = true
+    elseif arg[i] == "--DC" or arg[i] == "--dynamic_code" then
         features.compressor = true
     end
 end
