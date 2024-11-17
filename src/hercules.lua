@@ -230,9 +230,9 @@ for i = 2, #arg do
     elseif arg[i] == "--WIF" or arg[i] == "--wrap_in_func" then
         features.WrapInFunction = true
     elseif arg[i] == "--FI" or arg[i] == "--func_inlining" then
-        features.compressor = true
+        features.function_inlining = true
     elseif arg[i] == "--DC" or arg[i] == "--dynamic_code" then
-        features.compressor = true
+        features.dynamic_code = true
     end
 end
 
