@@ -31,27 +31,40 @@ local function generate_random_name(len)
 end
 
 local function obfuscate_local_variables(code)
-    local local_var_pattern = "local%s+([%w_,%s]*)%s*"
-    local local_assignment_pattern = "local%s+([%w_]+)%s*="
+    local local_var_pattern = "local%s+([%w_,%s]+)%s*=?"
+    local local_func_pattern = "local%s+function%s+([%w_]+)%s*%(([%w_,%s]*)%)"
+    local var_map = {}
     local obfuscated_code = code
-    local local_var_map = {}
-    for var in code:gmatch(local_var_pattern) do
-        for single_var in var:gmatch("[%w_]+") do
-            if not local_var_map[single_var] then
-                local_var_map[single_var] = generate_random_name()
+    for local_vars in code:gmatch(local_var_pattern) do
+        for var in local_vars:gmatch("[%w_]+") do
+            if not var_map[var] then
+                var_map[var] = generate_random_name()
+            end
+        end
+    end
+    for func_name, args in code:gmatch(local_func_pattern) do
+        if not var_map[func_name] then
+            var_map[func_name] = generate_random_name()
+        end
+        for arg in args:gmatch("[%w_]+") do
+            if not var_map[arg] then
+                var_map[arg] = generate_random_name()
             end
         end
     end
 
-    obfuscated_code = obfuscated_code:gsub(local_assignment_pattern, function(var)
-        if not local_var_map[var] then
-            local_var_map[var] = generate_random_name()
-        end
-        return "local " .. local_var_map[var] .. " ="
+    obfuscated_code = obfuscated_code:gsub("local%s+([%w_,%s]+)%s*=?", function(local_vars)
+        return "local " .. local_vars:gsub("[%w_]+", function(var)
+            return var_map[var] or var
+        end)
     end)
 
-    for original_var, obfuscated_var in pairs(local_var_map) do
-        obfuscated_code = obfuscated_code:gsub("(%W)(" .. original_var .. ")(%W)", function(pre, var, post)
+    obfuscated_code = obfuscated_code:gsub("local%s+function%s+([%w_]+)", function(func_name)
+        return "local function " .. (var_map[func_name] or func_name)
+    end)
+
+    for original_var, obfuscated_var in pairs(var_map) do
+        obfuscated_code = obfuscated_code:gsub("([^%w_])(" .. original_var .. ")([^%w_])", function(pre, var, post)
             return pre .. obfuscated_var .. post
         end)
     end
