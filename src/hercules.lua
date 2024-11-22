@@ -165,7 +165,6 @@ Obfuscation:
 ]] .. colors.cyan .. [[--FI, --func_inlining                 ]] .. colors.green .. [[Enable function inlining.
 ]] .. colors.cyan .. [[--DC, --dynamic_code                  ]] .. colors.green .. [[Enable dynamic code execution.
 ]])
-d
 
     print(colors.yellow .. [[
     If one Obfuscation flag is enabled, all others are disabled unless manually enabled.
