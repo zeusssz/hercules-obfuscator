@@ -17,7 +17,6 @@ local lua_functions = {
     "string.sub", "string.upper",
     "table.concat", "table.insert", "table.remove", "table.sort",
     "table.pack", "table.unpack", "game:GetService",
-    
 }
 
 local function generate_random_name(len)
@@ -32,33 +31,25 @@ local function generate_random_name(len)
 end
 
 local function obfuscate_local_variables(code)
-    local local_var_pattern = "local%s+([%w_,%s]+)%s*="
-    local local_func_pattern = "local%s+function%s+([%w_]+)%s*%(([%w_,%s]*)%)"
+    local local_var_pattern = "local%s+([%w_,%s]*)%s*"
+    local local_assignment_pattern = "local%s+([%w_]+)%s*="
     local obfuscated_code = code
     local local_var_map = {}
-    for local_vars in code:gmatch(local_var_pattern) do
-        for var in local_vars:gmatch("[%w_]+") do
-            if not local_var_map[var] then
-                local_var_map[var] = generate_random_name()
+
+    -- Handle variables declared without initial values
+    for var in code:gmatch(local_var_pattern) do
+        for single_var in var:gmatch("[%w_]+") do
+            if not local_var_map[single_var] then
+                local_var_map[single_var] = generate_random_name()
             end
         end
     end
 
-    for vars, args in code:gmatch(local_func_pattern) do
-        if not local_var_map[vars] then
-            local_var_map[vars] = generate_random_name()
+    obfuscated_code = obfuscated_code:gsub(local_assignment_pattern, function(var)
+        if not local_var_map[var] then
+            local_var_map[var] = generate_random_name()
         end
-        for arg in args:gmatch("[^,]+") do
-            if not local_var_map[arg:match("^%s*(.-)%s*$")] then
-                local_var_map[arg:match("^%s*(.-)%s*$")] = generate_random_name()
-            end
-        end
-    end
-
-    obfuscated_code = obfuscated_code:gsub(local_var_pattern, function(local_vars)
-        return "local " .. local_vars:gsub("[%w_]+", function(var)
-            return local_var_map[var] or var
-        end) .. '='
+        return "local " .. local_var_map[var] .. " ="
     end)
 
     for original_var, obfuscated_var in pairs(local_var_map) do
@@ -76,6 +67,7 @@ function VariableRenamer.process(code)
     local renamed_vars = {}
     local assignment_lines = {}
     local replacements = code
+
     for _, function_name in ipairs(lua_functions) do
         if string.find(code, function_name, 1, true) then
             if not varencNames[function_name] then
@@ -87,8 +79,9 @@ function VariableRenamer.process(code)
             replacements = string.gsub(replacements, function_name, varencNames[function_name])
         end
     end
-    local local_declaration = "local " .. table.concat(renamed_vars, ", ")
-    return local_declaration .. "\n" .. table.concat(assignment_lines, " ") .. "\n" .. replacements
+
+    local local_declaration = #renamed_vars > 0 and "local " .. table.concat(renamed_vars, ", ") or ""
+    return local_declaration .. (#assignment_lines > 0 and "\n" .. table.concat(assignment_lines, " ") or "") .. "\n" .. replacements
 end
 
 return VariableRenamer
