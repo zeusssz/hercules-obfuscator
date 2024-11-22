@@ -35,8 +35,6 @@ local function obfuscate_local_variables(code)
     local local_assignment_pattern = "local%s+([%w_]+)%s*="
     local obfuscated_code = code
     local local_var_map = {}
-
-    -- Handle variables declared without initial values
     for var in code:gmatch(local_var_pattern) do
         for single_var in var:gmatch("[%w_]+") do
             if not local_var_map[single_var] then
