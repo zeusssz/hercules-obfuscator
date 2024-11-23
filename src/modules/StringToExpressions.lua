@@ -15,37 +15,37 @@ end
 
 local function obfuscate_string_literal(str, base1, base2)
     if #str == 0 then
-        return '""' 
+        return '""'
     end
+
+    local escape_chars = {
+        n = 10, -- ASCII code for \n
+        r = 13, -- ASCII code for \r
+        t = 9   -- ASCII code for \t
+    }
 
     local obfuscated = {}
     local i = 1
 
     while i <= #str do
-        local char = str:sub(i, i)
-
-        -- look for char starting with \
-        if char == "\\" and i < #str then
+        local char_code = str:byte(i)
+        -- look for control codes starting with \
+        if char_code == 92 and i < #str then
             local next_char = str:sub(i + 1, i + 1)
-
-            if next_char == "n" then
-               insert_char(obfuscated, 10, base1, base2) -- ASCII code for \n
-            elseif next_char == "r" then
-                insert_char(obfuscated, 13, base1, base2) -- ASCII code for \r
-            elseif next_char == "t" then
-                insert_char(obfuscated, 9, base1, base2) -- ASCII code for \t
+            if next_char == "2" and str:sub(i+2,i+2) == "7" then
+                insert_char(obfuscated, 27, base1, base2)
+                i = i + 2
+            elseif escape_chars[next_char] then
+                insert_char(obfuscated, escape_chars[next_char], base1, base2)
+                i = i + 1
             else
-                -- remove the escaping and just insert the next_char
+                insert_char(obfuscated, char_code, base1, base2)
                 insert_char(obfuscated, next_char:byte(), base1, base2)
+                i = i + 1
             end
-            
-            -- skip ahead
-            i = i + 1
         else
-            -- Handle regular characters
-            insert_char(obfuscated, char:byte(), base1, base2)
+            insert_char(obfuscated, char_code, base1, base2)
         end
-        
         i = i + 1
     end
 
