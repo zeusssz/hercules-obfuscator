@@ -17,9 +17,24 @@ end
 
 local function caesar_cipher(data, offset)
     local result = {}
-    for i = 1, #data do
+    local i = 1
+    while i <= #data do
         local byte = data:byte(i)
-        if is_valid_char(byte) then
+
+        -- make sure all control codes are kept and not encoded
+        if byte == 92 and i < #data then
+            local next_char = data:sub(i + 1, i + 1)
+            if next_char == "2" and data:sub(i+2,i+2) == "7" then
+                table.insert(result, string.char(byte))
+                table.insert(result, next_char)
+                table.insert(result, data:sub(i+2,i+2))
+                i = i + 2
+            else
+                table.insert(result, string.char(byte))
+                table.insert(result, next_char)
+                i = i + 1
+            end
+        elseif is_valid_char(byte) then
             local new_byte
             if byte >= 48 and byte <= 57 then
                 new_byte = ((byte - 48 + offset) % 10) + 48
@@ -32,6 +47,8 @@ local function caesar_cipher(data, offset)
         else
             table.insert(result, string.char(byte))
         end
+
+        i = i + 1
     end
     return table.concat(result)
 end
@@ -76,18 +93,27 @@ local function ]] .. random_isvalidchar_name .. [[(]] .. random_byte_name .. [[)
 end
 ]]
 
-    return decode_function .. "\n" .. code:gsub('"([^"]-)"', function(str)
+    -- replace inline escaped quotes so the pattern matches the entire line
+    code = code:gsub('\\"', '!@!'):gsub("\\'", "@!@")
+
+    code = code:gsub("(['\"])(.-)%1", function(quote,str)
         if type(str) == "string" then
+            -- put the quotes back in before encoding
+            str = str:gsub('!@!', '\\"'):gsub('@!@', "\\'")
+
             local offset = math.random(1, 9)
             if str:match("%a") then
                 offset = math.random(1, 25)
             end
             local encoded_str = caesar_cipher(str, offset)
-            return string.format('%s("%s", %d)', random_decrypt_name, encoded_str, offset)
+            -- make sure to use the quotes wrapped from the pattern above
+            return string.format("%s(" .. quote .. "%s" .. quote .. ", %d)", random_decrypt_name, encoded_str, offset)
         else
             return str
         end
     end)
+
+    return decode_function .. "\n" .. code
 end
 
 return StringEncoder
