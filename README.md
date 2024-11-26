@@ -27,7 +27,7 @@
 </p>
 
 ---
-**Hercules** is a powerful Lua obfuscator designed to make your Lua code nearly impossible to reverse-engineer. With multiple layers of advanced obfuscation techniques, Hercules ensures your scripts are secure from prying eyes.
+**Hercules** is a powerful Lua obfuscator designed to make your Lua code _nearly_ impossible to reverse-engineer. With multiple layers of advanced obfuscation techniques, Hercules ensures your scripts are secure from prying eyes.
 <br>
 <br>
 If you do decide to use/fork Hercules, please do **star it** to show support. It helps out a ton!
