@@ -3,7 +3,7 @@ local varencNames = {}
 
 local lua_functions = {
     "assert", "collectgarbage", "dofile", "loadfile", "loadstring",
-    "pairs", "ipairs", "tonumber", "tostring", "type", "print",
+    "ipairs", "pairs", "tonumber", "tostring", "type", "print",
     "_G", "_VERSION", "write", "sort",
     "math.abs", "math.acos", "math.asin", "math.atan", "math.atan2",
     "math.ceil", "math.cos", "math.cosh", "math.deg", "math.exp",
