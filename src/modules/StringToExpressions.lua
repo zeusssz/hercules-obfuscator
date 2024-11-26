@@ -22,6 +22,8 @@ local function obfuscate_string_literal(str, base1, base2)
         n = 10, -- ASCII code for \n
         r = 13, -- ASCII code for \r
         t = 9   -- ASCII code for \t
+        ["'"] = 39, -- ASCII code for \'
+        ['"'] = 34  -- ASCII code for \"
     }
 
     local obfuscated = {}
@@ -53,7 +55,11 @@ local function obfuscate_string_literal(str, base1, base2)
 end
 
 function stringtoexpressions.process(script_content, base1, base2)
+    -- replace inline escaped quotes so the pattern matches the entire line
+    script_content = script_content:gsub('\\"', '!@!'):gsub("\\'", "@!@")
+
     return script_content:gsub("(['\"])(.-)%1", function(_, str)
+        str = str:gsub('!@!', '\\"'):gsub('@!@', "\\'")
         return obfuscate_string_literal(str, base1, base2)
     end)
 end
