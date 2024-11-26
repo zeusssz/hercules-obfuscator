@@ -21,7 +21,7 @@ local function obfuscate_string_literal(str, base1, base2)
     local escape_chars = {
         n = 10, -- ASCII code for \n
         r = 13, -- ASCII code for \r
-        t = 9   -- ASCII code for \t
+        t = 9,   -- ASCII code for \t
         ["'"] = 39, -- ASCII code for \'
         ['"'] = 34  -- ASCII code for \"
     }
