@@ -31,7 +31,6 @@ local function obfuscate_string_literal(str, base1, base2)
 
     while i <= #str do
         local char_code = str:byte(i)
-        -- look for control codes starting with \
         if char_code == 92 and i < #str then
             local next_char = str:sub(i + 1, i + 1)
             if next_char == "2" and str:sub(i+2,i+2) == "7" then
@@ -55,7 +54,6 @@ local function obfuscate_string_literal(str, base1, base2)
 end
 
 function stringtoexpressions.process(script_content, base1, base2)
-    -- replace inline escaped quotes so the pattern matches the entire line
     script_content = script_content:gsub('\\"', '!@!'):gsub("\\'", "@!@")
 
     return script_content:gsub("(['\"])(.-)%1", function(_, str)
