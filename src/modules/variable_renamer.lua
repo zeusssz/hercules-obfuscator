@@ -34,8 +34,10 @@ local function replace_unquoted(input, target, replacement)
     local placeholder = "!!!"
 
     -- Replace target in quoted strings with a placeholder to skip them
-    local protected_input = input:gsub('(["\'])(.-)%1', function(quote, content)
-        return quote .. content:gsub(target, placeholder) .. quote
+    local protected_input = input:gsub('(["\'])(.-)%1', function(_, content)
+        content = content:gsub('\\"', '!@!'):gsub("\\'", "@!@")
+        content = content:gsub(target, placeholder)
+        content = content:gsub('!@!', '\\"'):gsub('@!@', "\\'")
     end)
 
     -- Replace standalone occurrences of the target outside of quotes
@@ -56,8 +58,10 @@ local function obfuscate_local_variables(code)
     -- update variable name
     for local_vars in code:gmatch(local_var_pattern) do
         for var in local_vars:gmatch("[%w_]+") do
-            if not var_map[var] then
-                var_map[var] = generate_random_name()
+            if #var > 1 then
+                if not var_map[var] then
+                    var_map[var] = generate_random_name()
+                end
             end
         end
     end
