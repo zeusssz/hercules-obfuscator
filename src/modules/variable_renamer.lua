@@ -68,7 +68,6 @@ local function obfuscate_local_variables(code)
 
     -- Update the variables args
     for original_var, obfuscated_var in pairs(var_map) do
-        print(original_var, obfuscated_var)
         obfuscated_code = replace_unquoted(obfuscated_code, original_var, obfuscated_var)
     end
 
