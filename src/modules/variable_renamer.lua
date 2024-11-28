@@ -125,7 +125,7 @@ function VariableRenamer.process(code)
                 table.insert(renamed_vars, new_name)
                 table.insert(assignment_lines, new_name .. " = " .. function_name .. ";")
             end
-            replacements = string.gsub(replacements, function_name, varencNames[function_name])
+            replacements = replacements:gsub(function_name .. "%(", varencNames[function_name] .. "(")
         end
     end
 
