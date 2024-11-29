@@ -99,6 +99,9 @@ local function obfuscate_functions(code)
     -- update the function name
     for original_func, obfuscated_func in pairs(func_map) do
         obfuscated_code = obfuscated_code:gsub(original_func .. "%(", obfuscated_func .. "(")
+
+        -- support doing a return func;
+        obfuscated_code = obfuscated_code:gsub(original_func .. ";", obfuscated_func .. ";")
     end
 
     -- Update the function args
