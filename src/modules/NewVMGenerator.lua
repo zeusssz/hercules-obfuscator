@@ -3474,7 +3474,7 @@ function BcToState(Bytecode,charset)
 local base, decoded = #charset, {}
     local decode_lookup = {}
     for i = 1, base do decode_lookup[charset:sub(i, i)] = i - 1 end
-    for encoded_char in Bytecode:gmatch("[^vdl]+") do
+    for encoded_char in Bytecode:gmatch("[^x]+") do
         local n = 0
         for i = 1, #encoded_char do n = n * base + decode_lookup[encoded_char:sub(i, i)] end
         decoded[#decoded+1] = string.char(n)
@@ -4072,7 +4072,7 @@ local function Generate(...)
 			local char = str:sub(i, i)
 			table.insert(encoded, encode_number(char:byte()))
 		end;
-		return table.concat(encoded, "vdl")
+		return table.concat(encoded, "x")
 	end;
 	local function Encode(Str)
 		Str = encode_string(Str)
@@ -4098,10 +4098,11 @@ local function Generate(...)
 	Add("WrapState(BcToState('" .. Encode(Bytecode) .. "','" .. charset .. "'),(getfenv and getfenv(0)) or _ENV)()")
 	return Out
 end;
-local function GenerateVm(source)
+local VM = {}
+function VM.process(source)
 	_G.UsedOps[0] = 0;
 	_G.UsedOps[4] = 4;
 	source = Generate(compile(source), _G.UsedOps)
 	return source
 end;
-return GenerateVm
+return VM
