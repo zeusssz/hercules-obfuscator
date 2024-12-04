@@ -163,7 +163,7 @@ Obfuscation:
 ]] .. colors.cyan .. [[--VM, --virtual_machine               ]] .. colors.green .. [[Enable virtual machinery.
 ]] .. colors.cyan .. [[--WIF, --wrap_in_func                 ]] .. colors.green .. [[Enable function wrapping.
 ]] .. colors.cyan .. [[--FI, --func_inlining                 ]] .. colors.green .. [[Enable function inlining.
-]] .. colors.cyan .. [[--DC, --dynamic_code                  ]] .. colors.green .. [[Enable dynamic code execution.
+]] .. colors.cyan .. [[--DC, --dynamic_code                  ]] .. colors.green .. [[Enable dynamic code injection.
 ]])
 
     print(colors.yellow .. [[
