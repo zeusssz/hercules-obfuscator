@@ -13,7 +13,7 @@ local Watermarker = require("modules/watermark")
 local Compressor = require("modules/compressor")
 local StringToExpressions = require("modules/StringToExpressions")
 local WrapInFunction = require("modules/WrapInFunction")
-local VirtualMachinery = require("modules/Compiler/c")
+local VirtualMachinery = require("modules/NewVMGenerator")
 local Pipeline = {}
 
 function Pipeline.process(code)
@@ -46,6 +46,12 @@ function Pipeline.process(code)
         local max_length = config.get("settings.StringToExpressions.max_number_length")
         code = StringToExpressions.process(code, min_length, max_length)
     end
+    if config.get("settings.compressor.enabled") then
+        code = Compressor.process(code)
+    end
+    if config.get("settings.VirtualMachine.enabled") then
+        code = VirtualMachinery.process(code)
+    end
     if config.get("settings.variable_renaming.enabled") then
         local min_length = config.get("settings.variable_renaming.min_name_length")
         local max_length = config.get("settings.variable_renaming.max_name_length")
@@ -53,9 +59,6 @@ function Pipeline.process(code)
     end
     if config.get("settings.compressor.enabled") then
         code = Compressor.process(code)
-    end
-    if config.get("settings.VirtualMachine.enabled") then
-        code = VirtualMachinery.process(code)
     end
     if config.get("settings.WrapInFunction.enabled") then
         code = WrapInFunction.process(code)

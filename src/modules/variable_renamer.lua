@@ -1,9 +1,10 @@
 local VariableRenamer = {}
 local varencNames = {}
 
+-- List of Lua standard library functions to skip renaming
 local lua_functions = {
     "assert", "collectgarbage", "dofile", "loadfile", "loadstring",
-    "pairs", "ipairs", "tonumber", "tostring", "type", "print",
+    "ipairs", "pairs", "tonumber", "tostring", "type", "print",
     "_G", "_VERSION", "write", "sort",
     "math.abs", "math.acos", "math.asin", "math.atan", "math.atan2",
     "math.ceil", "math.cos", "math.cosh", "math.deg", "math.exp",
@@ -19,6 +20,7 @@ local lua_functions = {
     "table.pack", "table.unpack", "game:GetService",
 }
 
+-- Generate a random name of specified length
 local function generate_random_name(len)
     len = len or math.random(8, 12)
     local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -30,55 +32,111 @@ local function generate_random_name(len)
     return name
 end
 
+-- Function to replace variables inside strings to avoid changing quoted parts
+local function replace_unquoted(input, target, replacement)
+    local placeholder = "!!!"
+
+    -- Protect quoted strings by temporarily replacing them
+    local protected_input = input:gsub('(["\'])(.-)%1', function(_, content)
+        content = content:gsub('\\"', '!@!'):gsub("\\'", "@!@")
+        content = content:gsub(target, placeholder)
+        content = content:gsub('!@!', '\\"'):gsub('@!@', "\\'")
+        return '"' .. content .. '"'
+    end)
+
+    -- Replace target variable/function outside quotes
+    local result = protected_input:gsub('(%f[%w_])' .. target .. '(%f[^%w_])', function(before, after)
+        return before .. replacement .. after
+    end)
+
+    -- Restore the original quoted content
+    result = result:gsub(placeholder, target)
+    return result
+end
+
 local function obfuscate_local_variables(code)
-    local local_var_pattern = "local%s+([%w_,%s]+)%s*=?"
-    local local_func_pattern = "local%s+function%s+([%w_]+)%s*%(([%w_,%s]*)%)"
+    local local_var_pattern = "local%s+([%w_,%s]+)%s*=%s*"
     local var_map = {}
     local obfuscated_code = code
+
+    -- Gather local variables and map them to new names
     for local_vars in code:gmatch(local_var_pattern) do
         for var in local_vars:gmatch("[%w_]+") do
-            if not var_map[var] then
+            if #var > 1 and not varencNames[var] then
                 var_map[var] = generate_random_name()
             end
         end
     end
-    for func_name, args in code:gmatch(local_func_pattern) do
-        if not var_map[func_name] then
-            var_map[func_name] = generate_random_name()
+
+    -- Apply renaming to the code in all places where variables appear (assignments and expressions)
+    for original_var, obfuscated_var in pairs(var_map) do
+        obfuscated_code = replace_unquoted(obfuscated_code, original_var, obfuscated_var)
+    end
+
+    -- Handle function calls, table indexing, and all instances of variables
+    obfuscated_code = obfuscated_code:gsub("([%w_]+)", function(var)
+        return var_map[var] or var
+    end)
+
+    -- Handle variable usages in function calls (encoded_char:sub(i, i) type of expressions)
+    obfuscated_code = obfuscated_code:gsub("([%w_]+)%s*:%s*([%w_]+)%(", function(var, func)
+        return (var_map[var] or var) .. ":" .. func .. "("
+    end)
+
+    -- Handle table index accesses (VQZjDbigEJHD[encoded_char])
+    obfuscated_code = obfuscated_code:gsub("([%w_]+)%[([%w_]+)%]", function(table_var, index_var)
+        return (var_map[table_var] or table_var) .. "[" .. (var_map[index_var] or index_var) .. "]"
+    end)
+
+    return obfuscated_code
+end
+
+-- Renames functions and their arguments
+local function obfuscate_functions(code)
+    local func_map = {}
+    local arg_map = {}
+    local obfuscated_code = code
+
+    -- Rename function names and arguments
+    for func_name, args in code:gmatch("function%s+([%w_]+)%s*%(([%w_,%s]*)%)") do
+        if not func_map[func_name] then
+            func_map[func_name] = generate_random_name()
         end
         for arg in args:gmatch("[%w_]+") do
-            if not var_map[arg] then
-                var_map[arg] = generate_random_name()
+            if not arg_map[arg] then
+                arg_map[arg] = generate_random_name()
             end
         end
     end
 
-    obfuscated_code = obfuscated_code:gsub("local%s+([%w_,%s]+)%s*=?", function(local_vars)
-        return "local " .. local_vars:gsub("[%w_]+", function(var)
-            return var_map[var] or var
-        end)
+    -- Update function names in the code
+    obfuscated_code = obfuscated_code:gsub("function%s+([%w_]+)", function(func_name)
+        return "function " .. (func_map[func_name] or func_name)
     end)
 
-    obfuscated_code = obfuscated_code:gsub("local%s+function%s+([%w_]+)", function(func_name)
-        return "local function " .. (var_map[func_name] or func_name)
-    end)
+    -- Update function calls and arguments
+    for original_func, obfuscated_func in pairs(func_map) do
+        obfuscated_code = obfuscated_code:gsub(original_func .. "%(", obfuscated_func .. "(")
+        obfuscated_code = obfuscated_code:gsub(original_func .. ";", obfuscated_func .. ";")
+    end
 
-    for original_var, obfuscated_var in pairs(var_map) do
-        obfuscated_code = obfuscated_code:gsub("([^%w_])(" .. original_var .. ")([^%w_])", function(pre, var, post)
-            return pre .. obfuscated_var .. post
-        end)
+    for original_arg, obfuscated_arg in pairs(arg_map) do
+        obfuscated_code = replace_unquoted(obfuscated_code, original_arg, obfuscated_arg)
     end
 
     return obfuscated_code
 end
 
+-- Main function to process the code and rename variables/functions
 function VariableRenamer.process(code)
-    code = obfuscate_local_variables(code)
-
     local renamed_vars = {}
     local assignment_lines = {}
-    local replacements = code
 
+    -- First, obfuscate local variables and function names
+    local obfuscated_code = obfuscate_local_variables(code)
+    obfuscated_code = obfuscate_functions(obfuscated_code)
+
+    -- Now, rename Lua standard functions (and any global function definitions)
     for _, function_name in ipairs(lua_functions) do
         if string.find(code, function_name, 1, true) then
             if not varencNames[function_name] then
@@ -87,12 +145,14 @@ function VariableRenamer.process(code)
                 table.insert(renamed_vars, new_name)
                 table.insert(assignment_lines, new_name .. " = " .. function_name .. ";")
             end
-            replacements = string.gsub(replacements, function_name, varencNames[function_name])
+            obfuscated_code = obfuscated_code:gsub(function_name .. "%(", varencNames[function_name] .. "(")
         end
     end
 
+    -- Combine the renamed variables and functions at the start of the code
     local local_declaration = #renamed_vars > 0 and "local " .. table.concat(renamed_vars, ", ") or ""
-    return local_declaration .. (#assignment_lines > 0 and "\n" .. table.concat(assignment_lines, " ") or "") .. "\n" .. replacements
+    return local_declaration .. (#assignment_lines > 0 and "\n" .. table.concat(assignment_lines, " ") or "") .. "\n" .. obfuscated_code
 end
 
 return VariableRenamer
+ 

@@ -19,7 +19,7 @@ config.settings = {
         max_number_length = 999,
     },
     string_encoding = {
-        enabled = true,
+        enabled = false,
     },
     WrapInFunction = {
         enabled = true,
@@ -30,11 +30,11 @@ config.settings = {
         max_name_length = 80,
     },
     garbage_code = {
-        enabled = true,
+        enabled = false,
         garbage_blocks = 20,
     },
     opaque_predicates = {
-        enabled = true,
+        enabled = false,
     },
     function_inlining = {
         enabled = false,
