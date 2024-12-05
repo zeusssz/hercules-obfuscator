@@ -13,7 +13,7 @@ local Watermarker = require("modules/watermark")
 local Compressor = require("modules/compressor")
 local StringToExpressions = require("modules/StringToExpressions")
 local WrapInFunction = require("modules/WrapInFunction")
-local VirtualMachinery = require("modules/NewVMGenerator")
+local VirtualMachinery = require("modules/VMGenerator")
 local Pipeline = {}
 
 function Pipeline.process(code)
