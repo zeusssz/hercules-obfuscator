@@ -198,7 +198,7 @@ src/
 <br>If you wish for it to be configurable, add it to the `config.lua` file, along with the necessary logic.
 
 ## Credits
-VM by someone named deoxy
+VM by someone named [deoxy](https://github.com/deoxyrib0nucleid)
 
 ---
 ![image](https://github.com/user-attachments/assets/f0ee0abd-f4d5-4e6c-8801-07e32eec2ad9)
