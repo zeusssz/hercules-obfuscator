@@ -63,7 +63,7 @@ Hercules is very much still in development and may not be the best yet, but we a
 
 - **String to Expressions:** Transform string literals into complex mathematical expressions, making it nearly impossible to deduce their original meaning.
 
-- **Virtual Machinery:** Employs a sophisticated virtual machine environment to execute obfuscated code, adding a layer of execution complexity that challenges traditional analysis techniques.
+- **Virtual Machinery:** Employs a virtual machine environment to execute obfuscated code, adding a layer of execution complexity that challenges traditional analysis techniques.
 
 - **Wrap In Function:** Encapsulates entire scripts within a function, further obscuring the code's entry points and enhancing overall security.
 
@@ -197,10 +197,8 @@ src/
 >When adding more modules to the `modules/` directory, ensure you maintain proper order in the pipeline file, to prevent any issues, and remember to add your module to the `pipeline.lua` file.
 <br>If you wish for it to be configurable, add it to the `config.lua` file, along with the necessary logic.
 
-## Incoming Updates
-GUI Update
-<br>
-Fixes of unreliable modules
+## Credits
+VM by someone named deoxy
 
 ---
 ![image](https://github.com/user-attachments/assets/f0ee0abd-f4d5-4e6c-8801-07e32eec2ad9)
