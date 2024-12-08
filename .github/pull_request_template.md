@@ -18,10 +18,10 @@ Explain what testing was performed, or steps to reproduce for reviewers.
 
 ## Checklist
 
-- [ ] Code follows the project's coding guidelines.
-- [ ] Relevant documentation has been updated (if needed).
-- [ ] Tests have been added/updated (if applicable).
-- [ ] All checks pass locally.
+- Code follows the project's coding guidelines. [Y/N]
+- Relevant documentation has been updated (if needed). [Y/N]
+- Tests have been added/updated (if applicable). [Y/N]
+- All checks pass locally. [Y/N]
 
 ## Additional Notes
 
