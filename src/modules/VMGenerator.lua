@@ -4082,7 +4082,7 @@ local function Generate(...)
 		end;
 		return out
 	end;
-	Add("hercules,v1,alpha,__,_ = 'Protected By Hercules V1.6', function()end, true, 1, 0")
+	Add("hercules,v1,alpha,__,_ = 'Protected By Hercules V1.6 | VM', function()end, true, 1, 0")
 	Add(Parts.Variables)
 	Add(Parts.Deserializer)
 	Add(Parts.Wrapper_1)
