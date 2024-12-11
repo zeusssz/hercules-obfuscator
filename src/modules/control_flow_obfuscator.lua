@@ -1,5 +1,4 @@
 local ControlFlowObfuscator = {}
-
 local function gen_random_identifier(length)
     length = length or math.random(5, 10)
     local chars = {}
