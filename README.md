@@ -100,7 +100,7 @@ Hercules is very much still in development and may not be the best yet, but we a
 
 3. Run the obfuscator using Lua:
     ```cmd
-    lua src\hercules path\to\your\script.lua
+    lua src\hercules.lua path\to\your\script.lua
     ```
 ---
 
@@ -110,7 +110,7 @@ To obfuscate a Lua script using Hercules, simply run:
 
 ```bash
 ./hercules path/to/your/script.lua  # macOS/Linux
-lua src\hercules path\to\your\script.lua  # Windows
+lua src\hercules.lua path\to\your\script.lua  # Windows
 ```
 
 This will generate an obfuscated version of the script in the same directory, with the filename `*_obfuscated.lua`.
@@ -119,7 +119,7 @@ This will generate an obfuscated version of the script in the same directory, wi
 
 ```bash
 ./hercules my_script.lua  # macOS/Linux
-lua src\hercules my_script.lua  # Windows
+lua src\hercules.lua my_script.lua  # Windows
 ```
 
 Output:
