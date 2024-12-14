@@ -50,19 +50,22 @@ local function print_result(input, output, time, overwrite, custom_file, sanity_
     print(colors.cyan .. "Overwrite         : " .. overwrite_str)
     print(colors.cyan .. "Custom Pipeline   : " .. custom_str)
     print(colors.white .. "Output File       : " .. output .. colors.reset)
-
+if sanity_check then
     if sanity_failed then
         print(colors.red .. "Sanity Check      : Failed" .. colors.reset)
+        
         if sanity_info then
             print(colors.yellow .. "\nExpected output:" .. colors.reset)
             print(colors.white .. sanity_info.expected .. colors.reset)
             print(colors.yellow .. "\nGot output:" .. colors.reset)
             print(colors.white .. sanity_info.got .. colors.reset)
         end
+        
         print(colors.red .. "\nPlease file a bug report in our Discord Server --> discord.gg/Hx6RuYs8Ku" .. colors.reset)
     else
         print(colors.green .. "Sanity Check      : Passed" .. colors.reset)
     end
+end
 
     print(line)
 
