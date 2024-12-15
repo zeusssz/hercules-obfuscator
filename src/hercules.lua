@@ -3,8 +3,9 @@
 local Pipeline = require("pipeline")
 local config = require("config")
 
-local function size(file)
+local function filesize(file)
     local f = io.open(file, "r")
+    if not f then return 0 end
     local sz = f:seek("end")
     f:close()
     return sz
@@ -15,13 +16,12 @@ local colors = {
     green = "\27[32m",
     red = "\27[31m",
     white = "\27[37m",
-    cyan = "\27[36m",
+    cyan = "\27[36m", 
     blue = "\27[34m",
     yellow = "\27[33m"
 }
 
-local function print_result(input, output, time, overwrite, custom_file, sanity_failed, sanity_info)
-    local art = colors.blue .. [[
+local BANNER = colors.blue .. [[
                                 _                      _        __   
   /\  /\ ___  _ __  ___  _   _ | |  ___  ___   __   __/ |      / /_  
  / /_/ // _ \| '__|/ __|| | | || | / _ \/ __|  \ \ / /| |     | '_ \ 
@@ -29,43 +29,71 @@ local function print_result(input, output, time, overwrite, custom_file, sanity_
 \/ /_/  \___||_|   \___| \__,_||_| \___||___/    \_/  |_| (_)  \___/ 
                                        ]] .. colors.reset
 
-    local line = colors.white .. string.rep("=", 65) .. colors.reset
-    local og_size = size(input)
-    local obfuscated_size = size(output)
+local function runsanecheck(original_code, obfuscated_code)
+    local function captureoutput(code)
+        local output = {}
+        local ogprint = _G.print
+        _G.print = function(...)
+            local args = {...}
+            local str = table.concat(map(tostring, args), "\t")
+            table.insert(output, str)
+        end
+        local func, err = load(code)
+        if not func then
+            return "", "Compilation error: " .. tostring(err)
+        end
+        local status, result = pcall(func)
+        _G.print = ogprint
+        if not status then
+            return "", "Runtime error: " .. tostring(result)
+        end
+        return table.concat(output, "\n"), nil
+    end
 
+    local original_output, original_err = captureoutput(original_code)
+    local obfuscated_output, obfuscated_err = captureoutput(obfuscated_code)
+
+    if original_err or obfuscated_err then
+        return false, { expected = original_err or original_output, got = obfuscated_err or obfuscated_output }
+    end
+
+    return original_output == obfuscated_output, { expected = original_output, got = obfuscated_output }
+end
+
+local function printcliresult(input, output, time, options)
+    local og_size = filesize(input)
+    local obfuscated_size = filesize(output)
+    local size_diff_percent = string.format("%.2f", ((obfuscated_size - og_size) / og_size) * 100 + 100)
+
+    local line = colors.white .. string.rep("=", 65) .. colors.reset
     print("\n" .. line)
-    print(art)
-    print("     ")
+    print(BANNER)
     print(colors.white .. "Obfuscation Complete!" .. colors.reset)
     print(line)
     print(colors.white .. "Time Taken        : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
     print(colors.cyan .. "Original Size     : " .. og_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Obfuscated Size   : " .. obfuscated_size .. " bytes" .. colors.reset)
-    print(colors.cyan .. "Size Difference   : " .. (obfuscated_size - og_size) .. " bytes (" ..
-          string.format("%.2f", ((obfuscated_size - og_size) / og_size) * 100 + 100) .. "%)" .. colors.reset)
+    print(colors.cyan .. "Size Difference   : " .. (obfuscated_size - og_size) .. " bytes (" .. size_diff_percent .. "%)" .. colors.reset)
 
-    local overwrite_str = overwrite and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
-    local custom_str = custom_file and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset
-
-    print(colors.cyan .. "Overwrite         : " .. overwrite_str)
-    print(colors.cyan .. "Custom Pipeline   : " .. custom_str)
-    print(colors.white .. "Output File       : " .. output .. colors.reset)
-if sanity_check then
-    if sanity_failed then
-        print(colors.red .. "Sanity Check      : Failed" .. colors.reset)
-        
-        if sanity_info then
-            print(colors.yellow .. "\nExpected output:" .. colors.reset)
-            print(colors.white .. sanity_info.expected .. colors.reset)
-            print(colors.yellow .. "\nGot output:" .. colors.reset)
-            print(colors.white .. sanity_info.got .. colors.reset)
-        end
-        
-        print(colors.red .. "\nPlease file a bug report in our Discord Server --> discord.gg/Hx6RuYs8Ku" .. colors.reset)
-    else
-        print(colors.green .. "Sanity Check      : Passed" .. colors.reset)
+    local function formatbool(val) 
+        return val and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset 
     end
-end
+
+    print(colors.cyan .. "Overwrite         : " .. formatbool(options.overwrite))
+    print(colors.cyan .. "Custom Pipeline   : " .. formatbool(options.custom_file))
+    print(colors.white .. "Output File       : " .. output .. colors.reset)
+
+    if options.sanity_check then
+        if options.sanity_failed then
+            print(colors.red .. "Sanity Check      : Failed" .. colors.reset)
+            print(colors.yellow .. "\nExpected output:" .. colors.reset)
+            print(colors.white .. options.sanity_info.expected .. colors.reset)
+            print(colors.yellow .. "\nGot output:" .. colors.reset)
+            print(colors.white .. options.sanity_info.got .. colors.reset)
+        else
+            print(colors.green .. "Sanity Check      : Passed" .. colors.reset)
+        end
+    end
 
     print(line)
 
@@ -102,217 +130,170 @@ end
     print(line .. "\n")
 end
 
-local function sanecheck(original_code, obfuscated_code)
-    local function capture(code)
-        local output = {}
-        local original_print = _G.print
-        
-        _G.print = function(...)
-            local args = {...}
-            local str = ""
-            for i, v in ipairs(args) do
-                str = str .. tostring(v)
-                if i < #args then str = str .. "\t" end
-            end
-            table.insert(output, str)
-        end
-        
-        local func = load(code)
-        pcall(func)
-        _G.print = original_print
-        
-        return table.concat(output, "\n")
-    end
-
-    local original_output = capture(original_code)
-    local obfuscated_output = capture(obfuscated_code)
-    
-    return original_output == obfuscated_output, {
-        expected = original_output,
-        got = obfuscated_output
+local function print_usage()
+    print(colors.white .. "Usage: " .. colors.reset .. colors.cyan .. "./hercules.lua *.lua (+ any options)" .. colors.reset)
+    print(colors.white .. "\nFlags:" .. colors.reset)
+    local flags = {
+        { flags = {"--overwrite", ""}, description = "Overwrites the original file with obfuscated code" },
+        { flags = {"--pipeline", " <file>"}, description = "Use a custom pipeline for obfuscation" },
+        { flags = {"--folder", ""}, description = "Process all Lua files in the given folder" },
+        { flags = {"--sanity", ""}, description = "Check if obfuscated code output matches original" }
     }
-end
-
-local function usage()
-    print(colors.white .. [[
-Usage: ]] .. colors.reset) 
-print(colors.cyan .. [[
-    ./hercules.lua *.lua (+ any options)
-]] .. colors.white .. [[
-Flags:
-]] .. colors.reset)
-
-    print(colors.white .. [[
-    File:
-    ]] .. colors.cyan .. [[--overwrite          ]] .. colors.green .. [[Overwrites the original file with the obfuscated code, 
-                         instead of creating a new *_obfuscated.lua file.
-    ]] .. colors.cyan .. [[--pipeline <file>    ]] .. colors.green .. [[Use a custom pipeline for obfuscation.
-    ]] .. colors.cyan .. [[--folder             ]] .. colors.green .. [[Processes all Lua files in the given folder, 
-                         instead of a single file.
-    ]] .. colors.cyan .. [[--sanity             ]] .. colors.green .. [[Checks if obfuscated code output matches 
-                         the original output.
-]])
-
-print(colors.white .. [[
-Obfuscation:
-]] .. colors.cyan .. [[--CF, --control_flow                  ]] .. colors.green .. [[Enable control flow obfuscation.
-]] .. colors.cyan .. [[--SE, --string_encoding               ]] .. colors.green .. [[Enable string encoding.
-]] .. colors.cyan .. [[--VR, --variable_renaming             ]] .. colors.green .. [[Enable variable renaming.
-]] .. colors.cyan .. [[--GCI, --garbage_code                 ]] .. colors.green .. [[Enable garbage code insertion.
-]] .. colors.cyan .. [[--OPI, --opaque_predicates            ]] .. colors.green .. [[Enable opaque predicates injection.
-]] .. colors.cyan .. [[--BE, --bytecode_encoding             ]] .. colors.green .. [[Enable bytecode encoding.
-]] .. colors.cyan .. [[--C, --compressor                     ]] .. colors.green .. [[Enable code compression.
-]] .. colors.cyan .. [[--ST, --string_to_expr                ]] .. colors.green .. [[Enable string to expressions.
-]] .. colors.cyan .. [[--VM, --virtual_machine               ]] .. colors.green .. [[Enable virtual machinery.
-]] .. colors.cyan .. [[--WIF, --wrap_in_func                 ]] .. colors.green .. [[Enable function wrapping.
-]] .. colors.cyan .. [[--FI, --func_inlining                 ]] .. colors.green .. [[Enable function inlining.
-]] .. colors.cyan .. [[--DC, --dynamic_code                  ]] .. colors.green .. [[Enable dynamic code injection.
-]])
-
-    print(colors.yellow .. [[
-    If one Obfuscation flag is enabled, all others are disabled unless manually enabled.
-]] .. colors.reset)
-
+    for _, flag in ipairs(flags) do
+        print(colors.cyan .. flag.flags[1] .. flag.flags[2] .. colors.green .. string.rep(" ", 20 - #flag.flags[1] - #flag.flags[2]) .. flag.description .. colors.reset)
+    end
     os.exit(1)
 end
 
-if #arg < 1 then
-    usage()
-end
+local function main()
+    if #arg < 1 then
+        print_usage()
+    end
 
-local input = arg[1]
-local overwrite = false
-local custom_file = nil
-local folder_mode = false
-local sanity_check = false
+    local input = arg[1]
+    local options = {
+        overwrite = false,
+        custom_file = nil,
+        folder_mode = false,
+        sanity_check = false
+    }
 
-local features = {
-    control_flow = false,
-    string_encoding = false,
-    variable_renaming = false,
-    garbage_code = false,
-    opaque_predicates = false,
-    bytecode_encoding = false,
-    compressor = false,
-    StringToExpressions = false,
-    VirtualMachine = false,
-    WrapInFunction = false,
-    function_inlining = false,
-    dynamic_code = false,
-}
+    local features = {
+        control_flow = false,
+        string_encoding = false,
+        variable_renaming = false,
+        garbage_code = false,
+        opaque_predicates = false,
+        bytecode_encoding = false,
+        compressor = false,
+        StringToExpressions = false,
+        VirtualMachine = false,
+        WrapInFunction = false,
+        function_inlining = false,
+        dynamic_code = false,
+    }
 
-for i = 2, #arg do
-    if arg[i] == "--overwrite" then
-        overwrite = true
-    elseif arg[i] == "--pipeline" then
-        if arg[i + 1] then
-            custom_file = arg[i + 1]:gsub("%.lua$", "")
-            i = i + 1
-        else
-            usage()
+    for i = 2, #arg do
+        if arg[i] == "--overwrite" then
+            options.overwrite = true
+        elseif arg[i] == "--pipeline" then
+            if arg[i + 1] then
+                options.custom_file = arg[i + 1]:gsub("%.lua$", "")
+                i = i + 1
+            else
+                print_usage()
+            end
+        elseif arg[i] == "--folder" then
+            options.folder_mode = true
+        elseif arg[i] == "--sanity" then
+            options.sanity_check = true
+        elseif arg[i] == "--CF" or arg[i] == "--control_flow" then
+            features.control_flow = true
+        elseif arg[i] == "--SE" or arg[i] == "--string_encoding" then
+            features.string_encoding = true
+        elseif arg[i] == "--VR" or arg[i] == "--variable_renaming" then
+            features.variable_renaming = true
+        elseif arg[i] == "--GCI" or arg[i] == "--garbage_code" then
+            features.garbage_code = true
+        elseif arg[i] == "--OPI" or arg[i] == "--opaque_predicates" then
+            features.opaque_predicates = true
+        elseif arg[i] == "--BE" or arg[i] == "--bytecode_encoding" then
+            features.bytecode_encoding = true
+        elseif arg[i] == "--ST" or arg[i] == "--string_to_expr" then
+            features.StringToExpressions = true
+        elseif arg[i] == "--VM" or arg[i] == "--virtual_machine" then
+            features.VirtualMachine = true
+        elseif arg[i] == "--WIF" or arg[i] == "--wrap_in_func" then
+            features.WrapInFunction = true
+        elseif arg[i] == "--FI" or arg[i] == "--func_inlining" then
+            features.function_inlining = true
+        elseif arg[i] == "--DC" or arg[i] == "--dynamic_code" then
+            features.dynamic_code = true
         end
-    elseif arg[i] == "--folder" then
-        folder_mode = true
-    elseif arg[i] == "--sanity" then
-        sanity_check = true
-    elseif arg[i] == "--CF" or arg[i] == "--control_flow" then
-        features.control_flow = true
-    elseif arg[i] == "--SE" or arg[i] == "--string_encoding" then
-        features.string_encoding = true
-    elseif arg[i] == "--VR" or arg[i] == "--variable_renaming" then
-        features.variable_renaming = true
-    elseif arg[i] == "--GCI" or arg[i] == "--garbage_code" then
-        features.garbage_code = true
-    elseif arg[i] == "--OPI" or arg[i] == "--opaque_predicates" then
-        features.opaque_predicates = true
-    elseif arg[i] == "--BE" or arg[i] == "--bytecode_encoding" then
-        features.bytecode_encoding = true
-    elseif arg[i] == "--ST" or arg[i] == "--string_to_expr" then
-        features.StringToExpressions = true
-    elseif arg[i] == "--VM" or arg[i] == "--virtual_machine" then
-        features.VirtualMachine = true
-    elseif arg[i] == "--WIF" or arg[i] == "--wrap_in_func" then
-        features.WrapInFunction = true
-    elseif arg[i] == "--FI" or arg[i] == "--func_inlining" then
-        features.function_inlining = true
-    elseif arg[i] == "--DC" or arg[i] == "--dynamic_code" then
-        features.dynamic_code = true
     end
-end
 
-local single_enabled = false
-for feature in pairs(features) do
-    if features[feature] then
-        single_enabled = true
-        break
-    end
-end
-
-if single_enabled then
+    local single_enabled = false
     for feature in pairs(features) do
-        config.settings[feature].enabled = features[feature]
-    end
-end
-
-local files = {}
-if folder_mode then
-    local handle = io.popen('ls "' .. input .. '"')
-    for file in handle:lines() do
-        if file:match("%.lua$") then
-            table.insert(files, input .. "/" .. file)
+        if features[feature] then
+            single_enabled = true
+            break
         end
     end
-    handle:close()
-else
-    table.insert(files, input)
-end
 
-local start_time = os.clock()
-for _, file_path in ipairs(files) do
-    local file = io.open(file_path, "r")
-    if not file then
-        print("Error: Could not open file " .. file_path)
-        os.exit(1)
+    if single_enabled then
+        for feature, enabled in pairs(features) do
+            config.settings[feature].enabled = enabled
+        end
     end
 
-    local code = file:read("*all")
-    file:close()
-
-    local obfuscated_code
-    local attempts = 0
-    local success = false
-    local sanity_failed = false
-    local sanity_info = nil
-
-    repeat
-        attempts = attempts + 1
-        if custom_file then
-            local success, custom = pcall(require, custom_file)
-            if not success then
-                print("Error: Could not load custom pipeline module: " .. custom)
-                os.exit(1)
+    local files = {}
+    if options.folder_mode then
+        for file in io.popen('ls "' .. input .. '"'):lines() do
+            if file:match("%.lua$") then
+                table.insert(files, input .. "/" .. file)
             end
-            obfuscated_code = custom.process(code)
-        else
-            obfuscated_code = Pipeline.process(code)
+        end
+    else
+        table.insert(files, input)
+    end
+
+    for _, file_path in ipairs(files) do
+        local file = io.open(file_path, "r")
+        if not file then
+            print("Error: Could not open file " .. file_path)
+            os.exit(1)
         end
 
-        if sanity_check then
-            success, sanity_info = sanecheck(code, obfuscated_code)
-            if not success and attempts >= 3 then
-                sanity_failed = true
-                break
+        local code = file:read("*all")
+        file:close()
+
+        local start_time = os.clock()
+        local obfuscated_code, sanity_failed, sanity_info
+        local attempts, success = 0, false
+
+        repeat
+            attempts = attempts + 1
+            if options.custom_file then
+                local ok, custom = pcall(require, options.custom_file)
+                if not ok then
+                    print("Error: Could not load custom pipeline module: " .. tostring(custom))
+                    os.exit(1)
+                end
+                obfuscated_code = custom.process(code)
+            else
+                obfuscated_code = Pipeline.process(code)
             end
-        else
-            success = true
-        end
-    until success or attempts >= 3
 
-    local output_file = overwrite and file_path or file_path:gsub("%.lua$", "_obfuscated.lua")
-    local out_file_handle = io.open(output_file, "w")
-    out_file_handle:write(obfuscated_code)
-    out_file_handle:close()
+            if options.sanity_check then
+                success, sanity_info = runsanecheck(code, obfuscated_code)
+                if not success and attempts >= 3 then
+                    sanity_failed = true
+                    break
+                end
+            else
+                success = true
+            end
+        until success or attempts >= 3
 
-    local end_time = os.clock()
-    print_result(file_path, output_file, end_time - start_time, overwrite, custom_file, sanity_failed, sanity_info)
+        local output_file = options.overwrite and file_path or file_path:gsub("%.lua$", "_obfuscated.lua")
+        local out_file_handle = assert(io.open(output_file, "w"))
+        out_file_handle:write(obfuscated_code)
+        out_file_handle:close()
+
+        local end_time = os.clock()
+        options.sanity_failed = sanity_failed
+        options.sanity_info = sanity_info
+
+        printcliresult(file_path, output_file, end_time - start_time, options)
+    end
 end
+
+function map(func, tbl)
+    local mapped = {}
+    for k, v in pairs(tbl) do
+        mapped[k] = func(v, k)
+    end
+    return mapped
+end
+
+main()
