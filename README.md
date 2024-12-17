@@ -175,8 +175,12 @@ You may also specify an alternate pipeline file using `--pipeline`, along with a
 ```sh
 lua src\hercules.lua my_script.lua --pipeline custom_pipeline.lua 
 ```
+
 >[!NOTE]
 >Ensure that your custom pipeline file is **in the same directory** as `hercules.lua`.
+
+>[!WARNING]
+>The `--pipeline` flag will be removed soon, in favour of preset tags
 
 ## Customization
 
