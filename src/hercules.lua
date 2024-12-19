@@ -2,13 +2,26 @@
 
 local Pipeline = require("pipeline")
 local config = require("config")
+-- utils
 
 local function filesize(file)
     local f = io.open(file, "r")
     if not f then return 0 end
-    local sz = f:seek("end")
+    local sz
+    local success, err = pcall(function()
+        sz = f:seek("end")
+    end)
     f:close()
+    if not success then return 0 end
     return sz
+end
+
+local function map(func, tbl)
+    local mapped = {}
+    for k, v in pairs(tbl) do
+        mapped[k] = func(v, k)
+    end
+    return mapped
 end
 
 local colors = {
@@ -33,19 +46,24 @@ local function runsanecheck(original_code, obfuscated_code)
     local function captureoutput(code)
         local output = {}
         local ogprint = _G.print
-        _G.print = function(...)
-            local args = {...}
-            local str = table.concat(map(tostring, args), "\t")
-            table.insert(output, str)
-        end
-        local func, err = load(code)
-        if not func then
-            return "", "Compilation error: " .. tostring(err)
-        end
-        local status, result = pcall(func)
+        local success, result = pcall(function()
+            _G.print = function(...)
+                local args = {...}
+                local str = table.concat(map(tostring, args), "\t")
+                table.insert(output, str)
+            end
+            local func, err = load(code)
+            if not func then
+                error("Compilation error: " .. tostring(err))
+            end
+            local status, run_result = pcall(func)
+            if not status then
+                error("Runtime error: " .. tostring(run_result))
+            end
+        end)
         _G.print = ogprint
-        if not status then
-            return "", "Runtime error: " .. tostring(result)
+        if not success then
+            return "", result
         end
         return table.concat(output, "\n"), nil
     end
@@ -130,19 +148,75 @@ local function printcliresult(input, output, time, options)
     print(line .. "\n")
 end
 
+local function apply_preset(level)
+    if level == "min" then
+        config.set("settings.variable_renaming.min_name_length", 10)
+        config.set("settings.variable_renaming.max_name_length", 20)
+        config.set("settings.garbage_code.garbage_blocks", 5)
+        config.set("settings.control_flow.max_fake_blocks", 2)
+
+    elseif level == "mid" then
+        config.set("settings.variable_renaming.min_name_length", 40)
+        config.set("settings.variable_renaming.max_name_length", 60)
+        config.set("settings.garbage_code.garbage_blocks", 25)
+        config.set("settings.control_flow.max_fake_blocks", 8)
+
+    elseif level == "max" then
+        config.set("settings.variable_renaming.min_name_length", 90)
+        config.set("settings.variable_renaming.max_name_length", 120)
+        config.set("settings.garbage_code.garbage_blocks", 50)
+        config.set("settings.control_flow.max_fake_blocks", 12)
+        config.set("settings.StringToExpressions.min_number_length", 800)
+        config.set("settings.StringToExpressions.max_number_length", 999)
+    end
+end
+
 local function print_usage()
     print(colors.white .. "Usage: " .. colors.reset .. colors.cyan .. "./hercules.lua *.lua (+ any options)" .. colors.reset)
-    print(colors.white .. "\nFlags:" .. colors.reset)
-    local flags = {
+    print(colors.white .. "\nOptional Presets:" .. colors.reset)
+    print(colors.cyan .. "--min" .. string.rep(" ", 17) .. colors.green .. "Minimal parameters for lighter obfuscation" .. colors.reset)
+    print(colors.cyan .. "--mid" .. string.rep(" ", 17) .. colors.green .. "Moderate parameters for balanced obfuscation" .. colors.reset)
+    print(colors.cyan .. "--max" .. string.rep(" ", 17) .. colors.green .. "Maximum parameters for heavy obfuscation" .. colors.reset)
+    
+    print(colors.white .. "\nGeneral Flags:" .. colors.reset)
+    local general_flags = {
         { flags = {"--overwrite", ""}, description = "Overwrites the original file with obfuscated code" },
-        { flags = {"--pipeline", " <file>"}, description = "Use a custom pipeline for obfuscation" },
         { flags = {"--folder", ""}, description = "Process all Lua files in the given folder" },
         { flags = {"--sanity", ""}, description = "Check if obfuscated code output matches original" }
     }
-    for _, flag in ipairs(flags) do
+    for _, flag in ipairs(general_flags) do
         print(colors.cyan .. flag.flags[1] .. flag.flags[2] .. colors.green .. string.rep(" ", 20 - #flag.flags[1] - #flag.flags[2]) .. flag.description .. colors.reset)
     end
-    os.exit(1)
+
+    print(colors.white .. "\nObfuscation Flags:" .. colors.reset)
+
+local obfuscation_flags = {
+    { flags = {"--CF", "--control_flow"}, description = "Enable control flow obfuscation" },
+    { flags = {"--SE", "--string_encoding"}, description = "Enable string encoding" },
+    { flags = {"--VR", "--variable_renamer"}, description = "Enable variable renaming" },
+    { flags = {"--GCI", "--garbage_code"}, description = "Enable garbage code injection" },
+    { flags = {"--OPI", "--opaque_preds"}, description = "Enable opaque predicates injection" },
+    { flags = {"--BE", "--bytecode_encoder"}, description = "Enable bytecode encoding" },
+    { flags = {"--ST", "--string_to_expr"}, description = "Enable string to expression conversion" },
+    { flags = {"--VM", "--virtual_machine"}, description = "Enable virtual machine transformation" },
+    { flags = {"--WIF", "--wrap_in_func"}, description = "Enable function wrapping" },
+    { flags = {"--FI", "--func_inlining"}, description = "Enable function inlining" },
+    { flags = {"--DC", "--dynamic_code"}, description = "Enable dynamic code generation" }
+}
+
+local max_flag_length = 0
+for _, flag in ipairs(obfuscation_flags) do
+    local short_flag = flag.flags[1]
+    local long_flag = flag.flags[2]
+    max_flag_length = math.max(max_flag_length, #short_flag + #long_flag + 2)
+end
+for _, flag in ipairs(obfuscation_flags) do
+    local short_flag = flag.flags[1]
+    local long_flag = flag.flags[2]
+    local padding = string.rep(" ", max_flag_length - (#short_flag + #long_flag + 2))
+    print(colors.cyan .. short_flag .. ", " .. long_flag .. padding .. colors.white .. ": " .. colors.green .. flag.description .. colors.reset)
+end
+os.exit(1)
 end
 
 local function main()
@@ -176,13 +250,16 @@ local function main()
     for i = 2, #arg do
         if arg[i] == "--overwrite" then
             options.overwrite = true
-        elseif arg[i] == "--pipeline" then
-            if arg[i + 1] then
-                options.custom_file = arg[i + 1]:gsub("%.lua$", "")
-                i = i + 1
-            else
-                print_usage()
-            end
+        --[REMOVED CONTENT START] 
+        -- '--pipeline' flag has been removed, in favour of preset flags
+        -- elseif arg[i] == "--pipeline" then
+        --     if arg[i + 1] then
+        --         options.custom_file = arg[i + 1]:gsub("%.lua$", "")
+        --         i = i + 1
+        --     else
+        --         print_usage()
+        -- end
+        --[REMOVED CONTENT END]
         elseif arg[i] == "--folder" then
             options.folder_mode = true
         elseif arg[i] == "--sanity" then
@@ -191,13 +268,13 @@ local function main()
             features.control_flow = true
         elseif arg[i] == "--SE" or arg[i] == "--string_encoding" then
             features.string_encoding = true
-        elseif arg[i] == "--VR" or arg[i] == "--variable_renaming" then
+        elseif arg[i] == "--VR" or arg[i] == "--variable_renamer" then
             features.variable_renaming = true
         elseif arg[i] == "--GCI" or arg[i] == "--garbage_code" then
             features.garbage_code = true
-        elseif arg[i] == "--OPI" or arg[i] == "--opaque_predicates" then
+        elseif arg[i] == "--OPI" or arg[i] == "--opaque_preds" then
             features.opaque_predicates = true
-        elseif arg[i] == "--BE" or arg[i] == "--bytecode_encoding" then
+        elseif arg[i] == "--BE" or arg[i] == "--bytecode_encoder" then
             features.bytecode_encoding = true
         elseif arg[i] == "--ST" or arg[i] == "--string_to_expr" then
             features.StringToExpressions = true
@@ -209,6 +286,12 @@ local function main()
             features.function_inlining = true
         elseif arg[i] == "--DC" or arg[i] == "--dynamic_code" then
             features.dynamic_code = true
+        elseif arg[i] == "--min" then
+            options.preset_level = "min"
+        elseif arg[i] == "--mid" then
+            options.preset_level = "mid"
+        elseif arg[i] == "--max" then
+            options.preset_level = "max"
         end
     end
 
@@ -287,13 +370,4 @@ local function main()
         printcliresult(file_path, output_file, end_time - start_time, options)
     end
 end
-
-function map(func, tbl)
-    local mapped = {}
-    for k, v in pairs(tbl) do
-        mapped[k] = func(v, k)
-    end
-    return mapped
-end
-
 main()
