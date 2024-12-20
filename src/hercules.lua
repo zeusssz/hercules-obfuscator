@@ -202,6 +202,7 @@ local obfuscation_flags = {
     { flags = {"--WIF", "--wrap_in_func"}, description = "Enable function wrapping" },
     { flags = {"--FI", "--func_inlining"}, description = "Enable function inlining" },
     { flags = {"--DC", "--dynamic_code"}, description = "Enable dynamic code generation" }
+    { flags = {"--C", "--compressor"}, description = "Enable compressor" }
 }
 
 local max_flag_length = 0
@@ -266,6 +267,8 @@ local function main()
             options.sanity_check = true
         elseif arg[i] == "--CF" or arg[i] == "--control_flow" then
             features.control_flow = true
+        elseif arg[i] == "--C" or arg[i] == "--compressor" then
+            features.compressor = true
         elseif arg[i] == "--SE" or arg[i] == "--string_encoding" then
             features.string_encoding = true
         elseif arg[i] == "--VR" or arg[i] == "--variable_renamer" then
