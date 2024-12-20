@@ -30,7 +30,7 @@ config.settings = {
         max_name_length = 80,
     },
     garbage_code = {
-        enabled = false,
+        enabled = true,
         garbage_blocks = 20,
     },
     opaque_predicates = {
