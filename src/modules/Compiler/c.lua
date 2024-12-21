@@ -6,7 +6,7 @@ local Vmify = {}
 local luaAPI = require("api")
 local Vm = require("VMGenerator")
 function Vmify.process(code)
-    return luaAPI.Obfuscator.ASTObfuscator.ObfuscateScript(NewVm(code))
+    return luaAPI.Obfuscator.ASTObfuscator.ObfuscateScript(Vm(code))
 end
 
 return Vmify
