@@ -201,7 +201,7 @@ local obfuscation_flags = {
     { flags = {"--VM", "--virtual_machine"}, description = "Enable virtual machine transformation" },
     { flags = {"--WIF", "--wrap_in_func"}, description = "Enable function wrapping" },
     { flags = {"--FI", "--func_inlining"}, description = "Enable function inlining" },
-    { flags = {"--DC", "--dynamic_code"}, description = "Enable dynamic code generation" }
+    { flags = {"--DC", "--dynamic_code"}, description = "Enable dynamic code generation" },
     { flags = {"--C", "--compressor"}, description = "Enable compressor" }
 }
 
