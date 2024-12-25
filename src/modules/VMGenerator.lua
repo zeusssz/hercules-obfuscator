@@ -4104,7 +4104,6 @@ local function compress(input)
 		local Op = UsedOpcodes[v]
 		Add(k .. " (S == " .. Op .. ") then\n")
 		Add(GetOpcodeCode(Op))
-                print(Op)
 		k = "elseif"
 	end;
 	Add("end")
