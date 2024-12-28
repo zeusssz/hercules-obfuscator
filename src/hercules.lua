@@ -191,18 +191,18 @@ local function print_usage()
     print(colors.white .. "\nObfuscation Flags:" .. colors.reset)
 
 local obfuscation_flags = {
-    { flags = {"--CF", "--control_flow"}, description = "Enable control flow obfuscation" },
-    { flags = {"--SE", "--string_encoding"}, description = "Enable string encoding" },
-    { flags = {"--VR", "--variable_renamer"}, description = "Enable variable renaming" },
-    { flags = {"--GCI", "--garbage_code"}, description = "Enable garbage code injection" },
-    { flags = {"--OPI", "--opaque_preds"}, description = "Enable opaque predicates injection" },
-    { flags = {"--BE", "--bytecode_encoder"}, description = "Enable bytecode encoding" },
-    { flags = {"--ST", "--string_to_expr"}, description = "Enable string to expression conversion" },
-    { flags = {"--VM", "--virtual_machine"}, description = "Enable virtual machine transformation" },
-    { flags = {"--WIF", "--wrap_in_func"}, description = "Enable function wrapping" },
-    { flags = {"--FI", "--func_inlining"}, description = "Enable function inlining" },
-    { flags = {"--DC", "--dynamic_code"}, description = "Enable dynamic code generation" },
-    { flags = {"--C", "--compressor"}, description = "Enable compressor" }
+    { flags = {"-cf", "--control_flow"}, description = "Enable control flow obfuscation" },
+    { flags = {"-se", "--string_encoding"}, description = "Enable string encoding" },
+    { flags = {"-vr", "--variable_renamer"}, description = "Enable variable renaming" },
+    { flags = {"-gci", "--garbage_code"}, description = "Enable garbage code injection" },
+    { flags = {"-opi", "--opaque_preds"}, description = "Enable opaque predicates injection" },
+    { flags = {"-be", "--bytecode_encoder"}, description = "Enable bytecode encoding" },
+    { flags = {"-st", "--string_to_expr"}, description = "Enable string to expression conversion" },
+    { flags = {"-vm", "--virtual_machine"}, description = "Enable virtual machine transformation" },
+    { flags = {"-wif", "--wrap_in_func"}, description = "Enable function wrapping" },
+    { flags = {"-fi", "--func_inlining"}, description = "Enable function inlining" },
+    { flags = {"-dc", "--dynamic_code"}, description = "Enable dynamic code generation" },
+    { flags = {"-c", "--compressor"}, description = "Enable compressor" }
 }
 
 local max_flag_length = 0
@@ -265,29 +265,29 @@ local function main()
             options.folder_mode = true
         elseif arg[i] == "--sanity" then
             options.sanity_check = true
-        elseif arg[i] == "--CF" or arg[i] == "--control_flow" then
+        elseif arg[i] == "-cf" or arg[i] == "--control_flow" then
             features.control_flow = true
-        elseif arg[i] == "--C" or arg[i] == "--compressor" then
+        elseif arg[i] == "-c" or arg[i] == "--compressor" then
             features.compressor = true
-        elseif arg[i] == "--SE" or arg[i] == "--string_encoding" then
+        elseif arg[i] == "-se" or arg[i] == "--string_encoding" then
             features.string_encoding = true
-        elseif arg[i] == "--VR" or arg[i] == "--variable_renamer" then
+        elseif arg[i] == "-vr" or arg[i] == "--variable_renamer" then
             features.variable_renaming = true
-        elseif arg[i] == "--GCI" or arg[i] == "--garbage_code" then
+        elseif arg[i] == "-gci" or arg[i] == "--garbage_code" then
             features.garbage_code = true
-        elseif arg[i] == "--OPI" or arg[i] == "--opaque_preds" then
+        elseif arg[i] == "-opi" or arg[i] == "--opaque_preds" then
             features.opaque_predicates = true
-        elseif arg[i] == "--BE" or arg[i] == "--bytecode_encoder" then
+        elseif arg[i] == "-be" or arg[i] == "--bytecode_encoder" then
             features.bytecode_encoding = true
-        elseif arg[i] == "--ST" or arg[i] == "--string_to_expr" then
+        elseif arg[i] == "-st" or arg[i] == "--string_to_expr" then
             features.StringToExpressions = true
-        elseif arg[i] == "--VM" or arg[i] == "--virtual_machine" then
+        elseif arg[i] == "-vm" or arg[i] == "--virtual_machine" then
             features.VirtualMachine = true
-        elseif arg[i] == "--WIF" or arg[i] == "--wrap_in_func" then
+        elseif arg[i] == "-wif" or arg[i] == "--wrap_in_func" then
             features.WrapInFunction = true
-        elseif arg[i] == "--FI" or arg[i] == "--func_inlining" then
+        elseif arg[i] == "-fi" or arg[i] == "--func_inlining" then
             features.function_inlining = true
-        elseif arg[i] == "--DC" or arg[i] == "--dynamic_code" then
+        elseif arg[i] == "-dc" or arg[i] == "--dynamic_code" then
             features.dynamic_code = true
         elseif arg[i] == "--min" then
             options.preset_level = "min"
