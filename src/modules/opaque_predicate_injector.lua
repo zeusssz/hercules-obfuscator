@@ -1,52 +1,103 @@
 local OpaquePredicateInjector = {}
-
-local predicates = {
-    " if (math.sin(0) == 0) then ", 
-    " if (5^2 == 25) then ", 
-    " if ((10 > 5 and 2 < 3) or (7 ~= 8)) then ", 
-    " if (#('abcdef') == 6) then ", 
-    " if (not false) then ", 
-    " if (select(2, pcall(function() return 1 end)) == 1) then ", 
-    " if (type(tonumber('123')) == 'number') then ", 
-}
-
-local function is_safe_for_injection(statement)
-    if statement:match("^%s*for%s+") or statement:match("^%s*while%s+") or statement:match("^%s*if%s+") then
+local function genpreds()
+    local predicates = {
+        function() 
+            local n = math.random(10, 100)
+            return string.format("if (%d %% 1 == 0 and %d >= %d) then", n, n, n)
+        end,
+        function()
+            local x = math.random(1, 10)
+            return string.format("if ((%d * %d - %d) / %d == %d) then", 
+                x, x, x*x-x, x, x-1)
+        end,
+        function()
+            local angle = math.random(0, 360)
+            return string.format("if (math.sin(%d)^2 + math.cos(%d)^2 >= 0.99999) then", 
+                angle, angle)
+        end,
+        function()
+            local str = string.format("%x", math.random(1000, 9999))
+            return string.format("if (select(2, pcall(function() return tonumber('%s', 16) end)) ~= nil) then", str)
+        end,
+        function()
+            local size = math.random(2, 5)
+            return string.format("if (#{%s} == %d) then",
+                string.rep("1,", size-1) .. "1", size)
+        end,
+        function()
+            local a, b = math.random(1, 10), math.random(11, 20)
+            return string.format("if ((%d < %d) == not (%d >= %d)) then", a, b, a, b)
+        end
+    }
+    
+    return predicates[math.random(#predicates)]()
+end
+local function injectsafe(statement)
+    if statement:match("^%s*[%{%}]%s*$") or
+       statement:match("^%s*$") or
+       not statement:match(".+;") then
         return false
     end
-    if statement:match("^%s*$") or not statement:match(".+;") then
+    local unsafes = {
+        "^%s*for%s+",
+        "^%s*while%s+",
+        "^%s*if%s+",
+        "^%s*repeat%s+",
+        "^%s*until%s+",
+        "^%s*function%s+",
+        "^%s*local%s+function",
+        "^%s*do%s+",
+    }
+    
+    for _, pattern in ipairs(unsafes) do
+        if statement:match(pattern) then
+            return false
+        end
+    end
+    if statement:match("^%s*if%s+.+%s+then%s+.+%s+end%s*;?$") then
         return false
     end
+    
     return true
 end
-local function inject_predicate(block)
-    local predicate = predicates[math.random(#predicates)] 
-    if block:match("%s*end%s*;?$") then
-        return predicate .. block
-    elseif block:match("^%s*return") then
+local function injpreds(block)
+    if block:match("%s*end%s*;?$") or block:match("^%s*return") then
         return block
     else
+        local predicate = genpreds()
         return predicate .. block .. " end;"
     end
 end
 function OpaquePredicateInjector.process(code)
+    if type(code) ~= "string" then
+        error("Input must be a string")
+    end
+    
     local success, processed_code = pcall(function()
-        return code:gsub("([ \t]*)([^\n;]*;)", function(ws, statement)
-            if is_safe_for_injection(statement) then
-                return ws .. inject_predicate(statement)
+        local result = code:gsub("([ \t]*)([^\n;]*;)", function(ws, statement)
+            if injectsafe(statement) then
+                return ws .. injpreds(statement)
             else
                 return ws .. statement
             end
         end)
-    end)
-    if success then
-        processed_code = processed_code:gsub("([ \t]*)(return%s+[^\n;]+;)", function(ws, return_stmt)
+        result = result:gsub("([ \t]*)(return%s+[^\n;]+;)", function(ws, return_stmt)
             return ws .. return_stmt
         end)
-        return processed_code
-    else
-        return code
+        
+        return result
+    end)
+    
+    if not success then
+        error("Failed to process code: " .. tostring(processed_code))
     end
+    
+    return processed_code
+end
+
+function OpaquePredicateInjector.valcode(code)
+    local f, err = load(code)
+    return f ~= nil, err
 end
 
 return OpaquePredicateInjector

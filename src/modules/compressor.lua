@@ -1,35 +1,42 @@
 local Compressor = {}
 
-function Compressor.process(code, preserveComments)
-    local string_literals = {}
-    
+function Compressor.process(code)
     if type(code) ~= "string" then
         error("Input code must be a string.")
     end
-    local literal_placeholder = function(literal)
-        local key = "__STR" .. #string_literals + 1 .. "__"
-        table.insert(string_literals, literal)
-        return key
+    if code:match("^[\\d\\%\\]+$") then
+        return code
     end
-    code = code:gsub('"(.-)"', literal_placeholder)
-              :gsub("'(.-)'", literal_placeholder)
-    if not preserveComments then
-        code = code:gsub("%-%-%[%[.-%]%]", "")
-                   :gsub("%-%-[^\n]*", "")
+    local lua_keywords = {
+        "and", "or", "function", "if", "else", "elseif", "for", "while", "do", "end", "repeat", "until", "return"
+    }
+    local function preserve_keywords(code)
+        for _, keyword in ipairs(lua_keywords) do
+            code = code:gsub("%f[%a]" .. keyword .. "%f[%A]", "___" .. keyword .. "___")
+        end
+        return code
     end
-    code = code:gsub("\n+", "\n")
-               :gsub("%s*\n%s*", "\n")
-               :gsub("%s+", " ")
-               :gsub("%s*([%[%]{}();:,=<>~+%-*/%^#])%s*", "%1")
-               :gsub("(%a+)%s*%(", "%1(")
-               :gsub("([%)%]])%s*{", "%1{")
-               :gsub("}%s*else", "}else")
-               :gsub("}%s*elseif", "}elseif")
-               :gsub(";+", ";")
-    code = code:match("^%s*(.-)%s*$") or ""
-    code = code:gsub("__STR(%d+)__", function(index)
-        return '"' .. (string_literals[tonumber(index)] or "") .. '"'
-    end)
-    return code
+    local function restore_keywords(code)
+        for _, keyword in ipairs(lua_keywords) do
+            code = code:gsub("___" .. keyword .. "___", keyword)
+        end
+        return code
+    end
+    code = preserve_keywords(code)
+    code = code
+        :gsub("--%[%[.-%]%]", "")
+        :gsub("%-%-[^\n]*", "")
+        :gsub("\n+", "\n")
+        :gsub("%s*\n%s*", "\n")
+        :gsub("%s+", " ")
+        :gsub("%s*([%[%]{}();:,=<>~+*/%^#])%s*", "%1")
+        :gsub("([%w_]+)%s*%(", "%1(")
+        :gsub("([%)%]])%s*{", "%1{")
+        :gsub("}%s*else", "}else")
+        :gsub("}%s*elseif", "}elseif")
+        :gsub(";+", ";")  
+
+    return restore_keywords(code:match("^%s*(.-)%s*$") or "")
 end
+
 return Compressor

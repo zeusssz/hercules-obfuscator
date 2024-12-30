@@ -4,9 +4,9 @@ local localPath = scriptPath .. "../Compiler/"
 package.path = requirePath
 local Vmify = {}
 local luaAPI = require("api")
-
+local Vm = require("VMGenerator")
 function Vmify.process(code)
-    return luaAPI.Obfuscator.ASTObfuscator.ObfuscateScript(code)
+    return luaAPI.Obfuscator.ASTObfuscator.ObfuscateScript(Vm(code))
 end
 
 return Vmify

@@ -8,22 +8,56 @@ local math_methods = {
     end,
 }
 
+local function insert_char(obfuscated, ascii_code, base1, base2)
+    local part = math_methods.add_sub(ascii_code, base1, base2)
+    table.insert(obfuscated, "string.char(" .. part .. ")")
+end
+
 local function obfuscate_string_literal(str, base1, base2)
     if #str == 0 then
-        return '""' 
+        return '""'
     end
 
+    local escape_chars = {
+        n = 10, -- ASCII code for \n
+        r = 13, -- ASCII code for \r
+        t = 9,   -- ASCII code for \t
+        ["'"] = 39, -- ASCII code for \'
+        ['"'] = 34  -- ASCII code for \"
+    }
+
     local obfuscated = {}
-    for i = 1, #str do
-        local char = str:byte(i)
-        local part = math_methods.add_sub(char, base1, base2)
-        table.insert(obfuscated, "string.char(" .. part .. ")")
+    local i = 1
+
+    while i <= #str do
+        local char_code = str:byte(i)
+        if char_code == 92 and i < #str then
+            local next_char = str:sub(i + 1, i + 1)
+            if next_char == "2" and str:sub(i+2,i+2) == "7" then
+                insert_char(obfuscated, 27, base1, base2)
+                i = i + 2
+            elseif escape_chars[next_char] then
+                insert_char(obfuscated, escape_chars[next_char], base1, base2)
+                i = i + 1
+            else
+                insert_char(obfuscated, char_code, base1, base2)
+                insert_char(obfuscated, next_char:byte(), base1, base2)
+                i = i + 1
+            end
+        else
+            insert_char(obfuscated, char_code, base1, base2)
+        end
+        i = i + 1
     end
+
     return table.concat(obfuscated, "..")
 end
 
 function stringtoexpressions.process(script_content, base1, base2)
+    script_content = script_content:gsub('\\"', '!@!'):gsub("\\'", "@!@")
+
     return script_content:gsub("(['\"])(.-)%1", function(_, str)
+        str = str:gsub('!@!', '\\"'):gsub('@!@', "\\'")
         return obfuscate_string_literal(str, base1, base2)
     end)
 end

@@ -24,3 +24,5 @@ function ControlFlowObfuscator.process(code)
 end
 
 return ControlFlowObfuscator
+
+

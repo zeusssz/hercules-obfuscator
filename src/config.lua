@@ -1,5 +1,4 @@
 -- config.lua
-
 local config = {}
 
 config.settings = {
@@ -19,15 +18,15 @@ config.settings = {
         max_number_length = 999,
     },
     string_encoding = {
-        enabled = true,
+        enabled = false,
     },
     WrapInFunction = {
         enabled = true,
     },
     variable_renaming = {
         enabled = true,
-        min_name_length = 60,
-        max_name_length = 70,
+        min_name_length = 70,
+        max_name_length = 80,
     },
     garbage_code = {
         enabled = true,
