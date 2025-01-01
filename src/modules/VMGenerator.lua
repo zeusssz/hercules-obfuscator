@@ -4159,7 +4159,7 @@ function VM.process(source)
            if not _G.UsedOps[i] then
                _G.UsedOps[i] = i
           end
-        end]] -- might bloat, dont uncomment unless you want yottabytes B)
+        end]] -- enabling this will bloat the file. will be a setting soon enough
 	source = Generate(compile(source), _G.UsedOps)
 	return source
 end;

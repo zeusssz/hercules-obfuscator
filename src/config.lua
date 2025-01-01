@@ -1,4 +1,5 @@
 -- config.lua
+
 local config = {}
 
 config.settings = {
