@@ -33,7 +33,7 @@ config.settings = {
         garbage_blocks = 20,
     },
     opaque_predicates = {
-        enabled = false,
+        enabled = true,
     },
     function_inlining = {
         enabled = false,

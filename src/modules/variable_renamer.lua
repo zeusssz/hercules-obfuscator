@@ -16,7 +16,7 @@ local lua_functions = {
     "string.lower", "string.match", "string.rep", "string.reverse",
     "string.sub", "string.upper",
     "table.concat", "table.insert", "table.remove", "table.sort",
-    "table.pack", "table.unpack", "game:GetService", "local"
+    "table.pack", "table.unpack", "game:GetService",
 }
 
 local function generate_random_name(len)
@@ -131,4 +131,3 @@ function VariableRenamer.process(code)
 end
 
 return VariableRenamer
- 
