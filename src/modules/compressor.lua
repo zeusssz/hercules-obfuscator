@@ -14,7 +14,9 @@ end
 
 local function restorestrs(code, storedstrs)
     for placeholder, original in pairs(storedstrs) do
-        code = code:gsub(placeholder, original)
+        code = code:gsub(placeholder, function()
+            return original:gsub("%%", "%%%%")
+        end)
     end
     return code
 end
