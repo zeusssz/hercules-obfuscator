@@ -49,7 +49,7 @@ local function replace_unquoted(input, target, replacement)
 end
 
 local function obfuscate_local_variables(code)
-    local local_var_pattern = "local%s+([%w_,%s]+)%s*=%s*"
+    local local_var_pattern = "local%s+([%w_,%s]+)%s*=?"
     local var_map = {}
     local obfuscated_code = code
 
@@ -127,7 +127,8 @@ function VariableRenamer.process(code)
         end
     end
     local local_declaration = #renamed_vars > 0 and "local " .. table.concat(renamed_vars, ", ") or ""
-    return local_declaration .. (#assignment_lines > 0 and "\n" .. table.concat(assignment_lines, " ") or "") .. "\n" .. obfuscated_code
+    return local_declaration ..
+        (#assignment_lines > 0 and "\n" .. table.concat(assignment_lines, " ") or "") .. "\n" .. obfuscated_code
 end
 
 return VariableRenamer
