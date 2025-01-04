@@ -5,7 +5,7 @@ local function preservestrs(code)
     local index = 0
     code = code:gsub("(['\"])(.-)%1", function(quote, content)
         index = index + 1
-        local placeholder = "___STRING_" .. index .. "___"
+        local placeholder = "@__STRING_" .. index .. "__@"
         storedstrs[placeholder] = quote .. content .. quote
         return placeholder
     end)
@@ -25,7 +25,7 @@ function Compressor.process(code)
     if type(code) ~= "string" then
         error("Input code must be a string.")
     end
-    if code:match("^[\\d\\%\\]+$") then
+    if code:match("^[%d%%%]+$") then
         return code
     end
     local lua_keywords = {
