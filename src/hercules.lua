@@ -315,12 +315,19 @@ local function main()
 
     local files = {}
     if options.folder_mode then
-        for file in io.popen('ls "' .. input .. '"'):lines() do
-            if file:match("%.lua$") then
-                table.insert(files, input .. "/" .. file)
-            end
+        local findCommand
+        if package.config:sub(1,1) == "\\" then
+            -- win
+            findCommand = 'dir "' .. input .. '\\*.lua" /b /s 2>nul'
+        else
+            -- mac/linux
+            findCommand = 'find "' .. input .. '" -type f -name "*.lua"'
         end
-    else
+        local p = io.popen(findCommand)
+        for file in p:lines() do
+            table.insert(files, file)
+        end
+  else
         table.insert(files, input)
     end
 
