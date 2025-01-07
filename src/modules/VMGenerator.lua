@@ -3398,116 +3398,60 @@ end;
 local Parts = {
 	Variables = [=[
 -- Generic Helpers
-local Args = {}
-Args[__] = getfenv and getfenv(0) or _ENV
-local b = string.char
-local function Not(enum,thing)
-if enum > _ then
-return not thing
-else
-return #thing
-end
-end
-local function concat(...)
-local d = {...}
-local w = ''
-for i=__,Not(_,d)do
-w = w..d[i]
-end
-return w
-end
-        local function ba(...)
-          local d = (...)
-          local duh = ""
-          for i = __, Not(_,d) do
-             duh = concat(duh,b(d[i]/99))
-          end
-          return duh
-        end
--- Array Helper
+local LuaFunc, WrapState, BcToState, gChunk;
+local FIELDS_PER_FLUSH = 50
+local Select = select;
+-- Array Helpers
 local function CreateTbl(_) return {} end;
-Args[2] = Args[__][ba(IGNORE:TABLE)]
-Args[3] = Args[__][ba(IGNORE:STRING)]
-Args[4] = Args[__][ba(IGNORE:MATH)]
-Args[5] = Args[__][ba(IGNORE:UNPACK)] or Args[2][ba(IGNORE:UNPACK)]
-Args[6] = Args[4][ba(IGNORE:FLOOR)]
-Args[7] = Args[2][ba(IGNORE:CONCAT)]
-Args[8] = Args[3][ba(IGNORE:BYTE)]
-Args[13] = Args[3][ba(IGNORE:SUB)]
-Args[9] = Args[__][ba(IGNORE:SELECT)]
-Args[10] = Args[3][ba(IGNORE:CHAR)]
-Args[11] = Args[__][ba(IGNORE:PAIRS)]
-Args[12] = Args[__][ba(IGNORE:IPAIRS)]
-Args[14] = Args[4][ba(IGNORE:LDEXP)]
-Args[15] = Args[4][ba(IGNORE:ABS)]
+local Unpack = unpack or table.unpack
 local function Pack(...)
     return {
-        n = Args[9]('#', ...), ...
+        n = Select('#', ...), ...
     }
 end
-local function Op(a, b, c)
-        if a < 2 then
-                return b + c
-        elseif a > 2 then
-                if a < 5 and a > 3 then
-                        return b / c
-                elseif a > 5 then
-                        if a > 6 then
-                            return -b
-                        end
-                        return b^c
-                end
-                if a > 4 and a < 6 then
-                        return b % c
-                end
-                return b * c
-        else
-                return b - c
-        end
-end
 local function Move(src, First, Last, Offset, Dst)
-    for i = _, Op(2,Last,First) do
-        Dst[Op(__,Offset,i)] = src[Op(__,First,i)]
+    for i = _, Last - First do
+        Dst[Offset + i] = src[First + i]
     end
 end
 -- Mini Bit Library
 local function BAnd(a, b)
-    Args[16] = _
+    local result = _
     local bitval = __
     while a > _ and b > _ do
-        if (Op(5,a,2) == __) and (Op(5,b,2) == __) then
-            Args[16] = Op(__,Args[16],bitval)
+        if (a % 2 == __) and (b % 2 == __) then
+            result = result + bitval
         end
-        bitval = Op(3,bitval,2)
-        a = Args[6](Op(4,a,2))
-        b = Args[6](Op(4,b,2))
+        bitval = bitval * 2
+        a = math.floor(a / 2)
+        b = math.floor(b / 2)
     end
-    return Args[16]
+    return result
 end
 local function LShift(x, n)
-    return Op(6,Op(3,x,2),n)
+    return x * 2 ^ n
 end
 local function RShift(x, n)
-    return Args[6](Op(4,x,Op(6,2,n)))
+    return math.floor(x / 2 ^ n)
 end
 local function BOr(a, b)
-    Args[16] = _
+    local result = _
     local shift = __
     while a > _ or b > _ do
-        local abit = Op(5,a,2)
-        local bbit = Op(5,b,2)
+        local abit = a % 2
+        local bbit = b % 2
         if abit == __ or bbit == __ then
-            Args[16] = Op(__,Args[16],shift)
+            result = result + shift
         end
-        a = Args[6](Op(4,a,2))
-        b = Args[6](Op(4,b,2))
-        shift = Op(3,shift,2)
+        a = math.floor(a / 2)
+        b = math.floor(b / 2)
+        shift = shift * 2
     end
-    return Args[16]
+    return result
 end
 -- Upvalue Helpers
 local function CloseLuaUpvalues(B, N)
-    for i, uv in Args[11](B) do
+    for i, uv in pairs(B) do
         if uv.N >= N then
             uv.m = uv.M[uv.N];
             uv.M = uv;
@@ -3518,7 +3462,7 @@ local function CloseLuaUpvalues(B, N)
 end;
 local function SenLuaUpvalue(B, N, X)
     local Prev = B[N]
-    if Not(__,1,Prev)then
+    if not Prev then
         Prev = { N = N, M = X }
         B[N] = Prev;
     end;
@@ -3526,78 +3470,31 @@ local function SenLuaUpvalue(B, N, X)
 end;
 ]=],
 	Deserializer = [=[
--- Args[8] decompression
-local basedictdecompress = {}
-for i = _, 255 do
-    local ic, iic = b(i), b(i, _)
-    basedictdecompress[iic] = ic
-end
-local function dictAddB(str, dict, a, b)
-    if a >= 256 then
-        a, b = _, Op(__,b,__)
-        if b >= 256 then
-            dict = {}
-            b = __
-        end
+function BcToState(Bytecode,charset)
+local base, decoded = #charset, {}
+    local decode_lookup = {}
+    for i = 1, base do decode_lookup[charset:sub(i, i)] = i - 1 end
+    for encoded_char in Bytecode:gmatch("[^x]+") do
+        local n = 0
+        for i = 1, #encoded_char do n = n * base + decode_lookup[encoded_char:sub(i, i)] end
+        decoded[#decoded+1] = string.char(n)
     end
-    dict[Args[10](a, b)] = str
-    a = Op(__,a,__)
-    return dict, a, b
-end
-Args[17] = ba(Args[17])
-local control = Args[13](Args[17], __, __)
-Args[17] = Args[13](Args[17], 2)
-local len = Not(_,Args[17])
-local dict = {}
-local a, b = _, __
-Args[16] = {}
-local n = __
-local last = Args[13](Args[17], __, 2)
-Args[16][n] = basedictdecompress[last] or dict[last]
-n = Op(__,n,__)
-for i = 3, len, 2 do
-    local code = Args[13](Args[17], i, Op(__,i,__))
-    local lastStr = basedictdecompress[last] or dict[last]
-    local toAdd = basedictdecompress[code] or dict[code]
-    if toAdd then
-        Args[16][n] = toAdd
-        n = Op(__,n,__)
-        dict, a, b = dictAddB(concat(lastStr,Args[13](toAdd, __, __)), dict, a, b)
-    else
-        local tmp = concat(lastStr,Args[13](lastStr, __, __))
-        Args[16][n] = tmp
-        n = Op(__,n,__)
-        dict, a, b = dictAddB(tmp, dict, a, b)
-    end
-    last = code
-end
-Args[17] = Args[7](Args[16])
--- Args[8] Decoder
-local charset = ba(IGNORE:1)
-local base, decoded = Not(_,charset), {}
-local decode_lookup = {}
-    for i = __, base do decode_lookup[Args[13](charset,i, i)] = Op(2,i,__) end
-    for encoded_char in Args[17]:gmatch("[^x]+") do
-        local n = _
-        for i = __, Not(_,encoded_char) do n = Op(__,Op(3,n,base),decode_lookup[Args[13](encoded_char,i, i)]) end
-        decoded[Op(__,Not(_,decoded),__)] = Args[10](n)
-    end
-    Args[17] = Args[7](decoded)
+    Bytecode = table.concat(decoded)
     local Pos = __
     local function gBits8()
-        local Val = Args[8](Args[17], Pos, Pos)
-        Pos = Op(__,Pos,__)
+        local Val = string.byte(Bytecode, Pos, Pos)
+        Pos = Pos + __
         return Val;
     end;
     local function gBits16()
-        local Val1, Val2 = Args[8](Args[17], Pos, Op(__,Pos,2))
-        Pos = Op(__,Pos,2);
-        return Op(__,(Op(3,Val2,256)),Val1);
+        local Val1, Val2 = string.byte(Bytecode, Pos, Pos + 2)
+        Pos = Pos + 2;
+        return (Val2 * 256) + Val1;
     end;
     local function gBits32()
-        local Val1, Val2, Val3, Val4 = Args[8](Args[17], Pos, Op(__,Pos,3))
-        Pos = Op(__,Pos,4);
-        return Op(__,Op(__,Op(__,(Op(3,Val4,16777216)),(Op(3,Val3,65536))),(Op(3,Val2,256))),Val1);
+        local Val1, Val2, Val3, Val4 = string.byte(Bytecode, Pos, Pos + 3)
+        Pos = Pos + 4;
+        return (Val4 * 16777216) + (Val3 * 65536) + (Val2 * 256) + Val1;
     end;
     function gChunk()
         local Chunk = {
@@ -3630,370 +3527,496 @@ local decode_lookup = {}
                 Inst.F = gBits32()
                 Inst.g = Mode.b == __
             elseif (Type == 3) then
-                Inst.f = Op(2,gBits32(),131071)
+                Inst.f = gBits32() - 131071
             end;
             Chunk.x[i] = Inst;
         end;
         for i = __, gBits32() do
             local Type = gBits8()
             if (Type == __) then
-                Chunk.D[Op(2,i,__)] = (gBits8() ~= _)
+                Chunk.D[i - __] = (gBits8() ~= _)
             elseif (Type == 3) then
-                Chunk.D[Op(2,i,__)] =     (function()
+                Chunk.D[i - __] =     (function()
         local Left = gBits32()
         local Right = gBits32()
         local IsNormal = __
         local Mantissa = BOr(LShift(BAnd(Right, 0xFFFFF), 32), Left);
         local Exponent  = BAnd(RShift(Right, 20), 0x7FF)
-        local Sign = Op(6,(Op(7,__)),RShift(Right, 31))
+        local Sign = (-__) ^ RShift(Right, 31)
         if Exponent == _ then
             if Mantissa == _ then
-                return Op(3,Sign,_)
+                return Sign * _
             else
                 Exponent = __
                 IsNormal = _
             end;
         elseif Exponent == 2047 then
             if Mantissa == _ then
-                return Op(3,Sign,(Op(4,__,_)))
+                return Sign * (__ / _)
             else
-                return Op(3,Sign,(Op(4,_,_)))
+                return Sign * (_ / _)
             end;
         end;
-        return Op(3,Args[14](Sign, Op(2,Exponent,1023)),(Op(__,IsNormal,(Op(4,Mantissa,(Op(6,2,52)))))))
+        return math.ldexp(Sign, Exponent - 1023) * (IsNormal + (Mantissa / (2 ^ 52)))
     end)()
             elseif (Type == 4) then
-                Chunk.D[Op(2,i,__)] =     (function()
+                Chunk.D[i - __] =     (function()
 		local Str;
 			local baik = gBits32();
 			if (baik == _) then return; end;
-			Str	= Args[13](Args[17], Pos, Op(2,Op(__,Pos,baik),__));
-			Pos = Op(__,Pos,baik)
+			Str	= string.sub(Bytecode, Pos, Pos + baik - __);
+			Pos = Pos + baik
 		return Str;
 	end)()
             end
         end;
         for i = __, gBits32() do
-            Chunk.V[Op(2,i,__)] = gChunk()
+            Chunk.V[i - __] = gChunk()
         end
         -- post process optimization
-        for _, v in Args[12](Chunk.x) do
+        for _, v in ipairs(Chunk.x) do
             if v.g then
                 v.D = Chunk.D[v.F]
             else
                 if v.s then
-                    v.A = Chunk.D[Op(2,v.B,256)]
+                    v.A = Chunk.D[v.B - 256]
                 end;
                 if v.a then
-                    v.C = Chunk.D[Op(2,v.C,256)]
+                    v.C = Chunk.D[v.C - 256]
                 end;
             end;
         end
         return Chunk
     end;
+    return gChunk()
+end;
 ]=],
 	Wrapper_1 = [=[
-function WrapState(V, Upval)
-    return (function(...)
-        local Passed = Pack(...)
-        Args[18] = CreateTbl(V.d)
-        local v = { b = _, B = {} }
-        Move(Passed, __, V.c, _, Args[18])
-        if (V.c < Passed.n) then
-            local Start = Op(__,V.c,__)
-            local b = Op(2,Passed.n,V.c);
-            v.b = b;
-            Move(Passed, Start, Op(2,Op(__,Start,b),__), __, v.B)
-        end;
-        local State = {
-            v = v,
-            X = Args[18],
-            x = V.x,
-            Z = V.V,
-            z = __
-        }
-        return (function(State,n)
+function LuaFunc(State, Env, n)
     local x = State.x;
     local V = State.Z;
     local v = State.v;
-    local Top = Op(7,__);
+    local Top = -__;
     local SenB = {}
-    Args[18] = State.X;
+    local X = State.X;
     local z = State.z;
     while alpha do
         local Inst = x[z]
         local S = Inst.S;
-        z = Op(__,z,__);
+        z = z + __;
 ]=],
-Wrapper_2 = [=[
+	Wrapper_2 = [=[
         State.z = z;
-     end
-     end)(State,Upval)
-    end)(V,Upval)
+    end;
+end;
+function WrapState(V, Env, Upval)
+    local function Wrapped(...)
+        local Passed = Pack(...)
+        local X = CreateTbl(V.d)
+        local v = { b = _, B = {} }
+        Move(Passed, __, V.c, _, X)
+        if (V.c < Passed.n) then
+            local Start = V.c + __
+            local b = Passed.n - V.c;
+            v.b = b;
+            Move(Passed, Start, Start + b - __, __, v.B)
+        end;
+        local State = {
+            v = v,
+            X = X,
+            x = V.x,
+            Z = V.V,
+            z = __
+        }
+        return LuaFunc(State, Env, Upval)
+    end;
+    return Wrapped;
 end;
 ]=]
 }
 local function GetOpcodeCode(S)
 	if (S == 0) then
-		return [=[
-			Args[18][Inst.A] = Args[18][Inst.B];
-		]=]
+		return [=[X[Inst.A] = X[Inst.B];]=]
 	elseif (S == 1) then
-		return [=[
-			Args[18][Inst.A] = Inst.D;
-		]=]
+		return [=[X[Inst.A] = Inst.D]=]
 	elseif (S == 2) then
 		return [=[
-			Args[18][Inst.A] = Inst.B ~= _;
-			if Inst.C ~= _ then z = Op(__,z,__) end;
-		]=]
+        X[Inst.A] = Inst.B ~= 0
+        if Inst.C ~= 0 then z = z + 1 end;
+        ]=]
 	elseif (S == 3) then
 		return [=[
-			for i = Inst.A, Inst.B do Args[18][i] = nil end;
-		]=]
+        for i = Inst.A, Inst.B do X[i] = nil end;
+        ]=]
 	elseif (S == 4) then
 		return [=[
-			local Uv = n[Inst.B];
-			Args[18][Inst.A] = Uv.M[Uv.N];
-		]=]
+        local Uv = n[Inst.B]
+        X[Inst.A] = Uv.M[Uv.N]
+        ]=]
 	elseif (S == 5) then
 		return [=[
-			Args[18][Inst.A] = Args[__][Inst.D];
-		]=]
+        X[Inst.A] = Env[Inst.D]
+        ]=]
 	elseif (S == 6) then
 		return [=[
-			local N = Inst.a and Inst.C or Args[18][Inst.C];
-			Args[18][Inst.A] = Args[18][Inst.B][N];
-		]=]
+        local N
+        if Inst.a then
+            N = Inst.C;
+        else
+            N = X[Inst.C]
+        end
+        X[Inst.A] = X[Inst.B][N]
+        ]=]
 	elseif (S == 7) then
 		return [=[
-			Args[__][Inst.D] = Args[18][Inst.A];
-		]=]
+        Env[Inst.D] = X[Inst.A]
+        ]=]
 	elseif (S == 8) then
 		return [=[
-			local Uv = n[Inst.B];
-			Uv.M[Uv.N] = Args[18][Inst.A];
-		]=]
+        local Uv = n[Inst.B]
+        Uv.M[Uv.N] = X[Inst.A]
+        ]=]
 	elseif (S == 9) then
 		return [=[
-			local N = Inst.s and Inst.A or Args[18][Inst.B];
-			local m = Inst.a and Inst.C or Args[18][Inst.C];
-			Args[18][Inst.A][N] = m;
-		]=]
+        local N, m
+        if Inst.s then
+            N = Inst.A
+        else
+            N = X[Inst.B]
+        end
+        if Inst.a then
+            m = Inst.C
+        else
+            m = X[Inst.C]
+        end
+        X[Inst.A][N] = m
+        ]=]
 	elseif (S == 10) then
 		return [=[
-			Args[18][Inst.A] = {};
-		]=]
+        X[Inst.A] = {}
+        ]=]
 	elseif (S == 11) then
 		return [=[
-			local A, B = Inst.A, Inst.B;
-			local N = Inst.a and Inst.C or Args[18][Inst.C];
-			Args[18][Op(__,A,__)] = Args[18][B];
-			Args[18][A] = Args[18][B][N];
-		]=]
+        local A = Inst.A
+        local B = Inst.B
+        local N;
+        if Inst.a then
+            N = Inst.C
+        else
+            N = X[Inst.C]
+        end
+        X[A + 1] = X[B]
+        X[A] = X[B][N]
+        ]=]
 	elseif (S == 12) then
 		return [=[
-			local Lhs = Inst.s and Inst.A or Args[18][Inst.B];
-			local Rhs = Inst.a and Inst.C or Args[18][Inst.C];
-			Args[18][Inst.A] = Op(__,Lhs,Rhs);
-		]=]
+        local Lhs, Rhs;
+        if Inst.s then
+            Lhs = Inst.A
+        else
+            Lhs = X[Inst.B]
+        end
+        if Inst.a then
+            Rhs = Inst.C
+        else
+            Rhs = X[Inst.C]
+        end
+        X[Inst.A] = Lhs + Rhs
+        ]=]
 	elseif (S == 13) then
 		return [=[
-			local Lhs = Inst.s and Inst.A or Args[18][Inst.B];
-			local Rhs = Inst.a and Inst.C or Args[18][Inst.C];
-			Args[18][Inst.A] = Op(2,Lhs,Rhs);
-		]=]
+        local Lhs, Rhs;
+        if Inst.s then
+            Lhs = Inst.A
+        else
+            Lhs = X[Inst.B]
+        end
+        if Inst.a then
+            Rhs = Inst.C
+        else
+            Rhs = X[Inst.C]
+        end
+        X[Inst.A] = Lhs - Rhs
+        ]=]
 	elseif (S == 14) then
 		return [=[
-			local Lhs = Inst.s and Inst.A or Args[18][Inst.B];
-			local Rhs = Inst.a and Inst.C or Args[18][Inst.C];
-			Args[18][Inst.A] = Op(3,Lhs,Rhs);
-		]=]
+        local Lhs, Rhs;
+        if Inst.s then
+            Lhs = Inst.A
+        else
+            Lhs = X[Inst.B]
+        end
+        if Inst.a then
+            Rhs = Inst.C
+        else
+            Rhs = X[Inst.C]
+        end
+        X[Inst.A] = Lhs * Rhs
+        ]=]
 	elseif (S == 15) then
 		return [=[
-			local Lhs = Inst.s and Inst.A or Args[18][Inst.B];
-			local Rhs = Inst.a and Inst.C or Args[18][Inst.C];
-			Args[18][Inst.A] = Op(4,Lhs,Rhs);
-		]=]
+        local Lhs, Rhs;
+        if Inst.s then
+            Lhs = Inst.A
+        else
+            Lhs = X[Inst.B]
+        end
+        if Inst.a then
+            Rhs = Inst.C
+        else
+            Rhs = X[Inst.C]
+        end
+        X[Inst.A] = Lhs / Rhs
+        ]=]
 	elseif (S == 16) then
 		return [=[
-			local Lhs = Inst.s and Inst.A or Args[18][Inst.B];
-			local Rhs = Inst.a and Inst.C or Args[18][Inst.C];
-			Args[18][Inst.A] = Op(5,Lhs,Rhs);
-		]=]
+        local Lhs, Rhs;
+        if Inst.s then
+            Lhs = Inst.A
+        else
+            Lhs = X[Inst.B]
+        end
+        if Inst.a then
+            Rhs = Inst.C
+        else
+            Rhs = X[Inst.C]
+        end
+        X[Inst.A] = Lhs % Rhs
+        ]=]
 	elseif (S == 17) then
 		return [=[
-			local Lhs = Inst.s and Inst.A or Args[18][Inst.B];
-			local Rhs = Inst.a and Inst.C or Args[18][Inst.C];
-			Args[18][Inst.A] = Op(6,Lhs,Rhs);
-		]=]
+        local Lhs, Rhs;
+        if Inst.s then
+            Lhs = Inst.A
+        else
+            Lhs = X[Inst.B]
+        end
+        if Inst.a then
+            Rhs = Inst.C
+        else
+            Rhs = X[Inst.C]
+        end
+        X[Inst.A] = Lhs ^ Rhs
+        ]=]
 	elseif (S == 18) then
 		return [=[
-			Args[18][Inst.A] = Op(7,Args[18][Inst.B]);
-		]=]
+        X[Inst.A] = -X[Inst.B]
+        ]=]
 	elseif (S == 19) then
 		return [=[
-			Args[18][Inst.A] = Not(__,Args[18][Inst.B]);
-		]=]
+        X[Inst.A] = not X[Inst.B]
+        ]=]
 	elseif (S == 20) then
-		return [=[
-			Args[18][Inst.A] = Not(_,Args[18][Inst.B]);
-		]=]
+		return [=[X[Inst.A] = #X[Inst.B]]=]
 	elseif (S == 21) then
 		return [=[
-			local B, C = Inst.B, Inst.C;
-			local Success, Str = pcall(Args[7], Args[18], "", B, C);
-			if Not(__,Success)then
-				Str = Args[18][B] or "";
-				for i = Op(__,B,__), C do
-					Str = concat(Str,(Args[18][i] or Args[18][Op(2,i,__)]));
-				end
-			end;
-			Args[18][Inst.A] = Str;
-		]=]
+        local B, C = Inst.B, Inst.C;
+        local Success, Str = pcall(table.concat, X, "", B, C)
+        if not Success then
+            Str = X[B] or ""
+            for i = B + 1, C do Str = Str .. (X[i] or X[i - 1]) end;
+        end;
+        X[Inst.A] = Str;
+        ]=]
 	elseif (S == 22) then
-		return [=[
-			z = Op(__,z,Inst.f);
-		]=]
+		return [=[z = z + Inst.f]=]
 	elseif (S == 23) then
 		return [=[
-			local Lhs = Inst.s and Inst.A or Args[18][Inst.B];
-			local Rhs = Inst.a and Inst.C or Args[18][Inst.C];
-			if (Lhs == Rhs) == (Inst.A ~= _) then z = Op(__,z,x[z].f) end;
-			z = Op(__,z,__);
-		]=]
+        local Lhs, Rhs;
+        if Inst.s then
+            Lhs = Inst.A
+        else
+            Lhs = X[Inst.B]
+        end
+        if Inst.a then
+            Rhs = Inst.C
+        else
+            Rhs = X[Inst.C]
+        end
+        if (Lhs == Rhs) == (Inst.A ~= 0) then z = z + x[z].f end;
+        z = z + 1
+        ]=]
 	elseif (S == 24) then
 		return [=[
-			local Lhs = Inst.s and Inst.A or Args[18][Inst.B];
-			local Rhs = Inst.a and Inst.C or Args[18][Inst.C];
-			if (Lhs < Rhs) == (Inst.A ~= _) then z = Op(__,z,x[z].f) end;
-			z = Op(__,z,__);
-		]=]
+        local Lhs, Rhs;
+        if Inst.s then
+            Lhs = Inst.A
+        else
+            Lhs = X[Inst.B]
+        end
+        if Inst.a then
+            Rhs = Inst.C
+        else
+            Rhs = X[Inst.C]
+        end
+        if (Lhs < Rhs) == (Inst.A ~= 0) then z = z + x[z].f end;
+        z = z + 1
+        ]=]
 	elseif (S == 25) then
 		return [=[
-			local Lhs = Inst.s and Inst.A or Args[18][Inst.B];
-			local Rhs = Inst.a and Inst.C or Args[18][Inst.C];
-			if (Lhs <= Rhs) == (Inst.A ~= _) then z = Op(__,z,x[z].f) end;
-			z = Op(__,z,__);
-		]=]
+        local Lhs, Rhs;
+        if Inst.s then
+            Lhs = Inst.A
+        else
+            Lhs = X[Inst.B]
+        end
+        if Inst.a then
+            Rhs = Inst.C
+        else
+            Rhs = X[Inst.C]
+        end
+        if (Lhs <= Rhs) == (Inst.A ~= 0) then z = z + x[z].f end;
+        z = z + 1
+        ]=]
 	elseif (S == 26) then
 		return [=[
-			if (Not(__,Args[18][Inst.A])) ~= (Inst.C ~= _) then z = Op(__,z,x[z].f) end;
-			z = Op(__,z,__);
-		]=]
+        if (not X[Inst.A]) ~= (Inst.C ~= 0) then z = z + x[z].f end
+        z = z + 1
+        ]=]
 	elseif (S == 27) then
 		return [=[
-			local A, B = Inst.A, Inst.B;
-			if (Not(__,Args[18][B])) ~= (Inst.C ~= _) then
-				Args[18][A] = Args[18][B];
-				z = Op(__,z,x[z].f);
-			end;
-			z = Op(__,z,__);
-		]=]
+        local A = Inst.A
+        local B = Inst.B;
+        if (not X[B]) ~= (Inst.C ~= 0) then
+            X[A] = X[B]
+            z = z + x[z].f
+        end;
+        z = z + 1
+        ]=]
 	elseif (S == 28) then
 		return [=[
-			local A, B, C = Inst.A, Inst.B, Inst.C;
-			local Params = (B == _) and (Op(2,Top,A)) or (Op(2,B,__));
-			local RetB = Pack(Args[18][A](Args[5](Args[18], Op(__,A,__), Op(__,A,Params))));
-			local RetNum = RetB.n;
-			if C == _ then
-				Top = Op(2,Op(__,A,RetNum),__);
-			else
-				RetNum = Op(2,C,__);
-			end;
-			Move(RetB, __, RetNum, A, Args[18]);
-		]=]
+        local A = Inst.A;
+        local B = Inst.B;
+        local C = Inst.C;
+        local Params;
+        if B == 0 then
+            Params = Top - A;
+        else
+            Params = B - 1;
+        end;
+        local RetB = Pack(X[A](Unpack(X, A + 1, A + Params)))
+        local RetNum = RetB.n;
+        if C == 0 then
+            Top = A + RetNum - 1;
+        else
+            RetNum = C - 1;
+        end;
+        Move(RetB, 1, RetNum, A, X)
+        ]=]
 	elseif (S == 29) then
 		return [=[
-			local A, B = Inst.A, Inst.B;
-			local Params = (B == _) and (Op(2,Top,A)) or (Op(2,B,__));
-			CloseLuaUpvalues(SenB, _);
-			return Args[18][A](Args[5](Args[18], Op(__,A,__), Op(__,A,Params)));
-		]=]
+        local A = Inst.A;
+        local B = Inst.B;
+        local Params;
+        if B == 0 then
+            Params = Top - A;
+        else
+            Params = B - 1;
+        end;
+        CloseLuaUpvalues(SenB, 0)
+        return X[A](Unpack(X, A + 1, A + Params))
+        ]=]
 	elseif (S == 30) then
 		return [=[
-			local A, B = Inst.A, Inst.B;
-			local b = (B == _) and (Op(__,Op(2,Top,A),__)) or (Op(2,B,__));
-			CloseLuaUpvalues(SenB, _);
-			return Args[5](Args[18], A, Op(2,Op(__,A,b),__));
-		]=]
+        local A = Inst.A;
+        local B = Inst.B;
+        local b;
+        if B == 0 then        
+            b = Top - A + 1;
+        else
+            b = B - 1;
+        end;
+        CloseLuaUpvalues(SenB, 0)
+        return Unpack(X, A, A + b - 1)
+        ]=]
 	elseif (S == 31) then
 		return [=[
-			local A = Inst.A
-            local Step = Args[18][Op(__,A,2)];
-			local N = Op(__,Args[18][A],Step);
-			local Limit = Args[18][Op(__,A,__)];
-			local Loops = (Step == Args[15](Step)) and (N <= Limit) or (N >= Limit);
-			if Loops then
-				Args[18][A] = N;
-				Args[18][Op(__,A,3)] = N;
-				z = Op(__,z,Inst.f);
-			end;
-		]=]
+        local A = Inst.A;
+        local Step = X[A + 2]
+        local N = X[A] + Step;
+        local Limit = X[A + 1]
+        local Loops
+        if Step == math.abs(Step) then
+            Loops = N <= Limit;
+        else
+            Loops = N >= Limit;
+        end;
+        if Loops then
+            X[A] = N;
+            X[A + 3] = N;
+            z = z + Inst.f;
+        end;
+        ]=]
 	elseif (S == 32) then
 		return [=[
-			local A = Inst.A;
-			local Init, Limit, Step = tonumber(Args[18][A]), tonumber(Args[18][Op(__,A,__)]), tonumber(Args[18][Op(__,A,2)]);
-			Args[18][A] = Op(2,Init,Step);
-			Args[18][Op(__,A,__)] = Limit;
-			Args[18][Op(__,A,2)] = Step;
-			z = Op(__,z,Inst.f);
-		]=]
+        local A = Inst.A;
+        local Init, Limit, Step;
+        Init = tonumber(X[A])
+        Limit = tonumber(X[A + 1])
+        Step = tonumber(X[A + 2])
+        X[A] = Init - Step;
+        X[A + 1] = Limit;
+        X[A + 2] = Step;
+        z = z + Inst.f;
+        ]=]
 	elseif (S == 33) then
 		return [=[
-			local A = Inst.A;
-			local Base = Op(__,A,3);
-			local Vals = {Args[18][A](Args[18][Op(__,A,__)], Args[18][Op(__,A,2)])};
-			Move(Vals, __, Inst.C, Base, Args[18]);
-			if Args[18][Base] ~= nil then
-				Args[18][Op(__,A,2)] = Args[18][Base];
-				z = Op(__,z,x[z].f);
-			end;
-			z = Op(__,z,__);
-		]=]
+        local A = Inst.A;
+        local Base = A + 3;
+        local Vals = {X[A](X[A + 1], X[A + 2])}
+        Move(Vals, 1, Inst.C, Base, X)
+        if X[Base] ~= nil then
+            X[A + 2] = X[Base]
+            z = z + x[z].f;
+        end;
+        z = z + 1
+        ]=]
 	elseif (S == 34) then
 		return [=[
-			local A, C = Inst.A, Inst.C;
-			local b = Inst.B;
-			local Tab = Args[18][A];
-			if b == _ then b = Op(2,Top,A) end;
-			if C == _ then
-				C = x[z].m;
-				z = Op(__,z,__);
-			end;
-			local Offset = Op(3,(Op(2,C,__)),50);
-			Move(Args[18], Op(__,A,__), Op(__,A,b), Op(__,Offset,__), Tab);
-		]=]
+        local A = Inst.A
+        local C = Inst.C
+        local b = Inst.B;
+        local Tab = X[A]
+        local Offset;
+        if b == 0 then b = Top - A end
+        if C == 0 then
+            C = x[z].m;
+            z = z + 1
+        end;
+        Offset = (C - 1) * FIELDS_PER_FLUSH
+        Move(X, A + 1, A + b, Offset + 1, Tab)
+        ]=]
 	elseif (S == 35) then
 		return [=[CloseLuaUpvalues(SenB, Inst.A)]=]
 	elseif (S == 36) then
 		return [=[
-			Args[13] = V[Inst.F];
-			local Nups = Args[13].n;
-			local UvB;
-			if Nups ~= _ then
-				UvB = CreateTbl(Op(2,Nups,__));
-				for i = __, Nups do
-					local Pseudo = x[Op(2,Op(__,z,i),__)];
-					if (Pseudo.S == _) then
-						UvB[Op(2,i,__)] = SenLuaUpvalue(SenB, Pseudo.B, Args[18]);
-					elseif (Pseudo.S == 4) then
-						UvB[Op(2,i,__)] = n[Pseudo.B];
-					end;
-				end;
-				z = Op(__,z,Nups);
-			end;
-			Args[18][Inst.A] = WrapState(Args[13], Args[__], UvB);
-		]=]
+        local Sub = V[Inst.F]
+        local Nups = Sub.n;
+        local UvB;
+        if Nups ~= 0 then
+            UvB = CreateTbl(Nups - 1)
+            for i = 1, Nups do
+                local Pseudo = x[z + i - 1]
+                if (Pseudo.S == 0) then
+                    UvB[i - 1] = SenLuaUpvalue(SenB, Pseudo.B, X)
+                elseif (Pseudo.S == 4) then
+                    UvB[i - 1] = n[Pseudo.B]
+                end;
+            end;
+            z = z + Nups
+        end;
+        X[Inst.A] = WrapState(Sub, Env, UvB)
+        ]=]
 	elseif (S == 37) then
 		return [=[
-			local A, b = Inst.A, Inst.B;
-			if (b == _) then
-				b = v.b;
-				Top = Op(2,Op(__,A,b),__);
-			end;
-			Move(v.B, __, b, A, Args[18]);
-		]=]
+        local A = Inst.A;
+        local b = Inst.B;
+        if (b == 0) then
+            b = v.b;
+            Top = A + b - 1;
+        end;
+        Move(v.B, 1, b, A, X)
+        ]=]
 	end
 end;
 local function Generate(...)
@@ -4028,74 +4051,12 @@ local function Generate(...)
 		return table.concat(chars)
 	end;
 	math.randomseed(os.time())
-	local charset = string_shuffle('\0\2')
+	local charset = string_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~')
 	local base, encode_lookup, decode_lookup = # charset, {}, {}
 	for i = 1, base do
 		local c = charset:sub(i, i)
 		encode_lookup[i - 1], decode_lookup[c] = c, i - 1
 	end;
-        local basedictcompress = {}
-        for i = 0, 255 do
-           local ic, iic = string.char(i), string.char(i, 0)
-           basedictcompress[ic] = iic
-        end
-        local function dictAddA(str, dict, a, b)
-            if a >= 256 then
-               a, b = 0, b+1
-                if b >= 256 then
-                   dict = {}
-                   b = 1
-                end
-           end
-           dict[str] = string.char(a,b)
-           a = a+1
-           return dict, a, b
-       end
-
-local function compress(input)
-    if type(input) ~= "string" then
-        return nil, "string expected, got "..type(input)
-    end
-    local len = #input
-    if len <= 1 then
-        return "u"..input
-    end
-
-    local dict = {}
-    local a, b = 0, 1
-
-    local result = {"c"}
-    local resultlen = 1
-    local n = 2
-    local word = ""
-    for i = 1, len do
-        local c = string.sub(input, i, i)
-        local wc = word..c
-               if not (basedictcompress[wc] or dict[wc]) then
-                   local write = basedictcompress[word] or dict[word]
-                   if not write then
-                       return nil, "algorithm error, could not fetch word"
-                   end
-                   result[n] = write
-                   resultlen = resultlen + #write
-                   n = n+1
-                   if  len <= resultlen then
-                       return "u"..input
-                   end
-                   dict, a, b = dictAddA(wc, dict, a, b)
-                   word = c
-               else
-                   word = wc
-               end
-           end
-           result[n] = basedictcompress[word] or dict[word]
-           resultlen = resultlen+#result[n]
-           n = n+1
-           if  len <= resultlen then
-              return "u"..input
-           end
-           return table.concat(result)
-        end
 	local function encode_number(n)
 		local e = {}
 		repeat
@@ -4113,31 +4074,17 @@ local function compress(input)
 		end;
 		return table.concat(encoded, "x")
 	end;
-	local function Encode(Str,yes,normal)
-                normal = normal or true
-                if yes then
-		Str = compress(encode_string(Str))
-                end
-		local out = "{"
+	local function Encode(Str)
+		Str = encode_string(Str)
+		local out = ""
 		for i = 1, # Str do
-                        local hi = string.byte(Str, i)
-                        if normal then hi = hi*99 end
-			out = out .. hi .. ','
+			out = out .. "\\" .. string.byte(Str, i)
 		end;
-                out = out .. '}'
 		return out
 	end;
-        local function EncodeBin(Str)
-                local out = ''
-                for i = 1, # Str do
-                        out = out .. '\\' .. string.byte(Str, i)
-                end;
-                return out
-        end;
 	Add("hercules,v1,alpha,__,_ = 'Protected By Hercules V1.6 | VM', function()end, true, 1, 0")
-	Add(Parts.Variables:gsub("IGNORE:SELECT",Encode("select",false)):gsub("IGNORE:UNPACK",Encode("unpack",false)):gsub("IGNORE:TABLE",Encode("table",false)):gsub("IGNORE:STRING",Encode("string",false)):gsub("IGNORE:MATH",Encode("math",false)):gsub("IGNORE:SUB",Encode("sub",false)):gsub("IGNORE:BYTE",Encode("byte",false)):gsub("IGNORE:FLOOR",Encode("floor")):gsub("IGNORE:CONCAT",Encode("concat",false)):gsub("IGNORE:CHAR",Encode("char",false)):gsub("IGNORE:PAIRS",Encode("pairs",false)):gsub("IGNORE:IPAIRS",Encode("ipairs",false)):gsub("IGNORE:LDEXP",Encode("ldexp",false)):gsub("IGNORE:ABS",Encode("abs",false)))
-        Add("Args[17] = "..Encode(Bytecode,true))
-	Add(Parts.Deserializer:gsub("IGNORE:1",Encode(charset,false)))
+	Add(Parts.Variables)
+	Add(Parts.Deserializer)
 	Add(Parts.Wrapper_1)
 	local k = "if"
 	for i, v in pairs(UsedOpcodes) do
@@ -4148,18 +4095,13 @@ local function compress(input)
 	end;
 	Add("end")
 	Add(Parts.Wrapper_2)
-	Add("WrapState(gChunk())")
+	Add("WrapState(BcToState('" .. Encode(Bytecode) .. "','" .. charset .. "'),(getfenv and getfenv(0)) or _ENV)()")
 	return Out
 end;
 local VM = {}
 function VM.process(source)
 	_G.UsedOps[0] = 0;
 	_G.UsedOps[4] = 4;
-        --[[for i=1,37 do
-           if not _G.UsedOps[i] then
-               _G.UsedOps[i] = i
-          end
-        end]] -- enabling this will bloat the file. will be a setting soon enough
 	source = Generate(compile(source), _G.UsedOps)
 	return source
 end;
