@@ -55,7 +55,7 @@ function Pipeline.process(code)
     end
     
     -- if config.get("settings.compressor.enabled") then
-    --     code = Compressor.process(code)                  -- disabled this, commented out just in case
+    --     code = Compressor.process(code)                  -- disabled this, comment in if you think it might be causing issues
     -- end
     
     if config.get("settings.VirtualMachine.enabled") then
