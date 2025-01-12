@@ -1,14 +1,13 @@
 local GarbageCodeInserter = {}
 
 local LOWERCASE_A, LOWERCASE_Z = 97, 122
-local MIN_GARBAGE_BLOCKS, MAX_GARBAGE_BLOCKS = 2, 5
 local MAX_RANDOM_NUMBER = 100
 local MAX_LOOP_COUNT = 10
 local VARIABLE_NAME_LENGTH = 6
 
 local function generate_random_variable_name()
     local name = {}
-    for _ = 1, VARIABLE_NAME_LENGTH do
+    for i = 1, VARIABLE_NAME_LENGTH do
         table.insert(name, string.char(math.random(LOWERCASE_A, LOWERCASE_Z)))
     end
     return table.concat(name)
@@ -50,7 +49,6 @@ local function generate_random_code()
             )
         end
     }
-
     local code_type_keys = {}
     for k in pairs(code_types) do
         table.insert(code_type_keys, k)
@@ -59,11 +57,10 @@ local function generate_random_code()
     return code_types[code_type_keys[math.random(#code_type_keys)]]()
 end
 
-local function generate_garbage()
+local function generate_garbage(blocks)
     local garbage_code = {}
-    local block_count = math.random(MIN_GARBAGE_BLOCKS, MAX_GARBAGE_BLOCKS)
     
-    for _ = 1, block_count do
+    for i = 1, blocks do
         local code = generate_random_code()
         if not code:match("while true") and 
            not code:match("for %w+ = %d+, %d+ do local _ = %d+ end") then
@@ -74,12 +71,16 @@ local function generate_garbage()
     return table.concat(garbage_code, " ")
 end
 
-function GarbageCodeInserter.process(code)
+function GarbageCodeInserter.process(code, garbage_blocks)
     if type(code) ~= "string" or #code == 0 then
         error("Input code must be a non-empty string", 2)
     end
-    
-    return string.format("%s %s %s", generate_garbage(), code, generate_garbage())
+    if type(garbage_blocks) ~= "number" then
+        error("garbage_blocks must be a number", 2)
+    end
+    local prefix_garbage = generate_garbage(garbage_blocks)
+    local suffix_garbage = generate_garbage(garbage_blocks)
+    return string.format("%s %s %s", prefix_garbage, code, suffix_garbage)
 end
 
 return GarbageCodeInserter

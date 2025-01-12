@@ -1,24 +1,5 @@
 local Compressor = {}
 
-local function preservestrs(code)
-    local storedstrs = {}
-    local index = 0
-    code = code:gsub("(['\"])(.-)%1", function(quote, content)
-        index = index + 1
-        local placeholder = "___STRING_" .. index .. "___"
-        storedstrs[placeholder] = quote .. content .. quote
-        return placeholder
-    end)
-    return code, storedstrs
-end
-
-local function restorestrs(code, storedstrs)
-    for placeholder, original in pairs(storedstrs) do
-        code = code:gsub(placeholder, original)
-    end
-    return code
-end
-
 function Compressor.process(code)
     if type(code) ~= "string" then
         error("Input code must be a string.")
@@ -26,27 +7,60 @@ function Compressor.process(code)
     if code:match("^[\\d\\%\\]+$") then
         return code
     end
+
+    local strings = {}
+    local string_count = 0
+
+    local function preservestrs(code)
+        code = code:gsub("%[(=*)%[(.-)%]%1%]", function(equals, str)
+            string_count = string_count + 1
+            strings[string_count] = "[" .. equals .. "[" .. str .. "]" .. equals .. "]"
+            return "<S" .. string_count .. ">"
+        end)
+        code = code:gsub('(".-")', function(str)
+            string_count = string_count + 1
+            strings[string_count] = str
+            return "<S" .. string_count .. ">"
+        end)
+        
+        code = code:gsub("('.-')", function(str)
+            string_count = string_count + 1
+            strings[string_count] = str
+            return "<S" .. string_count .. ">"
+        end)
+        
+        return code
+    end
+
+    local function restorestrs(code)
+        for i = string_count, 1, -1 do
+            code = string.gsub(code, "<S" .. i .. ">", function() return (strings[i]) end)
+        end
+        return code
+    end
+
     local lua_keywords = {
-        "and", "or", "function", "if", "else", "elseif",
-        "for", "while", "do", "end", "repeat", "until", "return"
+        "and", "or", "function", "if", "else", "elseif", "for", "while", "do", 
+        "end", "repeat", "until", "return", "local", "then"
     }
 
-    local function preserve_keywords(code)
+    local function preservekeyws(code)
         for _, keyword in ipairs(lua_keywords) do
             code = code:gsub("%f[%a]" .. keyword .. "%f[%A]", "___" .. keyword .. "___")
         end
         return code
     end
 
-    local function restore_keywords(code)
+    local function restorekeyws(code)
         for _, keyword in ipairs(lua_keywords) do
             code = code:gsub("___" .. keyword .. "___", keyword)
         end
         return code
     end
-    code = preserve_keywords(code)
-    local storedstrs
-    code, storedstrs = preservestrs(code)
+
+    code = preservestrs(code)
+    code = preservekeyws(code)
+
     code = code
         :gsub("--%[%[.-%]%]", "")
         :gsub("%-%-[^\n]*", "")
@@ -56,10 +70,14 @@ function Compressor.process(code)
         :gsub("%s*([%[%]{}();:,=<>~+*/%^#])%s*", "%1")
         :gsub("([%w_]+)%s*%(", "%1(")
         :gsub("([%)%]])%s*{", "%1{")
-    code = restorestrs(code, storedstrs)
-    code = restore_keywords(code)
+        :gsub("}%s*else", "}else")
+        :gsub("}%s*elseif", "}elseif")
+        :gsub(";+", ";")
 
-    return code
+    code = restorekeyws(code)
+    code = restorestrs(code)
+    
+    return code:match("^%s*(.-)%s*$") or ""
 end
 
 return Compressor
