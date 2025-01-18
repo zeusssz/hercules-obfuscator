@@ -252,16 +252,6 @@ local function main()
     for i = 2, #arg do
         if arg[i] == "--overwrite" then
             options.overwrite = true
-        --[REMOVED CONTENT START] 
-        -- '--pipeline' flag has been removed, in favour of preset flags
-        -- elseif arg[i] == "--pipeline" then
-        --     if arg[i + 1] then
-        --         options.custom_file = arg[i + 1]:gsub("%.lua$", "")
-        --         i = i + 1
-        --     else
-        --         print_usage()
-        -- end
-        --[REMOVED CONTENT END]
         elseif arg[i] == "--folder" then
             options.folder_mode = true
         elseif arg[i] == "--sanity" then
