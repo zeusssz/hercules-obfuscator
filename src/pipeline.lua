@@ -54,10 +54,6 @@ function Pipeline.process(code)
         code = StringToExpressions.process(code, min_length, max_length)
     end
     
-    if config.get("settings.compressor.enabled") then
-        code = Compressor.process(code)
-    end
-    
     if config.get("settings.VirtualMachine.enabled") then
         code = VirtualMachinery.process(code)
     end

@@ -1,4 +1,5 @@
 -- config.lua
+
 local config = {}
 
 config.settings = {
@@ -8,6 +9,9 @@ config.settings = {
     VirtualMachine = {
         enabled = true,
     },
+    -- anti_tamper = {
+    --     enabled = true,
+    -- },
     control_flow = {
         enabled = true,
         max_fake_blocks = 6,

@@ -108,6 +108,7 @@ local function printcliresult(input, output, time, options)
             print(colors.white .. options.sanity_info.expected .. colors.reset)
             print(colors.yellow .. "\nGot output:" .. colors.reset)
             print(colors.white .. options.sanity_info.got .. colors.reset)
+            print(colors.red .. "Please dm 'zeusssz_' on Discord with with the file, or make an issue on the GitHub" .. colors.reset)
         else
             print(colors.green .. "Sanity Check      : Passed" .. colors.reset)
         end
@@ -251,16 +252,6 @@ local function main()
     for i = 2, #arg do
         if arg[i] == "--overwrite" then
             options.overwrite = true
-        --[REMOVED CONTENT START] 
-        -- '--pipeline' flag has been removed, in favour of preset flags
-        -- elseif arg[i] == "--pipeline" then
-        --     if arg[i + 1] then
-        --         options.custom_file = arg[i + 1]:gsub("%.lua$", "")
-        --         i = i + 1
-        --     else
-        --         print_usage()
-        -- end
-        --[REMOVED CONTENT END]
         elseif arg[i] == "--folder" then
             options.folder_mode = true
         elseif arg[i] == "--sanity" then
@@ -314,12 +305,19 @@ local function main()
 
     local files = {}
     if options.folder_mode then
-        for file in io.popen('ls "' .. input .. '"'):lines() do
-            if file:match("%.lua$") then
-                table.insert(files, input .. "/" .. file)
-            end
+        local findCommand
+        if package.config:sub(1,1) == "\\" then
+            -- win
+            findCommand = 'dir "' .. input .. '\\*.lua" /b /s 2>nul'
+        else
+            -- mac/linux
+            findCommand = 'find "' .. input .. '" -type f -name "*.lua"'
         end
-    else
+        local p = io.popen(findCommand)
+        for file in p:lines() do
+            table.insert(files, file)
+        end
+  else
         table.insert(files, input)
     end
 

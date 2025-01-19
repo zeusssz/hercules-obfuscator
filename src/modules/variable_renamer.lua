@@ -131,4 +131,3 @@ function VariableRenamer.process(code)
 end
 
 return VariableRenamer
- 
