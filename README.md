@@ -80,14 +80,9 @@ Hercules is very much still in development and may not be the best yet, but we a
     cd hercules-obfuscator/src
     ```
 
-2. Make the `hercules` script executable:
+2. Run the obfuscator:
     ```bash
-    chmod +x hercules
-    ```
-
-3. Run the obfuscator:
-    ```bash
-    ./hercules path/to/your/script.lua
+    lua hercules.lua path/to/your/script.lua
     ```
 >[!NOTE]
 >Ensure you are in the working directory of the executable, i.e., `src` by default. Alternatively, you can use the Lua interpreter directly if it is added to your system PATH.
@@ -109,7 +104,7 @@ Hercules is very much still in development and may not be the best yet, but we a
 To obfuscate a Lua script using Hercules, simply run:
 
 ```bash
-./hercules path/to/your/script.lua  # macOS/Linux
+lua hercules.lua path/to/your/script.lua  # macOS/Linux
 lua src\hercules.lua path\to\your\script.lua  # Windows
 ```
 
@@ -118,7 +113,7 @@ This will generate an obfuscated version of the script in the same directory, wi
 ## Example
 
 ```bash
-./hercules my_script.lua  # macOS/Linux
+lua hercules.lua my_script.lua  # macOS/Linux
 lua src\hercules.lua my_script.lua  # Windows
 ```
 
