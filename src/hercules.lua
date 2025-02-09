@@ -88,7 +88,7 @@ local function printcliresult(input, output, time, options)
     print(BANNER)
     print(colors.white .. "Obfuscation Complete!" .. colors.reset)
     print(colors.white .. "Details:" .. colors.reset
-    print(line))
+    print(line)
     print(colors.white .. "Time Taken        : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
     print(colors.cyan .. "Original Size     : " .. og_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Obfuscated Size   : " .. obfuscated_size .. " bytes" .. colors.reset)
