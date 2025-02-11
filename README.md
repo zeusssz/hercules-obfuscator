@@ -68,7 +68,7 @@ Hercules is very much still in development and may not be the best yet, but we a
 - **Wrap In Function:** Encapsulates entire scripts within a function, further obscuring the code's entry points and enhancing overall security.
 
 >[!TIP]
->You can customize your level of obfuscation through the `config.lua` file.
+>You can customize your obfuscation settings through the `config.lua` file.
 ---
 ## Installation
 
