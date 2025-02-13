@@ -87,6 +87,7 @@ local function printcliresult(input, output, time, options)
     print("\n" .. line)
     print(BANNER)
     print(colors.white .. "Obfuscation Complete!" .. colors.reset)
+    print(colors.white .. "Details:" .. colors.reset)
     print(line)
     print(colors.white .. "Time Taken        : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
     print(colors.cyan .. "Original Size     : " .. og_size .. " bytes" .. colors.reset)
@@ -123,6 +124,7 @@ local function printcliresult(input, output, time, options)
         { "Variable Renaming", config.get("settings.variable_renaming.enabled") },
         { "Garbage Code", config.get("settings.garbage_code.enabled") },
         { "Opaque Predicates", config.get("settings.opaque_predicates.enabled") },
+        -- { "Anti Tampers", config.get("settings.anti_tamper.enabled") },
         { "Function Inlining", config.get("settings.function_inlining.enabled") },
         { "Dynamic Code", config.get("settings.dynamic_code.enabled") },
         { "Bytecode Encoding", config.get("settings.bytecode_encoding.enabled") },

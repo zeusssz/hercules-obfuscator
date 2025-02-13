@@ -20,8 +20,6 @@ local function caesar_cipher(data, offset)
     local i = 1
     while i <= #data do
         local byte = data:byte(i)
-
-        -- make sure all control codes are kept and not encoded
         if byte == 92 and i < #data then
             local next_char = data:sub(i + 1, i + 1)
             if next_char == "2" and data:sub(i+2,i+2) == "7" then
@@ -92,13 +90,10 @@ local function ]] .. random_isvalidchar_name .. [[(]] .. random_byte_name .. [[)
     return (]] .. random_byte_name .. [[ >= 48 and ]] .. random_byte_name .. [[ <= 57) or (]] .. random_byte_name .. [[ >= 65 and ]] .. random_byte_name .. [[ <= 90) or (]] .. random_byte_name .. [[ >= 97 and ]] .. random_byte_name .. [[ <= 122)
 end
 ]]
-
-    -- replace inline escaped quotes so the pattern matches the entire line
     code = code:gsub('\\"', '!@!'):gsub("\\'", "@!@")
 
     code = code:gsub("(['\"])(.-)%1", function(quote,str)
         if type(str) == "string" then
-            -- put the quotes back in before encoding
             str = str:gsub('!@!', '\\"'):gsub('@!@', "\\'")
 
             local offset = math.random(1, 9)
@@ -106,7 +101,6 @@ end
                 offset = math.random(1, 25)
             end
             local encoded_str = caesar_cipher(str, offset)
-            -- make sure to use the quotes wrapped from the pattern above
             return string.format("%s(" .. quote .. "%s" .. quote .. ", %d)", random_decrypt_name, encoded_str, offset)
         else
             return str
