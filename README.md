@@ -72,6 +72,9 @@ Hercules is very much still in development and may not be the best yet, but we a
 ---
 ## Installation
 
+>[!IMPORTANT]
+>It is recommended to use the `Lua 5.4` compiler to run Hercules
+
 ### macOS and Linux
 
 1. Clone this repository:
