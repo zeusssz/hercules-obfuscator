@@ -75,9 +75,7 @@ Hercules is very much still in development and may not be the best yet, but we a
 >[!IMPORTANT]
 >It is recommended to use the `Lua 5.4` compiler to run Hercules
 
-### macOS and Linux
-
-1. Clone this repository:
+1. Clone this repository (alternatively, install the ZIP file):
     ```bash
     git clone https://github.com/zeusssz/hercules-obfuscator.git
     cd hercules-obfuscator/src
@@ -88,18 +86,8 @@ Hercules is very much still in development and may not be the best yet, but we a
     lua hercules.lua path/to/your/script.lua
     ```
 >[!NOTE]
->Ensure you are in the working directory of the executable, i.e., `src` by default. Alternatively, you can use the Lua interpreter directly if it is added to your system PATH.
+>Ensure you are in the working directory of `hercules.lua`, i.e., `src` by default.
 
-### Windows
-
-1. Clone this repository using Git Bash or download the ZIP file and extract it.
-
-2. Open Command Prompt or PowerShell and navigate to the `hercules-obfuscator` directory.
-
-3. Run the obfuscator using Lua:
-    ```cmd
-    lua src\hercules.lua path\to\your\script.lua
-    ```
 ---
 
 ## Usage
@@ -107,8 +95,7 @@ Hercules is very much still in development and may not be the best yet, but we a
 To obfuscate a Lua script using Hercules, simply run:
 
 ```bash
-lua hercules.lua path/to/your/script.lua  # macOS/Linux
-lua src\hercules.lua path\to\your\script.lua  # Windows
+lua hercules.lua path/to/your/script.lua
 ```
 
 This will generate an obfuscated version of the script in the same directory, with the filename `*_obfuscated.lua`.
@@ -116,8 +103,7 @@ This will generate an obfuscated version of the script in the same directory, wi
 ## Example
 
 ```bash
-lua hercules.lua my_script.lua  # macOS/Linux
-lua src\hercules.lua my_script.lua  # Windows
+lua hercules.lua my_script.lua
 ```
 
 Output:
@@ -173,9 +159,6 @@ You may also specify a preset using `--min`, `--mid`, or `--max`. For Example
 ```sh
 lua src\hercules.lua my_script.lua --max
 ```
-
->[!NOTE]
->Ensure that your custom pipeline file is **in the same directory** as `hercules.lua`.
 
 ## Customization
 
