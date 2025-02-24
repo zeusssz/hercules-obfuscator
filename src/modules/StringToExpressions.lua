@@ -19,11 +19,11 @@ local function obfuscate_string_literal(str, base1, base2)
     end
 
     local escape_chars = {
-        n = 10, -- ASCII code for \n
-        r = 13, -- ASCII code for \r
-        t = 9,   -- ASCII code for \t
-        ["'"] = 39, -- ASCII code for \'
-        ['"'] = 34  -- ASCII code for \"
+        n = 10,
+        r = 13,
+        t = 9,
+        ["'"] = 39,
+        ['"'] = 34
     }
 
     local obfuscated = {}
