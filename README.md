@@ -16,13 +16,13 @@
   <img src="https://img.shields.io/github/last-commit/zeusssz/hercules-obfuscator?style=flat-square" alt="Last Commit" />
   <br>
 <a href="https://discord.com/oauth2/authorize?client_id=1293608330123804682">
- <img src="https://img.shields.io/badge/Add%20Bot-black?style=plastic&logo=discord&logoColor=rgb(255%2C%20255%2C%20255)" alt="Bot Invite">
+ <img src="https://img.shields.io/badge/Add%20Bot-5865F2?style=flat-square&logo=discord&logoColor=%23ffffff" alt="Bot Invite">
 </a>
 <a href="https://top.gg/bot/1293608330123804682">
   <img src="https://top.gg/api/widget/servers/1293608330123804682.svg" alt="TopGG" />
 </a>
 <a href="https://github.com/Serpensin/DiscordBots-Hercules">
-<img src="https://img.shields.io/badge/Discord%20Bot%20Repo-5865F2" alt="Bot Repo"/>
+<img src="https://img.shields.io/badge/Discord%20Bot%20Repo-181717?style=flat&logo=github" alt="Bot Repo"/>
 </a>
 </p>
 
