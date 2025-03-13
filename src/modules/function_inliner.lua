@@ -1,12 +1,16 @@
 local FunctionInliner = {}
--- fix incoming
+
 function FunctionInliner.process(code)
     local functions = {}
     code = code:gsub("function%s+([%w_]+)%s*%((.-)%)%s*(.-)%s*end", function(func_name, params, func_body)
         functions[func_name] = { body = func_body, params = params }
         return ""
     end)
-    code = code:gsub("([%w_]+)%((.-)%)", function(func_name, args)
+
+    code = code:gsub("local%s+function%s+([%w_]+)%s*%((.-)%)%s*(.-)%s*end", function(func_name, params, func_body)
+        return "local function " .. func_name .. "(" .. params .. ")" .. func_body .. " end"
+    end)
+    code = code:gsub("([%w_]+)%s*%((.-)%)", function(func_name, args)
         local func = functions[func_name]
         if func then
             local inlined_body = func.body
@@ -16,16 +20,17 @@ function FunctionInliner.process(code)
             end
 
             local arg_values = {}
-            for arg in args:gmatch("[^,%s]+") do
-                table.insert(arg_values, arg)
+            for arg in args:gmatch("[^,]+") do
+                table.insert(arg_values, arg:match("^%s*(.-)%s*$"))
             end
             for i = 1, #param_names do
                 local param = param_names[i]
-                local arg = arg_values[i] or ""
-                inlined_body = inlined_body:gsub("%f[%a]" .. param .. "%f[%A]", arg)
+                local arg = arg_values[i] or "nil"
+                inlined_body = inlined_body:gsub("%f[%w_]" .. param .. "%f[^%w_]", "(" .. arg .. ")")
             end
-
-            return inlined_body
+            inlined_body = inlined_body:gsub("return%s+(.+)", "%1")
+            
+            return "(" .. inlined_body .. ")"
         end
         return func_name .. "(" .. args .. ")"
     end)
