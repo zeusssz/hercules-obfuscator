@@ -181,7 +181,7 @@ src/
 ```
 
 ## Credits
-VM by someone named [deoxy](https://github.com/deoxyrib0nucleid)
+VM based on [deoxy](https://github.com/deoxyrib0nucleid)'s VM
 
 ---
 ![image](https://github.com/user-attachments/assets/f0ee0abd-f4d5-4e6c-8801-07e32eec2ad9)
