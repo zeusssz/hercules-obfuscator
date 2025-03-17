@@ -153,7 +153,7 @@ return (function(...) local LULvKZwws,VFNgypmnr,SgJhiuXMa,KYWIsgYa,CbUhWnJMFL,OI
 ```
 ---
 
-If you specify the overwrite option with the `--overwrite` flag, it will write back to the specified script.
+If you specify the overwrite option with the `--overwrite` flag, it will write over to the specified script.
 <br>
 You may also specify a preset using `--min`, `--mid`, or `--max`. For Example
 ```sh
