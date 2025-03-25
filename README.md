@@ -170,14 +170,14 @@ You can modify or add new modules to the `modules/` directory to create addition
 
 ---
 
-## Project Structure
+## Directory Structure
 
 ```
-src/
-│
-├── hercules.lua
-├── pipeline.lua
-└── modules/
+hercules-obfuscator/
+└──src/
+  ├── hercules.lua
+  ├── pipeline.lua
+  └── modules/
 ```
 
 ## Credits
