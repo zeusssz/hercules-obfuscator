@@ -1,61 +1,56 @@
 local FunctionInliner = {}
 
 function FunctionInliner.process(code)
-  if code:match("^%s*%-%-.*Obfuscated") then
-    return code
-  end
+  if code:match("^%s*%-%-.*Obfuscated") then return code end
 
   local functions = {}
+  local output = code
   
-  code = code:gsub("local%s+function%s+([%w_]+)%s*%((.-)%)(.-)end", function(name, params, body)
-    if body:sub(1,1) ~= "\n" then return end
-    
-    body = body:sub(2)
+  output = output:gsub("%-%-[^\n]*", "")
+  
+  output = output:gsub("local%s+function%s+([%w_]+)%s*%(([^)]*)%)(.-)end", function(name, params, body)
     functions[name] = {params = params, body = body}
     return ""
   end)
   
-  code = code:gsub("function%s+([%w_]+)%s*%((.-)%)(.-)end", function(name, params, body)
-    if body:sub(1,1) ~= "\n" then return end
-    
-    body = body:sub(2)
+  output = output:gsub("function%s+([%w_]+)%s*%(([^)]*)%)(.-)end", function(name, params, body)
     functions[name] = {params = params, body = body}
     return ""
   end)
   
-  code = code:gsub("([%w_]+)%s*%((.-)%)", function(name, args)
-    if not functions[name] then
-      return name .. "(" .. args .. ")"
-    end
-    
-    local func = functions[name]
-    local body = func.body
-    
-    if func.params == "..." then
-      body = body:gsub("%.%.%.", args)
-    else
+  for name, func in pairs(functions) do
+    output = output:gsub(name .. "%s*(%b())", function(call)
+      local args = call:sub(2, -2)
+      local body = func.body
+      
       local params = {}
-      for param in func.params:gmatch("[^%s,]+") do
-        table.insert(params, param)
+      for param in func.params:gmatch("[^,%s]+") do
+        params[#params+1] = param
       end
       
       local arguments = {}
-      for arg in args:gmatch("[^,]+") do
-        table.insert(arguments, arg:match("^%s*(.-)%s*$"))
+      for arg in (args..","):gmatch("([^,]*),") do
+        arguments[#arguments+1] = arg:match("^%s*(.-)%s*$")
       end
       
-      for i = 1, #params do
-        local param = params[i]
+      for i, param in ipairs(params) do
         local arg = arguments[i] or "nil"
-        body = body:gsub("%f[%w_]" .. param .. "%f[^%w_]", arg)
+        body = body:gsub("%f[%w_]"..param.."%f[^%w_]", arg)
       end
-    end
-    
-    body = body:gsub("return%s+", "")
-    return body:match("^%s*(.-)%s*$")
-  end)
+      
+      if body:match("^%s*return%s+.+") then
+        body = body:gsub("^%s*return%s+", "")
+      end
+      
+      return "(" .. body:match("^%s*(.-)%s*$") .. ")"
+    end)
+  end
   
-  return code
+  output = output:gsub("end%s*$", "")
+  output = output:gsub("end%s*\n", "\n")
+  output = output:gsub("\n%s*\n", "\n")
+  
+  return output
 end
 
 return FunctionInliner
