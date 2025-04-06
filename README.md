@@ -16,7 +16,7 @@
   <img src="https://img.shields.io/github/last-commit/zeusssz/hercules-obfuscator?style=flat-square" alt="Last Commit" />
   <br>
 <a href="https://discord.com/oauth2/authorize?client_id=1293608330123804682">
- <img src="https://img.shields.io/badge/Add%20Bot-5865F2?style=flat-square&logo=discord&logoColor=%23ffffff" alt="Bot Invite">
+ <img src="https://img.shields.io/badge/Add%20Bot-5865F2?style=flat&logo=discord&logoColor=%23ffffff" alt="Bot Invite">
 </a>
 <a href="https://top.gg/bot/1293608330123804682">
   <img src="https://top.gg/api/widget/servers/1293608330123804682.svg" alt="TopGG" />
