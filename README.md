@@ -170,16 +170,6 @@ You can modify or add new modules to the `modules/` directory to create addition
 
 ---
 
-## Directory Structure
-
-```
-hercules-obfuscator/
-└──src/
-  ├── hercules.lua
-  ├── pipeline.lua
-  └── modules/
-```
-
 ## Credits
 VM based on [deoxy](https://github.com/deoxyrib0nucleid)'s VM
 
