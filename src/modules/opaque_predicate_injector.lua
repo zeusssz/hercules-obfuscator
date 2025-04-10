@@ -1,4 +1,5 @@
 local OpaquePredicateInjector = {}
+
 local function genpreds()
     local predicates = {
         function() 
@@ -7,8 +8,7 @@ local function genpreds()
         end,
         function()
             local x = math.random(1, 10)
-            return string.format("if ((%d * %d - %d) / %d == %d) then", 
-                x, x, x*x-x, x, x-1)
+            return string.format("if (%d %% %d == 0) then", x, x)
         end,
         function()
             local angle = math.random(0, 360)
@@ -29,9 +29,9 @@ local function genpreds()
             return string.format("if ((%d < %d) == not (%d >= %d)) then", a, b, a, b)
         end
     }
-    
     return predicates[math.random(#predicates)]()
 end
+
 local function injectsafe(statement)
     if statement:match("^%s*[%{%}]%s*$") or
        statement:match("^%s*$") or
@@ -48,7 +48,6 @@ local function injectsafe(statement)
         "^%s*local%s+function",
         "^%s*do%s+",
     }
-    
     for _, pattern in ipairs(unsafes) do
         if statement:match(pattern) then
             return false
@@ -57,9 +56,9 @@ local function injectsafe(statement)
     if statement:match("^%s*if%s+.+%s+then%s+.+%s+end%s*;?$") then
         return false
     end
-    
     return true
 end
+
 local function injpreds(block)
     if block:match("%s*end%s*;?$") or block:match("^%s*return") then
         return block
@@ -68,11 +67,11 @@ local function injpreds(block)
         return predicate .. block .. " end;"
     end
 end
+
 function OpaquePredicateInjector.process(code)
     if type(code) ~= "string" then
         error("Input must be a string")
     end
-    
     local success, processed_code = pcall(function()
         local result = code:gsub("([ \t]*)([^\n;]*;)", function(ws, statement)
             if injectsafe(statement) then
@@ -84,14 +83,11 @@ function OpaquePredicateInjector.process(code)
         result = result:gsub("([ \t]*)(return%s+[^\n;]+;)", function(ws, return_stmt)
             return ws .. return_stmt
         end)
-        
         return result
     end)
-    
     if not success then
         error("Failed to process code: " .. tostring(processed_code))
     end
-    
     return processed_code
 end
 

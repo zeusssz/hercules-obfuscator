@@ -1,3 +1,5 @@
+-- REMINDER: fix that fix later
+
 local VariableRenamer = {}
 local varencNames = {}
 
