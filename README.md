@@ -27,7 +27,7 @@
 <img src="https://img.shields.io/badge/Discord%20Bot%20Repo-181717?style=flat&logo=github" alt="Bot Repo"/>
 </a>
   
-<a href="https://hercules-obfuscator.xyz">
+<a href="https://www.hercules-obfuscator.xyz/">
   <img alt="Website Badge" src="https://img.shields.io/badge/Hercules_Website-002680?style=flat&logo=google&logoColor=%23ffff">
 </a>
 </p>
