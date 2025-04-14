@@ -39,9 +39,12 @@
 <br>
 If you decide to use/fork Hercules, please do **star it** to show support. It helps out a ton!
 <br>
+<br>
 
 Contact either `zeusssz_` on Discord for queries, or join the [Discord](https://zeusssz.github.io/hercules-discord/), to use the **Herucles Bot**.
 <br>
+
+You may also use the [Website](www.hercules-obfuscator.xyz/) to obfuscate your code
 
 >[!CAUTION]
 Obfuscation is not a foolproof method for protecting your code! Always consider additional security measures depending on your use case.
