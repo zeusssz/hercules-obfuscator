@@ -4,11 +4,12 @@ function AntiTamper.process(code)
   local antiBeautifyCode = [[
 local function __antiBeautifyCheck()
   local info = debug.getinfo(2, "nSl")
-  if not info then error("HERCULES: Failed due to insufficient resources") end
-  if info.currentline ~= 2 or info.linedefined ~= 2 then
-    error("HERCULES: Beautification Detected!")
+  if not info or info.currentline ~= 2 or info.linedefined ~= 2 then
+    io.stderr:write("HERCULES: Beautification Detected!")
+    os.exit(1)
   end
 end
+
 __antiBeautifyCheck()
 ]]
   return antiBeautifyCode .. "\n" .. code
