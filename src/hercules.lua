@@ -110,6 +110,7 @@ local function printcliresult(input, output, time, options)
             print(colors.yellow .. "\nGot output:" .. colors.reset)
             print(colors.white .. options.sanity_info.got .. colors.reset)
             print(colors.red .. "Please dm 'zeusssz_' on Discord with with the file, or make an issue on the GitHub" .. colors.reset)
+            print(colors.red .. "You may also join the Discord Server using the invite link" .. colors.reset)
         else
             print(colors.green .. "Sanity Check      : Passed" .. colors.reset)
         end
@@ -118,6 +119,7 @@ local function printcliresult(input, output, time, options)
     print(line)
 
     local settings = {
+        { "Watermark", config.get("settings.watermark_enabled") },
         { "String To Expressions", config.get("settings.StringToExpressions.enabled") },
         { "Control Flow", config.get("settings.control_flow.enabled") },
         { "String Encoding", config.get("settings.string_encoding.enabled") },
@@ -128,9 +130,9 @@ local function printcliresult(input, output, time, options)
         { "Dynamic Code", config.get("settings.dynamic_code.enabled") },
         { "Bytecode Encoding", config.get("settings.bytecode_encoding.enabled") },
         { "Compressor", config.get("settings.compressor.enabled") },
-        { "Watermark", config.get("settings.watermark_enabled") },
         { "Function Wrapping", config.get("settings.WrapInFunction.enabled") },
         { "Virtual Machine", config.get("settings.VirtualMachine.enabled") },
+        { "Anti Tamper", config.get("settings.antitamper.enabled") },
     }
 
     local max_length = 0
@@ -204,7 +206,8 @@ local obfuscation_flags = {
     { flags = {"-wif", "--wrap_in_func"}, description = "Enable function wrapping" },
     { flags = {"-fi", "--func_inlining"}, description = "Enable function inlining" },
     { flags = {"-dc", "--dynamic_code"}, description = "Enable dynamic code generation" },
-    { flags = {"-c", "--compressor"}, description = "Enable compressor" }
+    { flags = {"-c", "--compressor"}, description = "Enable compressor" },
+    { flags = {"-at", "--antitamper"}, description = "Enable antitamper" }
 }
 
 local max_flag_length = 0
@@ -248,6 +251,7 @@ local function main()
         WrapInFunction = false,
         function_inlining = false,
         dynamic_code = false,
+        antitamper = false,
     }
 
     for i = 2, #arg do
@@ -281,6 +285,8 @@ local function main()
             features.function_inlining = true
         elseif arg[i] == "-dc" or arg[i] == "--dynamic_code" then
             features.dynamic_code = true
+        elseif arg[i] == "-at" or arg[i] == "--antitamper" then
+        features.antitamper = true
         elseif arg[i] == "--min" then
             options.preset_level = "min"
         elseif arg[i] == "--mid" then
