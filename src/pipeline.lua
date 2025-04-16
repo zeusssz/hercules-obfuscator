@@ -14,6 +14,7 @@ local Compressor = require("modules/compressor")
 local StringToExpressions = require("modules/StringToExpressions")
 local WrapInFunction = require("modules/WrapInFunction")
 local VirtualMachinery = require("modules/VMGenerator")
+local AntiTamper = require("modules/antitamper")
 
 local Pipeline = {}
 
@@ -53,7 +54,9 @@ function Pipeline.process(code)
         local max_length = config.get("settings.StringToExpressions.max_number_length")
         code = StringToExpressions.process(code, min_length, max_length)
     end
-    
+    if config.get("settings.antitamper.enabled") then
+        code = AntiTamper.process(code)
+    end
     if config.get("settings.VirtualMachine.enabled") then
         code = VirtualMachinery.process(code)
     end
