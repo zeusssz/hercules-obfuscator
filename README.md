@@ -50,7 +50,7 @@ You may also use the [Website](www.hercules-obfuscator.xyz/) to obfuscate your c
 Obfuscation is not a foolproof method for protecting your code! Always consider additional security measures depending on your use case.
 
 >[!NOTE]
-Hercules is very much still in development and may not be the best yet, but we are committed to making it one of the best. Hercules is currently on version: `1.6.1`
+Hercules is very much still in development and may not be the best yet, but we are committed to making it one of the best. Hercules is currently on version: `1.6.2`
 ---
 
 ## Features
