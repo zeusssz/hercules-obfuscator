@@ -155,6 +155,7 @@ CheckNumber(-3)  -- Output: -3 is negative.
 CheckNumber(0)   -- Output: 0 is zero.
 ```
 <br>
+
 Obfuscated Script : `file_obfuscated.lua` (obfuscation was done under `Hercules v1.6.2`)
 
 ```lua
