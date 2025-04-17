@@ -3558,7 +3558,15 @@ local base, decoded = #charset, {}
                 return Sign * (_ / _)
             end;
         end;
-        return math.ldexp(Sign, Exponent - 1023) * (IsNormal + (Mantissa / (2 ^ 52)))
+        
+        -- Calculate the floating point value
+        local value = math.ldexp(Sign, Exponent - 1023) * (IsNormal + (Mantissa / (2 ^ 52)))
+        
+        -- Normalize integers to avoid decimal point display
+        if value % 1 == 0 then
+            return math.floor(value)
+        end
+        return value
     end)()
             elseif (Type == 4) then
                 Chunk.D[i - __] =     (function()
@@ -3571,7 +3579,7 @@ local base, decoded = #charset, {}
 	end)()
             end
         end;
-        for i = __, gBits32() do
+for i = __, gBits32() do
             Chunk.V[i - __] = gChunk()
         end
         -- post process optimization
@@ -3888,7 +3896,7 @@ local function GetOpcodeCode(S)
 		return [=[
         local A = Inst.A;
         local B = Inst.B;
-        local C = Inst.C;
+local C = Inst.C;
         local Params;
         if B == 0 then
             Params = Top - A;

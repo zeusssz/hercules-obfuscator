@@ -5,12 +5,12 @@ function AntiTamper.process(code)
 local function __antiBeautifyCheck()
   local info = debug.getinfo(2, "nSl")
   if not info or info.currentline ~= 2 or info.linedefined ~= 2 then
-    io.stderr:write("HERCULES: Beautification Detected!")
-    os.exit(1)
+    print("HERCULES: Beautification Detected!")
+    return true
   end
 end
 
-__antiBeautifyCheck()
+if __antiBeautifyCheck() then return end
 ]]
   return antiBeautifyCode .. "\n" .. code
 end
