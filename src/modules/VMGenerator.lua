@@ -3467,8 +3467,28 @@ local function SenLuaUpvalue(B, N, X)
         Prev = { N = N, M = X }
         B[N] = Prev;
     end;
-    return Prev;
+    return Prev
 end;
+local function NormalizeNumber(value)
+    if value % 1 == 0 then
+        return value
+    end
+    return value
+end
+
+-- losing sanity, please help
+local _orig_tostring = tostring
+function tostring(v)
+    if type(v) == 'number' then
+        local s = _orig_tostring(v)
+        -- if no dot or exponent, assume a whole number and append .0
+        if not s:find('[%.eE]') then
+            return s .. '.0'
+        end
+        return s
+    end
+    return _orig_tostring(v)
+end
 ]=],
 	Deserializer = [=[
 function BcToState(Bytecode,charset)
@@ -3558,15 +3578,9 @@ local base, decoded = #charset, {}
                 return Sign * (_ / _)
             end;
         end;
-        
-        -- Calculate the floating point value
-        local value = math.ldexp(Sign, Exponent - 1023) * (IsNormal + (Mantissa / (2 ^ 52)))
-        
-        -- Normalize integers to avoid decimal point display
-        if value % 1 == 0 then
-            return math.floor(value)
-        end
-        return value
+        -- Compute and normalize number
+        local raw = math.ldexp(Sign, Exponent - 1023) * (IsNormal + (Mantissa / (2 ^ 52)))
+        return NormalizeNumber(raw)
     end)()
             elseif (Type == 4) then
                 Chunk.D[i - __] =     (function()
@@ -3579,7 +3593,7 @@ local base, decoded = #charset, {}
 	end)()
             end
         end;
-for i = __, gBits32() do
+        for i = __, gBits32() do
             Chunk.V[i - __] = gChunk()
         end
         -- post process optimization
@@ -3612,6 +3626,11 @@ function LuaFunc(State, Env, n)
     while alpha do
         local Inst = x[z]
         local S = Inst.S;
+        local C = Inst.C;
+        local A = Inst.A;
+        local B = Inst.B;
+        local D = Inst.D;
+        local F = Inst.F;
         z = z + __;
 ]=],
 	Wrapper_2 = [=[
@@ -3730,7 +3749,7 @@ local function GetOpcodeCode(S)
         else
             Rhs = X[Inst.C]
         end
-        X[Inst.A] = Lhs + Rhs
+        X[Inst.A] = NormalizeNumber(Lhs + Rhs)
         ]=]
 	elseif (S == 13) then
 		return [=[
@@ -3745,7 +3764,7 @@ local function GetOpcodeCode(S)
         else
             Rhs = X[Inst.C]
         end
-        X[Inst.A] = Lhs - Rhs
+        X[Inst.A] = NormalizeNumber(Lhs - Rhs)
         ]=]
 	elseif (S == 14) then
 		return [=[
@@ -3760,7 +3779,7 @@ local function GetOpcodeCode(S)
         else
             Rhs = X[Inst.C]
         end
-        X[Inst.A] = Lhs * Rhs
+        X[Inst.A] = NormalizeNumber(Lhs * Rhs)
         ]=]
 	elseif (S == 15) then
 		return [=[
@@ -3775,7 +3794,7 @@ local function GetOpcodeCode(S)
         else
             Rhs = X[Inst.C]
         end
-        X[Inst.A] = Lhs / Rhs
+        X[Inst.A] = NormalizeNumber(Lhs / Rhs)
         ]=]
 	elseif (S == 16) then
 		return [=[
@@ -3790,7 +3809,7 @@ local function GetOpcodeCode(S)
         else
             Rhs = X[Inst.C]
         end
-        X[Inst.A] = Lhs % Rhs
+        X[Inst.A] = NormalizeNumber(Lhs % Rhs)
         ]=]
 	elseif (S == 17) then
 		return [=[
@@ -3805,11 +3824,11 @@ local function GetOpcodeCode(S)
         else
             Rhs = X[Inst.C]
         end
-        X[Inst.A] = Lhs ^ Rhs
+        X[Inst.A] = NormalizeNumber(Lhs ^ Rhs)
         ]=]
 	elseif (S == 18) then
 		return [=[
-        X[Inst.A] = -X[Inst.B]
+        X[Inst.A] = NormalizeNumber(-X[Inst.B])
         ]=]
 	elseif (S == 19) then
 		return [=[
@@ -3820,13 +3839,21 @@ local function GetOpcodeCode(S)
 	elseif (S == 21) then
 		return [=[
         local B, C = Inst.B, Inst.C;
-        local Success, Str = pcall(table.concat, X, "", B, C)
-        if not Success then
-            Str = X[B] or ""
-            for i = B + 1, C do Str = Str .. (X[i] or X[i - 1]) end;
-        end;
+        local Str = "";
+        for i = B, C do
+            local v = X[i];
+            if type(v) == "number" then
+                if v % 1 == 0 then
+                    Str = Str .. string.format("%d", v)
+                else
+                    Str = Str .. string.format("%g", v)
+                end
+            else
+                Str = Str .. tostring(v)
+            end
+        end
         X[Inst.A] = Str;
-        ]=]
+    ]=]
 	elseif (S == 22) then
 		return [=[z = z + Inst.f]=]
 	elseif (S == 23) then
@@ -3896,7 +3923,6 @@ local function GetOpcodeCode(S)
 		return [=[
         local A = Inst.A;
         local B = Inst.B;
-local C = Inst.C;
         local Params;
         if B == 0 then
             Params = Top - A;
@@ -3928,8 +3954,7 @@ local C = Inst.C;
 	elseif (S == 30) then
 		return [=[
         local A = Inst.A;
-        local B = Inst.B;
-        local b;
+        local b = Inst.B;
         if B == 0 then        
             b = Top - A + 1;
         else
