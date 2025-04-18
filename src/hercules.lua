@@ -34,6 +34,8 @@ local colors = {
     yellow = "\27[33m"
 }
 
+local obfuscated_list = {}
+
 local BANNER = colors.blue .. [[
                                 _                      _        __   
   /\  /\ ___  _ __  ___  _   _ | |  ___  ___   __   __/ |      / /_  
@@ -80,8 +82,13 @@ end
 
 local function printcliresult(input, output, time, options)
     local og_size = filesize(input)
-    local obfuscated_size = filesize(output)
-    local size_diff_percent = string.format("%.2f", ((obfuscated_size - og_size) / og_size) * 100 + 100)
+    local obfuscated_size = output and filesize(output) or 0
+    local size_diff_percent
+    if og_size > 0 then
+        size_diff_percent = string.format("%.2f", ((obfuscated_size - og_size) / og_size) * 100 + 100)
+    else
+        size_diff_percent = "N/A"
+    end
 
     local line = colors.white .. string.rep("=", 65) .. colors.reset
     print("\n" .. line)
@@ -99,8 +106,15 @@ local function printcliresult(input, output, time, options)
     end
 
     print(colors.cyan .. "Overwrite         : " .. formatbool(options.overwrite))
-    print(colors.cyan .. "Custom Pipeline   : " .. formatbool(options.custom_file))
-    print(colors.white .. "Output File       : " .. output .. colors.reset)
+    print(colors.cyan .. "Folder Mode       : " .. formatbool(options.folder_mode))
+    if options.folder_mode then
+        if not output then
+            print(colors.white .. "Output File       : " .. colors.reset
+                .. colors.cyan .. table.concat(obfuscated_list, ", ") .. colors.reset)
+        end
+    else
+        print(colors.white .. "Output File       : " .. output .. colors.reset)
+    end
 
     if options.sanity_check then
         if options.sanity_failed then
@@ -314,20 +328,27 @@ local function main()
     if options.folder_mode then
         local findCommand
         if package.config:sub(1,1) == "\\" then
-            -- win
-            findCommand = 'dir "' .. input .. '\\*.lua" /b /s 2>nul'
+            -- Windows: quote wildcard
+            local pattern = input .. "\\*.lua"
+            findCommand = string.format('dir %q /b /s 2>nul', pattern)
         else
-            -- mac/linux
-            findCommand = 'find "' .. input .. '" -type f -name "*.lua"'
+            -- mac/linux: quote path
+            findCommand = string.format('find %q -type f -name "*.lua"', input)
         end
         local p = io.popen(findCommand)
+        if not p then
+            error("Error: Failed to execute find command: " .. findCommand)
+        end
         for file in p:lines() do
             table.insert(files, file)
         end
+        p:close()
   else
         table.insert(files, input)
     end
 
+    obfuscated_list = {}
+    local batch_start = os.clock()
     for _, file_path in ipairs(files) do
         local file = io.open(file_path, "r")
         if not file then
@@ -371,11 +392,18 @@ local function main()
         out_file_handle:write(obfuscated_code)
         out_file_handle:close()
 
-        local end_time = os.clock()
+        table.insert(obfuscated_list, output_file)
+        -- compute per-file elapsed time
+        local file_time = os.clock() - start_time
         options.sanity_failed = sanity_failed
         options.sanity_info = sanity_info
-
-        printcliresult(file_path, output_file, end_time - start_time, options)
+        if not options.folder_mode then
+            printcliresult(file_path, output_file, file_time, options)
+        end
+    end
+    if options.folder_mode then
+        local total_time = os.clock() - batch_start
+        printcliresult(input, nil, total_time, options)
     end
 end
 main()
