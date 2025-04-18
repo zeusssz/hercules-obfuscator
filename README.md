@@ -185,5 +185,4 @@ You can modify or add new modules to the `modules/` directory to create addition
 VM based on [deoxy](https://github.com/deoxyrib0nucleid)'s VM
 
 ---
-![image](https://github.com/user-attachments/assets/f0ee0abd-f4d5-4e6c-8801-07e32eec2ad9)
-
+![image](https://github.com/user-attachments/assets/83c72548-5a4b-4326-b40e-6380f16f5a97)
