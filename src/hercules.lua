@@ -211,7 +211,7 @@ local function print_usage()
 local obfuscation_flags = {
     { flags = {"-cf", "--control_flow"}, description = "Enable control flow obfuscation" },
     { flags = {"-se", "--string_encoding"}, description = "Enable string encoding" },
-    { flags = {"-vr", "--variable_renamer"}, description = "Enable variable renaming" },
+    { flags = {"-vr", "--variable_renaming"}, description = "Enable variable renaming" },
     { flags = {"-gci", "--garbage_code"}, description = "Enable garbage code injection" },
     { flags = {"-opi", "--opaque_preds"}, description = "Enable opaque predicates injection" },
     { flags = {"-be", "--bytecode_encoder"}, description = "Enable bytecode encoding" },
@@ -289,7 +289,7 @@ local function main()
             features.compressor = true
         elseif arg[i] == "-se" or arg[i] == "--string_encoding" then
             features.string_encoding = true
-        elseif arg[i] == "-vr" or arg[i] == "--variable_renamer" then
+        elseif arg[i] == "-vr" or arg[i] == "--variable_renaming" then
             features.variable_renaming = true
         elseif arg[i] == "-gci" or arg[i] == "--garbage_code" then
             features.garbage_code = true
@@ -425,7 +425,6 @@ local function main()
         out_file_handle:close()
 
         table.insert(obfuscated_list, output_file)
-        -- compute per-file elapsed time
         local file_time = os.clock() - start_time
         options.sanity_failed = sanity_failed
         options.sanity_info = sanity_info
