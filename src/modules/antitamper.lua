@@ -2,29 +2,26 @@ local AntiTamper = {}
 -- anti beautify + simple anti tamper for now
 function AntiTamper.process(code)
   local antiBeautifyCode = [[
-local __debug = debug
-local __getinfo = __debug.getinfo
-local __origDumpable = pcall(string.dump, __getinfo)
+local dbg = debug
+local function antitamper()
+  if type(dbg.getinfo) ~= "function" or pcall(string.dump, dbg.getinfo) then return true end
+  for _, f in ipairs({pcall, string.dump, dbg.getinfo, dbg.getlocal, dbg.getupvalue}) do
+    local i = dbg.getinfo(f)
+    if not i or i.what ~= "C" or pcall(string.dump, f) or dbg.getlocal(f, 1) or dbg.getupvalue(f, 1) then
+      return true
+    end
+  end
+end
 
-if type(__getinfo) ~= "function" then
-  print("HERCULES: Tampering Detected!")
+local function antibeautify()
+  local i = dbg.getinfo(2, "Sl")
+  return not i or i.linedefined ~= 2 or i.currentline ~= 2
+end
+
+if antibeautify() or antitamper() then
+  print("HERCULES: Tamper Detected!")
   return
 end
-
-local function __antiBeautifyCheck()
-  if type(debug.getinfo) ~= "function" or pcall(string.dump, debug.getinfo) then
-    print("HERCULES: Tampering Detected!")
-    return true
-  end
-
-  local info = __getinfo(2, "nSl")
-  if not info or info.currentline ~= 2 or info.linedefined ~= 2 then
-    print("HERCULES: Beautification Detected!")
-    return true
-  end
-end
-
-if __antiBeautifyCheck() then return end
 ]]
   return antiBeautifyCode .. "\n" .. code
 end
