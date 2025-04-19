@@ -241,10 +241,18 @@ end
 
 local function main()
     if #arg < 1 then
+        print(colors.red .. "Error: No input file specified" .. colors.reset)
         print_usage()
+        os.exit(1)
     end
 
     local input = arg[1]
+    if input:sub(1,1) == "-" then
+        print(colors.red .. "Error: Unexpected flag '" .. input .. "'" .. colors.reset)
+        print_usage()
+        os.exit(1)
+    end
+
     local options = {
         overwrite = false,
         custom_file = nil,
@@ -300,14 +308,38 @@ local function main()
         elseif arg[i] == "-dc" or arg[i] == "--dynamic_code" then
             features.dynamic_code = true
         elseif arg[i] == "-at" or arg[i] == "--antitamper" then
-        features.antitamper = true
+            features.antitamper = true
         elseif arg[i] == "--min" then
             options.preset_level = "min"
         elseif arg[i] == "--mid" then
             options.preset_level = "mid"
         elseif arg[i] == "--max" then
             options.preset_level = "max"
+        else
+            print(colors.red .. "Error: Unknown option '" .. arg[i] .. "'" .. colors.reset)
+            print_usage()
+            os.exit(1)
         end
+    end
+    if not options.folder_mode and not input:match("%.lua$") then
+        print(colors.red .. "Error: Invalid file extension for '" .. input .. "'" .. colors.reset)
+        print_usage()
+        os.exit(1)
+    end
+    if options.folder_mode then
+        if not os.rename(input, input) then
+            print(colors.red .. "Error: Folder '" .. input .. "' does not exist or could not be found" .. colors.reset)
+            print_usage()
+            os.exit(1)
+        end
+    else
+        local fh = io.open(input, "r")
+        if not fh then
+            print(colors.red .. "Error: File '" .. input .. "' does not exist or could not be found" .. colors.reset)
+            print_usage()
+            os.exit(1)
+        end
+        fh:close()
     end
 
     local single_enabled = false
@@ -328,7 +360,7 @@ local function main()
     if options.folder_mode then
         local findCommand
         if package.config:sub(1,1) == "\\" then
-            -- Windows: quote wildcard
+            -- windows: quote wildcard
             local pattern = input .. "\\*.lua"
             findCommand = string.format('dir %q /b /s 2>nul', pattern)
         else
