@@ -34,6 +34,8 @@ local colors = {
     yellow = "\27[33m"
 }
 
+local obfuscated_list = {}
+
 local BANNER = colors.blue .. [[
                                 _                      _        __   
   /\  /\ ___  _ __  ___  _   _ | |  ___  ___   __   __/ |      / /_  
@@ -80,8 +82,13 @@ end
 
 local function printcliresult(input, output, time, options)
     local og_size = filesize(input)
-    local obfuscated_size = filesize(output)
-    local size_diff_percent = string.format("%.2f", ((obfuscated_size - og_size) / og_size) * 100 + 100)
+    local obfuscated_size = output and filesize(output) or 0
+    local size_diff_percent
+    if og_size > 0 then
+        size_diff_percent = string.format("%.2f", ((obfuscated_size - og_size) / og_size) * 100 + 100)
+    else
+        size_diff_percent = "N/A"
+    end
 
     local line = colors.white .. string.rep("=", 65) .. colors.reset
     print("\n" .. line)
@@ -99,8 +106,15 @@ local function printcliresult(input, output, time, options)
     end
 
     print(colors.cyan .. "Overwrite         : " .. formatbool(options.overwrite))
-    print(colors.cyan .. "Custom Pipeline   : " .. formatbool(options.custom_file))
-    print(colors.white .. "Output File       : " .. output .. colors.reset)
+    print(colors.cyan .. "Folder Mode       : " .. formatbool(options.folder_mode))
+    if options.folder_mode then
+        if not output then
+            print(colors.white .. "Output File       : " .. colors.reset
+                .. colors.cyan .. table.concat(obfuscated_list, ", ") .. colors.reset)
+        end
+    else
+        print(colors.white .. "Output File       : " .. output .. colors.reset)
+    end
 
     if options.sanity_check then
         if options.sanity_failed then
@@ -110,6 +124,7 @@ local function printcliresult(input, output, time, options)
             print(colors.yellow .. "\nGot output:" .. colors.reset)
             print(colors.white .. options.sanity_info.got .. colors.reset)
             print(colors.red .. "Please dm 'zeusssz_' on Discord with with the file, or make an issue on the GitHub" .. colors.reset)
+            print(colors.red .. "You may also join the Discord Server using the invite link" .. colors.reset)
         else
             print(colors.green .. "Sanity Check      : Passed" .. colors.reset)
         end
@@ -118,6 +133,7 @@ local function printcliresult(input, output, time, options)
     print(line)
 
     local settings = {
+        { "Watermark", config.get("settings.watermark_enabled") },
         { "String To Expressions", config.get("settings.StringToExpressions.enabled") },
         { "Control Flow", config.get("settings.control_flow.enabled") },
         { "String Encoding", config.get("settings.string_encoding.enabled") },
@@ -128,9 +144,9 @@ local function printcliresult(input, output, time, options)
         { "Dynamic Code", config.get("settings.dynamic_code.enabled") },
         { "Bytecode Encoding", config.get("settings.bytecode_encoding.enabled") },
         { "Compressor", config.get("settings.compressor.enabled") },
-        { "Watermark", config.get("settings.watermark_enabled") },
         { "Function Wrapping", config.get("settings.WrapInFunction.enabled") },
         { "Virtual Machine", config.get("settings.VirtualMachine.enabled") },
+        { "Anti Tamper", config.get("settings.antitamper.enabled") },
     }
 
     local max_length = 0
@@ -204,7 +220,8 @@ local obfuscation_flags = {
     { flags = {"-wif", "--wrap_in_func"}, description = "Enable function wrapping" },
     { flags = {"-fi", "--func_inlining"}, description = "Enable function inlining" },
     { flags = {"-dc", "--dynamic_code"}, description = "Enable dynamic code generation" },
-    { flags = {"-c", "--compressor"}, description = "Enable compressor" }
+    { flags = {"-c", "--compressor"}, description = "Enable compressor" },
+    { flags = {"-at", "--antitamper"}, description = "Enable antitamper" }
 }
 
 local max_flag_length = 0
@@ -248,6 +265,7 @@ local function main()
         WrapInFunction = false,
         function_inlining = false,
         dynamic_code = false,
+        antitamper = false,
     }
 
     for i = 2, #arg do
@@ -281,6 +299,8 @@ local function main()
             features.function_inlining = true
         elseif arg[i] == "-dc" or arg[i] == "--dynamic_code" then
             features.dynamic_code = true
+        elseif arg[i] == "-at" or arg[i] == "--antitamper" then
+        features.antitamper = true
         elseif arg[i] == "--min" then
             options.preset_level = "min"
         elseif arg[i] == "--mid" then
@@ -308,20 +328,27 @@ local function main()
     if options.folder_mode then
         local findCommand
         if package.config:sub(1,1) == "\\" then
-            -- win
-            findCommand = 'dir "' .. input .. '\\*.lua" /b /s 2>nul'
+            -- Windows: quote wildcard
+            local pattern = input .. "\\*.lua"
+            findCommand = string.format('dir %q /b /s 2>nul', pattern)
         else
-            -- mac/linux
-            findCommand = 'find "' .. input .. '" -type f -name "*.lua"'
+            -- mac/linux: quote path
+            findCommand = string.format('find %q -type f -name "*.lua"', input)
         end
         local p = io.popen(findCommand)
+        if not p then
+            error("Error: Failed to execute find command: " .. findCommand)
+        end
         for file in p:lines() do
             table.insert(files, file)
         end
+        p:close()
   else
         table.insert(files, input)
     end
 
+    obfuscated_list = {}
+    local batch_start = os.clock()
     for _, file_path in ipairs(files) do
         local file = io.open(file_path, "r")
         if not file then
@@ -365,11 +392,18 @@ local function main()
         out_file_handle:write(obfuscated_code)
         out_file_handle:close()
 
-        local end_time = os.clock()
+        table.insert(obfuscated_list, output_file)
+        -- compute per-file elapsed time
+        local file_time = os.clock() - start_time
         options.sanity_failed = sanity_failed
         options.sanity_info = sanity_info
-
-        printcliresult(file_path, output_file, end_time - start_time, options)
+        if not options.folder_mode then
+            printcliresult(file_path, output_file, file_time, options)
+        end
+    end
+    if options.folder_mode then
+        local total_time = os.clock() - batch_start
+        printcliresult(input, nil, total_time, options)
     end
 end
 main()
