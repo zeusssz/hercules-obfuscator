@@ -4,6 +4,12 @@ function AntiTamper.process(code)
   local antiBeautifyCode = [[
 local dbg, gmatch = debug, string.gmatch
 
+pcall((function()
+    return function()
+        while true do error() end
+    end
+end)())
+
 local function antitamper()
     if type(dbg.getinfo) ~= "function" or pcall(string.dump, dbg.getinfo) then return true end
     for _, f in ipairs({pcall, string.dump, gmatch, dbg.getinfo, dbg.getlocal, dbg.getupvalue}) do
