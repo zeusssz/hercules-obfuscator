@@ -2,6 +2,12 @@ local AntiTamper = {}
 -- anti beautify + simple anti tamper for now
 function AntiTamper.process(code)
   local antiBeautifyCode = [[
+pcall((function()
+    return function()
+        while true do error() end
+    end
+end)())  
+
 local dbg = debug
 local function antitamper()
   if type(dbg.getinfo) ~= "function" or pcall(string.dump, dbg.getinfo) then return true end
