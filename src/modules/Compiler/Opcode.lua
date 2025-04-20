@@ -2,7 +2,7 @@ function GetOpcodeCode(S)
 	if (S == 0) then
 		return [=[X[Inst.A] = X[Inst.B];]=]
 	elseif (S == 1) then
-		return [=[X[Inst.A] = Inst.D]=]
+		return [=[X[Inst.A] = (type(Inst.D) == "number" and Inst.D % 1 == 0) and math.floor(Inst.D) or Inst.D]=]
 	elseif (S == 2) then
 		return [=[
         X[Inst.A] = Inst.B ~= 0
