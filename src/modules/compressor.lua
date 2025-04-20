@@ -73,7 +73,10 @@ function Compressor.process(code)
         :gsub("}%s*else", "}else")
         :gsub("}%s*elseif", "}elseif")
         :gsub(";+", ";")
-
+        :gsub("([%w_]+)%s*([%+%-%*/%^#])%s*(%d+)", "%1%2%3")
+        :gsub("([%d]+)%s*([%+%-%*/%^#])%s*([%w_]+)", "%1%2%3")
+        :gsub("%s*([%[%]{}();:,=<>~+*/%^#])%s*", "%1")
+    
     code = restorekeyws(code)
     code = restorestrs(code)
     
