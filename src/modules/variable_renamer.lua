@@ -26,8 +26,11 @@ local reserved_words = {
     ["true"] = true, ["false"] = true
 }
 
-local function generate_random_name(len)
-    len = len or math.random(8, 12)
+local DEFAULT_MIN_NAME_LENGTH, DEFAULT_MAX_NAME_LENGTH = 8, 12
+local name_min, name_max = DEFAULT_MIN_NAME_LENGTH, DEFAULT_MAX_NAME_LENGTH
+
+local function generate_random_name()
+    local len = math.random(name_min, name_max)
     local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     local name = ""
     for _ = 1, len do
@@ -95,7 +98,11 @@ local function obfuscate_functions(code)
     return obfuscated_code
 end
 
-function VariableRenamer.process(code)
+function VariableRenamer.process(code, options)
+    options = options or {}
+    -- apply custom name length range
+    name_min = options.min_length or DEFAULT_MIN_NAME_LENGTH
+    name_max = options.max_length or DEFAULT_MAX_NAME_LENGTH
     local renamed_vars = {}
     local assignment_lines = {}
     local obfuscated_code, var_map = obfuscate_local_variables(code)
@@ -113,7 +120,10 @@ function VariableRenamer.process(code)
     end
     local local_declaration = #renamed_vars > 0 and "local " .. table.concat(renamed_vars, ", ") or ""
     local assignments = #assignment_lines > 0 and "\n" .. table.concat(assignment_lines, " ") or ""
-    return local_declaration .. assignments .. "\n" .. obfuscated_code
+    local result = local_declaration .. assignments .. "\n" .. obfuscated_code
+    -- reset to defaults
+    name_min, name_max = DEFAULT_MIN_NAME_LENGTH, DEFAULT_MAX_NAME_LENGTH
+    return result
 end
 
 return VariableRenamer

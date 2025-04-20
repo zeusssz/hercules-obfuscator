@@ -1,6 +1,6 @@
 local ControlFlowObfuscator = {}
 
-function ControlFlowObfuscator.process(code)
+function ControlFlowObfuscator.process(code, max_fake_blocks)
     local function insert_fake_control_flow(original_code)
         local obfuscated_code = string.format(
             "local executed = false " ..
@@ -20,7 +20,12 @@ function ControlFlowObfuscator.process(code)
         error("Input code must be a string")
     end
 
-    return insert_fake_control_flow(code)
+    local blocks = (type(max_fake_blocks) == "number" and max_fake_blocks) or 1
+    local result = code
+    for i = 1, blocks do
+        result = insert_fake_control_flow(result)
+    end
+    return result
 end
 
 return ControlFlowObfuscator

@@ -29,8 +29,8 @@ config.settings = {
     },
     variable_renaming = {
         enabled = true,
-        min_name_length = 70,
-        max_name_length = 80,
+        min_name_length = 8,
+        max_name_length = 12,
     },
     garbage_code = {
         enabled = true,
