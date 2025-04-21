@@ -1,86 +1,103 @@
 local Compressor = {}
 
+local LUA_KEYWORDS = {
+    "and", "break", "do", "else", "elseif", "end", "false", "for", "function",
+    "goto", "if", "in", "local", "nil", "not", "or", "repeat", "return",
+    "then", "true", "until", "while"
+}
+
+local KW_PLACEHOLDER_PRE = "@@KW_"
+local KW_PLACEHOLDER_POST = "_KW@@"
+local STR_PLACEHOLDER_PRE = "@@S_"
+local STR_PLACEHOLDER_POST = "_S@@"
+
 function Compressor.process(code)
     if type(code) ~= "string" then
-        error("Input code must be a string.")
+        error("Input code must be a string.", 2)
     end
-    if code:match("^[\\d\\%\\]+$") then
-        return code
+    if #code < 10 or code:match("^[%s%d%p]*$") then
+        return code:match("^%s*(.-)%s*$") or ""
     end
 
     local strings = {}
     local string_count = 0
+    local keywords_map = {}
 
-    local function preservestrs(code)
-        code = code:gsub("%[(=*)%[(.-)%]%1%]", function(equals, str)
+    local function preservestrs(c)
+        c = c:gsub("%[(=*)%[(.-)%]%1%]", function(equals, str)
             string_count = string_count + 1
-            strings[string_count] = "[" .. equals .. "[" .. str .. "]" .. equals .. "]"
-            return "<S" .. string_count .. ">"
+            local key = STR_PLACEHOLDER_PRE .. string_count .. STR_PLACEHOLDER_POST
+            strings[key] = "[" .. equals .. "[" .. str .. "]" .. equals .. "]"
+            return key
         end)
-        code = code:gsub('(".-")', function(str)
+        c = c:gsub('"(.-)"', function(str)
+            if not str:find("\\", 1, true) and str:find(STR_PLACEHOLDER_PRE, 1, true) then
+                 return '"'..str..'"'
+            end
             string_count = string_count + 1
-            strings[string_count] = str
-            return "<S" .. string_count .. ">"
+            local key = STR_PLACEHOLDER_PRE .. string_count .. STR_PLACEHOLDER_POST
+            strings[key] = '"' .. str .. '"'
+            return key
         end)
-        
-        code = code:gsub("('.-')", function(str)
+        c = c:gsub("('.-')", function(str)
+             if not str:find("\\", 1, true) and str:find(STR_PLACEHOLDER_PRE, 1, true) then
+                 return "'"..str.."'"
+            end
             string_count = string_count + 1
-            strings[string_count] = str
-            return "<S" .. string_count .. ">"
+            local key = STR_PLACEHOLDER_PRE .. string_count .. STR_PLACEHOLDER_POST
+            strings[key] = str
+            return key
         end)
-        
-        return code
+        return c
     end
 
-    local function restorestrs(code)
+    local function preservekeyws(c)
+        for _, keyword in ipairs(LUA_KEYWORDS) do
+            local placeholder = KW_PLACEHOLDER_PRE .. keyword .. KW_PLACEHOLDER_POST
+            keywords_map[placeholder] = keyword
+            c = c:gsub("([^%w_])(" .. keyword .. ")([^%w_])", "%1"..placeholder.."%3")
+            c = c:gsub("^(" .. keyword .. ")([^%w_])", placeholder.."%2")
+            c = c:gsub("([^%w_])(" .. keyword .. ")$", "%1"..placeholder)
+            c = c:gsub("^(" .. keyword .. ")$", placeholder)
+        end
+        return c
+    end
+
+    local function restorekeyws(c)
+        for placeholder, keyword in pairs(keywords_map) do
+             c = string.gsub(c, placeholder, function() return keyword end)
+        end
+        return c
+    end
+
+    local function restorestrs(c)
         for i = string_count, 1, -1 do
-            code = string.gsub(code, "<S" .. i .. ">", function() return (strings[i]) end)
+            local key = STR_PLACEHOLDER_PRE .. i .. STR_PLACEHOLDER_POST
+            c = string.gsub(c, key, function() return strings[key] end)
         end
-        return code
-    end
-
-    local lua_keywords = {
-        "and", "or", "function", "if", "else", "elseif", "for", "while", "do", 
-        "end", "repeat", "until", "return", "local", "then"
-    }
-
-    local function preservekeyws(code)
-        for _, keyword in ipairs(lua_keywords) do
-            code = code:gsub("%f[%a]" .. keyword .. "%f[%A]", "___" .. keyword .. "___")
-        end
-        return code
-    end
-
-    local function restorekeyws(code)
-        for _, keyword in ipairs(lua_keywords) do
-            code = code:gsub("___" .. keyword .. "___", keyword)
-        end
-        return code
+        return c
     end
 
     code = preservestrs(code)
     code = preservekeyws(code)
 
-    code = code
-        :gsub("--%[%[.-%]%]", "")
-        :gsub("%-%-[^\n]*", "")
-        :gsub("\n+", "\n")
-        :gsub("%s*\n%s*", "\n")
-        :gsub("%s+", " ")
-        :gsub("%s*([%[%]{}();:,=<>~+*/%^#])%s*", "%1")
-        :gsub("([%w_]+)%s*%(", "%1(")
-        :gsub("([%)%]])%s*{", "%1{")
-        :gsub("}%s*else", "}else")
-        :gsub("}%s*elseif", "}elseif")
-        :gsub(";+", ";")
-        :gsub("([%w_]+)%s*([%+%-%*/%^#])%s*(%d+)", "%1%2%3")
-        :gsub("([%d]+)%s*([%+%-%*/%^#])%s*([%w_]+)", "%1%2%3")
-        :gsub("%s*([%[%]{}();:,=<>~+*/%^#])%s*", "%1")
-    
+    code = code:gsub("--%[%[.-%]%]", "")
+    code = code:gsub("%-%-[^\n]*", "")
+
+    code = code:gsub("[\n\r]+", " ")
+    code = code:gsub("%s+", " ")
+
+    code = code:gsub("%s*%.%.%s*", "..")
+    code = code:gsub("%s*([%+%-%*/%%\\^#%<%>%~%=%,%;:%(%){}%[%]])%s*", "%1")
+    code = code:gsub("%s*%.%s*", ".")
+    code = code:gsub("%.%.", "..")
+
+    code = code:match("^%s*(.-)%s*$") or ""
+
     code = restorekeyws(code)
     code = restorestrs(code)
-    
-    return code:match("^%s*(.-)%s*$") or ""
+
+    return code
 end
 
 return Compressor
