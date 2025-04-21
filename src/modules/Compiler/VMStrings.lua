@@ -91,34 +91,51 @@ function tostring(v)
     end
     return _orig_tostring(v)
 end
+local asciilookup = {}
+for i = 0, 255 do
+    asciilookup[string.char(i)] = i
+end
+
+local function chartoascii(str, pos)
+    pos = pos or 1
+    local ch = str:sub(pos, pos)
+    return asciilookup[ch]
+end
 ]=],
 	Deserializer = [=[
-function BcToState(Bytecode,charset)
-local base, decoded = #charset, {}
+function BcToState(Bytecode, charset)
+    local base, decoded = #charset, {}
     local decode_lookup = {}
     for i = 1, base do decode_lookup[charset:sub(i, i)] = i - 1 end
-    for encoded_char in Bytecode:gmatch("[^x]+") do
+    for encoded_char in Bytecode:gmatch("[^\0]+") do
         local n = 0
         for i = 1, #encoded_char do n = n * base + decode_lookup[encoded_char:sub(i, i)] end
-        decoded[#decoded+1] = string.char(n)
+        decoded[#decoded + 1] = string.char(n)
     end
-    Bytecode = table.concat(decoded)
-    local Pos = __
+    local bytes = {}
+    for char in table.concat(decoded):gmatch("(.?)\\") do
+        if #char > 0 then
+            bytes[#bytes + 1] = chartoascii(char)
+        end
+    end
+
+    local Pos = 1
     local function gBits8()
-        local Val = string.byte(Bytecode, Pos, Pos)
-        Pos = Pos + __
-        return Val;
-    end;
+        local Val = bytes[Pos]
+        Pos = Pos + 1
+        return Val
+    end
     local function gBits16()
-        local Val1, Val2 = string.byte(Bytecode, Pos, Pos + 2)
-        Pos = Pos + 2;
-        return (Val2 * 256) + Val1;
-    end;
+        local Val1, Val2 = bytes[Pos], bytes[Pos + 1]
+        Pos = Pos + 2
+        return (Val2 * 256) + Val1
+    end
     local function gBits32()
-        local Val1, Val2, Val3, Val4 = string.byte(Bytecode, Pos, Pos + 3)
-        Pos = Pos + 4;
-        return (Val4 * 16777216) + (Val3 * 65536) + (Val2 * 256) + Val1;
-    end;
+        local Val1, Val2, Val3, Val4 = bytes[Pos], bytes[Pos + 1], bytes[Pos + 2], bytes[Pos + 3]
+        Pos = Pos + 4
+        return (Val4 * 16777216) + (Val3 * 65536) + (Val2 * 256) + Val1
+    end
+
     function gChunk()
         local Chunk = {
             n = gBits8(),
@@ -151,70 +168,72 @@ local base, decoded = #charset, {}
                 Inst.g = Mode.b == __
             elseif (Type == 3) then
                 Inst.f = gBits32() - 131071
-            end;
-            Chunk.x[i] = Inst;
-        end;
+            end
+            Chunk.x[i] = Inst
+        end
         for i = __, gBits32() do
             local Type = gBits8()
             if (Type == __) then
                 Chunk.D[i - __] = (gBits8() ~= _)
             elseif (Type == 3) then
-                Chunk.D[i - __] =     (function()
-        local Left = gBits32()
-        local Right = gBits32()
-        local IsNormal = __
-        local Mantissa = BOr(LShift(BAnd(Right, 0xFFFFF), 32), Left);
-        local Exponent  = BAnd(RShift(Right, 20), 0x7FF)
-        local Sign = (-__) ^ RShift(Right, 31)
-        if Exponent == _ then
-            if Mantissa == _ then
-                return Sign * _
-            else
-                Exponent = __
-                IsNormal = _
-            end;
-        elseif Exponent == 2047 then
-            if Mantissa == _ then
-                return Sign * (__ / _)
-            else
-                return Sign * (_ / _)
-            end;
-        end;
-        -- Compute and normalize number
-        local raw = math.ldexp(Sign, Exponent - 1023) * (IsNormal + (Mantissa / (2 ^ 52)))
-        return NormalizeNumber(raw)
-    end)()
+                Chunk.D[i - __] = (function()
+                    local Left = gBits32()
+                    local Right = gBits32()
+                    local IsNormal = __
+                    local Mantissa = BOr(LShift(BAnd(Right, 0xFFFFF), 32), Left)
+                    local Exponent = BAnd(RShift(Right, 20), 0x7FF)
+                    local Sign = (-__) ^ RShift(Right, 31)
+                    if Exponent == _ then
+                        if Mantissa == _ then
+                            return Sign * _
+                        else
+                            Exponent = __
+                            IsNormal = _
+                        end
+                    elseif Exponent == 2047 then
+                        if Mantissa == _ then
+                            return Sign * (__ / _)
+                        else
+                            return Sign * (_ / _)
+                        end
+                    end
+                    local raw = math.ldexp(Sign, Exponent - 1023) * (IsNormal + (Mantissa / (2 ^ 52)))
+                    return NormalizeNumber(raw)
+                end)()
             elseif (Type == 4) then
-                Chunk.D[i - __] =     (function()
-		local Str;
-			local baik = gBits32();
-			if (baik == _) then return; end;
-			Str	= string.sub(Bytecode, Pos, Pos + baik - __);
-			Pos = Pos + baik
-		return Str;
-	end)()
+                Chunk.D[i - __] = (function()
+                    local Str
+                    local baik = gBits32()
+                    if (baik == _) then return end
+                    local chars = {}
+                    for j = 1, baik do
+                        chars[#chars + 1] = string.char(gBits8())
+                    end
+                    return table.concat(chars)
+                end)()
             end
-        end;
+        end
         for i = __, gBits32() do
             Chunk.V[i - __] = gChunk()
         end
-        -- post process optimization
+
         for _, v in ipairs(Chunk.x) do
             if v.g then
                 v.D = Chunk.D[v.F]
             else
                 if v.s then
                     v.A = Chunk.D[v.B - 256]
-                end;
+                end
                 if v.a then
                     v.C = Chunk.D[v.C - 256]
-                end;
-            end;
+                end
+            end
         end
         return Chunk
-    end;
+    end
+
     return gChunk()
-end;
+end
 ]=],
 	Wrapper_1 = [=[
 function LuaFunc(State, Env, n)

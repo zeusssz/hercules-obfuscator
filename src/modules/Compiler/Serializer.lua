@@ -2,7 +2,7 @@ local bit = require("modules/Compiler/bit")
 function Serialize(Chunk)
 	local Buffer = {}
 	local function AddByte(Value)
-		table.insert(Buffer, string.char(Value))
+		table.insert(Buffer, string.char(Value).."\\")
 	end;
 	local function WriteBits8(Value)
 		AddByte(Value)

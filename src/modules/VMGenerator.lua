@@ -1,20 +1,20 @@
 local Parts = require("modules/Compiler/VMStrings")
 local GetOpcodeCode = require("modules/Compiler/Opcode")
 local compile = require("modules/Compiler/Compiler")
+math.randomseed(os.time())
 local function Generate(...)
 	local Data = {
 		...
 	}
 	local Bytecode = Data[1]
 	local UsedOpcodes = Data[2]
-	local Out = ""
-	local function Add(Code)
-		Out = Out .. "\n" .. Code
+	local lines = {}
+	local function Add(line)
+		lines[#lines+1] = line
 	end;
 	local function GenerateVariable(length)
 		local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 		local result = {}
-		math.randomseed(os.clock() ^ math.random(2, 5))
 		for i = 1, length do
 			local rand = math.random(1, # charset)
 			table.insert(result, charset:sub(rand, rand))
@@ -22,18 +22,24 @@ local function Generate(...)
 		return table.concat(result)
 	end;
 	local function string_shuffle(str)
-		local chars = {}
-		for i = 1, # str do
-			chars[i] = str:sub(i, i)
-		end;
-		for i = # chars, 2, - 1 do
+		local n = #str
+		local codes = {}
+		for i = 1, n do codes[i] = str:byte(i) end
+		for i = n, 2, -1 do
 			local j = math.random(1, i)
-			chars[i], chars[j] = chars[j], chars[i]
-		end;
-		return table.concat(chars)
+			codes[i], codes[j] = codes[j], codes[i]
+		end
+		for i = 1, n do codes[i] = string.char(codes[i]) end
+		return table.concat(codes)
 	end;
-	math.randomseed(os.time())
-	local charset = string_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~')
+local function GetChar(n)
+    local out = {}
+    for i = 1, n do
+        out[#out + 1] = string.char(i)
+    end
+    return table.concat(out)
+end
+	local charset = string_shuffle(GetChar(94))
 	local base, encode_lookup, decode_lookup = # charset, {}, {}
 	for i = 1, base do
 		local c = charset:sub(i, i)
@@ -54,16 +60,21 @@ local function Generate(...)
 			local char = str:sub(i, i)
 			table.insert(encoded, encode_number(char:byte()))
 		end;
-		return table.concat(encoded, "x")
+		return table.concat(encoded, "\0")
 	end;
-	local function Encode(Str)
-		Str = encode_string(Str)
-		local out = ""
-		for i = 1, # Str do
-			out = out .. "\\" .. string.byte(Str, i)
-		end;
-		return out
-	end;
+local function Encode(Str,yes)
+    yes = yes or false
+    if not yes then
+    Str=encode_string(Str)
+    end
+    local out = {}
+    for i = 1, #Str do
+        local b = string.byte(Str, i)
+        table.insert(out, "\\" .. b)
+    end
+
+    return table.concat(out)
+end
 	Add("hercules,v1,alpha,__,_ = 'Protected By Hercules V1.6 | github.com/zeusssz/hercules-obfuscator', function()end, true, 1, 0")
 	Add(Parts.Variables)
 	Add(Parts.Deserializer)
@@ -77,11 +88,12 @@ local function Generate(...)
 	end;
 	Add("end")
 	Add(Parts.Wrapper_2)
-	Add("WrapState(BcToState('" .. Encode(Bytecode) .. "','" .. charset .. "'),(getfenv and getfenv(0)) or _ENV)()")
-	return Out
+	Add("WrapState(BcToState('" .. Encode(Bytecode) .. "','" .. Encode(charset,true) .. "'),(getfenv and getfenv(0)) or _ENV)()")
+	return table.concat(lines, "\n")
 end;
 local VM = {}
 function VM.process(source)
+	_G.UsedOps = _G.UsedOps or {}
 	_G.UsedOps[0] = 0;
 	_G.UsedOps[4] = 4;
 	source = Generate(compile(source), _G.UsedOps)
