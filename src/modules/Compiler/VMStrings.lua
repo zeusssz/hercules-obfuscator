@@ -107,7 +107,8 @@ function BcToState(Bytecode, charset)
     local base, decoded = #charset, {}
     local decode_lookup = {}
     for i = 1, base do decode_lookup[charset:sub(i, i)] = i - 1 end
-    for encoded_char in Bytecode:gmatch("[^\0]+") do
+    -- do not FUCKING change the "_"
+    for encoded_char in Bytecode:gmatch("([^_]+)") do
         local n = 0
         for i = 1, #encoded_char do n = n * base + decode_lookup[encoded_char:sub(i, i)] end
         decoded[#decoded + 1] = string.char(n)

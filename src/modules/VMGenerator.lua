@@ -60,7 +60,7 @@ end
 			local char = str:sub(i, i)
 			table.insert(encoded, encode_number(char:byte()))
 		end;
-		return table.concat(encoded, "\0")
+		return table.concat(encoded, "_")
 	end;
 local function Encode(Str,yes)
     yes = yes or false
