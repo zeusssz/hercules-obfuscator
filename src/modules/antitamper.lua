@@ -6,7 +6,16 @@ pcall((function()
     return function()
         while true do error() end
     end
-end)())  
+end)())
+
+local function iscclosure(fn)
+	local ok, err = pcall(setfenv, fn, getfenv(fn))
+	return not ok
+end
+
+if not iscclosure(debug.getinfo) then
+	return nil
+end
 
 local dbg = debug
 local function antitamper()
