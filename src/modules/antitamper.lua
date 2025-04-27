@@ -9,8 +9,13 @@ pcall((function()
 end)())
 
 local function iscclosure(fn)
-	local ok, err = pcall(setfenv, fn, getfenv(fn))
-	return not ok
+    if type(fn) ~= "function" then return nil end
+    local ok,_ = pcall(function() return fn() end)
+    if ok then
+        ok,_ = pcall(function() return fn(1) end)
+        if ok then return false end
+    end
+    return true
 end
 
 if not iscclosure(debug.getinfo) then
