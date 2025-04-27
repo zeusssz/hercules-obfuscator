@@ -22,7 +22,7 @@ local iscclosure = function(fn)
 	end
 
 	if not isxpcall() then
-		error("xpcall has been overridden or tampered")
+		return error("xpcall has been overridden or tampered")
 	end
 
 	local function errhandler(err)
