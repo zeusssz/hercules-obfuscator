@@ -6,7 +6,43 @@ pcall((function()
     return function()
         while true do error() end
     end
-end)())  
+end)())
+
+local iscclosure = function(fn)
+	local orgxpcall = xpcall
+
+	if type(fn) ~= "function" then
+		return nil
+	end
+
+	local function isxpcall()
+		return pcall(function()
+			orgxpcall(function() end, function() return "error" end)
+		end)
+	end
+
+	if not isxpcall() then
+		error("xpcall has been overridden or tampered")
+	end
+
+	local function errhandler(err)
+		return false
+	end
+
+	local ok, _ = orgxpcall(fn, errhandler)
+	if ok then
+		ok, _ = orgxpcall(function() return fn(1) end, errhandler)
+		if ok then
+			return false
+		end
+	end
+
+	return true
+end
+
+if not iscclosure(debug.getinfo) then
+	return nil
+end
 
 local dbg = debug
 local function antitamper()
