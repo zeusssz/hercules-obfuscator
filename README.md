@@ -178,7 +178,7 @@ lua src\hercules.lua my_script.lua --max
 You can modify or add new modules to the `modules/` directory to create additional layers of obfuscation. The `pipeline.lua` file controls the order of obfuscation steps.
 
 >[!IMPORTANT]
->When adding more modules to the `modules/` directory, ensure you maintain proper order in the pipeline file, to prevent any issues, and remember to add your module to the `pipeline.lua` file.
+>When adding more modules to the `modules/` directory, ensure you maintain proper order in the pipeline file, to prevent any issues relating to the sanity of the code, and remember to add your module to the `pipeline.lua` file.
 <br>If you wish for it to be configurable, add it to the `config.lua` file, along with the necessary logic.
 
 ---
