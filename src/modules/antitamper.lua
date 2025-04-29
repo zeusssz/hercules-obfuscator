@@ -20,7 +20,10 @@ local function antitamper()
 end
 
 local function antibeautify()
-  local i = dbg.getinfo(2, "Sl")
+  local i
+  (function()
+  i = dbg.getinfo(2, "Sl")
+  end)()
   return not i or i.linedefined ~= 2 or i.currentline ~= 2
 end
 
