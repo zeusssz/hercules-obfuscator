@@ -360,11 +360,11 @@ local function main()
     if options.folder_mode then
         local findCommand
         if package.config:sub(1,1) == "\\" then
-            -- windows: quote wildcard
+            -- windows
             local pattern = input .. "\\*.lua"
             findCommand = string.format('dir %q /b /s 2>nul', pattern)
         else
-            -- mac/linux: quote path
+            -- mac/linux
             findCommand = string.format('find %q -type f -name "*.lua"', input)
         end
         local p = io.popen(findCommand)
