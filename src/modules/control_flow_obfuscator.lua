@@ -1,5 +1,5 @@
 local ControlFlowObfuscator = {}
-
+-- TODO : make it better
 function ControlFlowObfuscator.process(code, max_fake_blocks)
     local function insert_fake_control_flow(original_code)
         local obfuscated_code = string.format(

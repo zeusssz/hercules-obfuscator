@@ -1,5 +1,5 @@
 local OpaquePredicateInjector = {}
-
+-- TODO : make it better
 local function genpreds()
     local predicates = {
         function() 

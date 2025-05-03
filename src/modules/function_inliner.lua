@@ -1,5 +1,5 @@
 local FunctionInliner = {}
-
+-- TODO : make it work
 function FunctionInliner.process(code)
   if code:match("^%s*%-%-.*Obfuscated") then return code end
 

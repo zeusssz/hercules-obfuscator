@@ -1,5 +1,5 @@
 local BytecodeEncoder = {}
-
+-- will be replaced with a better module
 local function encode_bytecode(bytecode, offset)
     local encoded = {}
     for i = 1, #bytecode do
