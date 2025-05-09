@@ -168,10 +168,19 @@ return (function(...) local HgAZmGdyL,AFHMtEgsAgNw,NuZRJhrWZK,atlfseKQxNqH,teBrr
 
 If you specify the overwrite option with the `--overwrite` flag, it will write over to the specified script, instead of creating a new file.
 <br>
-You may also specify a preset using `--min`, `--mid`, or `--max`. For Example
+You may also specify a preset using `--min`, `--mid`, or `--max`.
+eg.
 ```sh
-lua src\hercules.lua my_script.lua --max
+lua hercules.lua my_script.lua --max
 ```
+
+You may also choose modules through the command line by using the flags, such as `--compressor`/`-c`.
+eg.
+```sh
+lua hercules.lua my_script.lua -c --antitamper
+```
+
+<h6>above enables compressor and antitamper</h6>
 
 ## Customization
 
