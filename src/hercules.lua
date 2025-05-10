@@ -90,7 +90,7 @@ local function printcliresult(input, output, time, options)
         size_diff_percent = "N/A"
     end
 
-    local line = colors.white .. string.rep("=", 65) .. colors.reset
+    local line = colors.white .. string.rep("═", 65) .. colors.reset
     print("\n" .. line)
     print(BANNER)
     print(colors.white .. "Obfuscation Complete!" .. colors.reset)
