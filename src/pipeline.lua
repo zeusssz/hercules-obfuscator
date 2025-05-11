@@ -23,11 +23,6 @@ function Pipeline.process(code)
         code = StringEncoder.process(code)
     end
     
-    if config.get("settings.control_flow.enabled") then
-        local max_fake_blocks = config.get("settings.control_flow.max_fake_blocks")
-        code = ControlFlowObfuscator.process(code, max_fake_blocks)
-    end
-    
     if config.get("settings.garbage_code.enabled") then
         local garbage_blocks = config.get("settings.garbage_code.garbage_blocks")
         code = GarbageCodeInserter.process(code, garbage_blocks)
@@ -61,6 +56,14 @@ function Pipeline.process(code)
         code = VirtualMachinery.process(code)
     end
     
+    if config.get("settings.control_flow.enabled") then
+        local max_fake_blocks = config.get("settings.control_flow.max_fake_blocks")
+        code = ControlFlowObfuscator.process(code, max_fake_blocks)
+    end
+    if config.get("settings.garbage_code.enabled") then
+        local garbage_blocks = config.get("settings.garbage_code.garbage_blocks")
+        code = GarbageCodeInserter.process(code, garbage_blocks)
+    end
     if config.get("settings.variable_renaming.enabled") then
         local min_length = config.get("settings.variable_renaming.min_name_length")
         local max_length = config.get("settings.variable_renaming.max_name_length")
