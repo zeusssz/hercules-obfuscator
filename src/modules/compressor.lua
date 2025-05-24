@@ -23,7 +23,7 @@ function Compressor.process(code)
     local string_count = 0
     local keywords_map = {}
 
-    local function preservestrs(c)
+    local function preserveStrings(c)
         c = c:gsub("%[(=*)%[(.-)%]%1%]", function(equals, str)
             string_count = string_count + 1
             local key = STR_PLACEHOLDER_PRE .. string_count .. STR_PLACEHOLDER_POST
@@ -51,7 +51,7 @@ function Compressor.process(code)
         return c
     end
 
-    local function preservekeyws(c)
+    local function preserveKeywords(c)
         for _, keyword in ipairs(LUA_KEYWORDS) do
             local placeholder = KW_PLACEHOLDER_PRE .. keyword .. KW_PLACEHOLDER_POST
             keywords_map[placeholder] = keyword
@@ -63,14 +63,14 @@ function Compressor.process(code)
         return c
     end
 
-    local function restorekeyws(c)
+    local function restoreKeywords(c)
         for placeholder, keyword in pairs(keywords_map) do
              c = string.gsub(c, placeholder, function() return keyword end)
         end
         return c
     end
 
-    local function restorestrs(c)
+    local function restoreStrings(c)
         for i = string_count, 1, -1 do
             local key = STR_PLACEHOLDER_PRE .. i .. STR_PLACEHOLDER_POST
             c = string.gsub(c, key, function() return strings[key] end)
@@ -78,8 +78,8 @@ function Compressor.process(code)
         return c
     end
 
-    code = preservestrs(code)
-    code = preservekeyws(code)
+    code = preserveStrings(code)
+    code = preserveKeywords(code)
 
     code = code:gsub("--%[%[.-%]%]", "")
     code = code:gsub("%-%-[^\n]*", "")
@@ -94,8 +94,8 @@ function Compressor.process(code)
 
     code = code:match("^%s*(.-)%s*$") or ""
 
-    code = restorekeyws(code)
-    code = restorestrs(code)
+    code = restoreKeywords(code)
+    code = restoreStrings(code)
 
     return code
 end

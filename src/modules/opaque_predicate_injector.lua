@@ -1,6 +1,6 @@
 local OpaquePredicateInjector = {}
 -- TODO : make it better
-local function genpreds()
+local function generatePredicates()
     local predicates = {
         function() 
             local n = math.random(10, 100)
@@ -32,7 +32,7 @@ local function genpreds()
     return predicates[math.random(#predicates)]()
 end
 
-local function injectsafe(statement)
+local function isInjectSafe(statement)
     if statement:match("^%s*[%{%}]%s*$") or
        statement:match("^%s*$") or
        not statement:match(".+;") then
@@ -59,11 +59,11 @@ local function injectsafe(statement)
     return true
 end
 
-local function injpreds(block)
+local function injectPredicates(block)
     if block:match("%s*end%s*;?$") or block:match("^%s*return") then
         return block
     else
-        local predicate = genpreds()
+        local predicate = generatePredicates()
         return predicate .. block .. " end;"
     end
 end
@@ -74,8 +74,8 @@ function OpaquePredicateInjector.process(code)
     end
     local success, processed_code = pcall(function()
         local result = code:gsub("([ \t]*)([^\n;]*;)", function(ws, statement)
-            if injectsafe(statement) then
-                return ws .. injpreds(statement)
+            if isInjectSafe(statement) then
+                return ws .. injectPredicates(statement)
             else
                 return ws .. statement
             end
@@ -91,7 +91,7 @@ function OpaquePredicateInjector.process(code)
     return processed_code
 end
 
-function OpaquePredicateInjector.valcode(code)
+function OpaquePredicateInjector.validateCode(code)
     local f, err = load(code)
     return f ~= nil, err
 end

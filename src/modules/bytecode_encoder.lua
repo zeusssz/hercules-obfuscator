@@ -1,6 +1,6 @@
 local BytecodeEncoder = {}
 -- will be replaced with a better module
-local function encode_bytecode(bytecode, offset)
+local function encodeBytecode(bytecode, offset)
     local encoded = {}
     for i = 1, #bytecode do
         local byte = bytecode:byte(i)
@@ -13,7 +13,7 @@ end
 function BytecodeEncoder.process(code)
     local bytecode = string.dump(assert(load(code)))
     local offset = math.random(1, 255)
-    local encoded_bytecode = encode_bytecode(bytecode, offset)
+    local encoded_bytecode = encodeBytecode(bytecode, offset)
     local alpha = [[
         local e, o, d = "%s", %d, {}
         for i = 1, #e, 2 do

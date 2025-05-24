@@ -44,8 +44,8 @@ local BANNER = colors.blue .. [[
 \/ /_/  \___||_|   \___| \__,_||_| \___||___/    \_/  |_| (_)  \___/ 
                                        ]] .. colors.reset
 
-local function runsanecheck(original_code, obfuscated_code)
-    local function captureoutput(code)
+local function runSanityCheck(original_code, obfuscated_code)
+    local function captureOutput(code)
         local output = {}
         local ogprint = _G.print
         local success, result = pcall(function()
@@ -70,8 +70,8 @@ local function runsanecheck(original_code, obfuscated_code)
         return table.concat(output, "\n"), nil
     end
 
-    local original_output, original_err = captureoutput(original_code)
-    local obfuscated_output, obfuscated_err = captureoutput(obfuscated_code)
+    local original_output, original_err = captureOutput(original_code)
+    local obfuscated_output, obfuscated_err = captureOutput(obfuscated_code)
 
     if original_err or obfuscated_err then
         return false, { expected = original_err or original_output, got = obfuscated_err or obfuscated_output }
@@ -80,12 +80,12 @@ local function runsanecheck(original_code, obfuscated_code)
     return original_output == obfuscated_output, { expected = original_output, got = obfuscated_output }
 end
 
-local function printcliresult(input, output, time, options)
-    local og_size = filesize(input)
+local function printCliResult(input, output, time, options)
+    local original_size = filesize(input)
     local obfuscated_size = output and filesize(output) or 0
     local size_diff_percent
-    if og_size > 0 then
-        size_diff_percent = string.format("%.2f", ((obfuscated_size - og_size) / og_size) * 100 + 100)
+    if original_size > 0 then
+        size_diff_percent = string.format("%.2f", ((obfuscated_size - original_size) / original_size) * 100 + 100)
     else
         size_diff_percent = "N/A"
     end
@@ -97,16 +97,16 @@ local function printcliresult(input, output, time, options)
     print(colors.white .. "Details:" .. colors.reset)
     print(line)
     print(colors.white .. "Time Taken        : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
-    print(colors.cyan .. "Original Size     : " .. og_size .. " bytes" .. colors.reset)
+    print(colors.cyan .. "Original Size     : " .. original_size .. " bytes" .. colors.reset)
     print(colors.cyan .. "Obfuscated Size   : " .. obfuscated_size .. " bytes" .. colors.reset)
-    print(colors.cyan .. "Size Difference   : " .. (obfuscated_size - og_size) .. " bytes (" .. size_diff_percent .. "%)" .. colors.reset)
+    print(colors.cyan .. "Size Difference   : " .. (obfuscated_size - original_size) .. " bytes (" .. size_diff_percent .. "%)" .. colors.reset)
 
-    local function formatbool(val) 
+    local function formatBool(val) 
         return val and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset 
     end
 
-    print(colors.cyan .. "Overwrite         : " .. formatbool(options.overwrite))
-    print(colors.cyan .. "Folder Mode       : " .. formatbool(options.folder_mode))
+    print(colors.cyan .. "Overwrite         : " .. formatBool(options.overwrite))
+    print(colors.cyan .. "Folder Mode       : " .. formatBool(options.folder_mode))
     if options.folder_mode then
         if not output then
             print(colors.white .. "Output File       : " .. colors.reset
@@ -166,7 +166,7 @@ local function printcliresult(input, output, time, options)
     print(line .. "\n")
 end
 
-local function apply_preset(level)
+local function applyPreset(level)
     if level == "min" then
         config.set("settings.variable_renaming.min_name_length", 10)
         config.set("settings.variable_renaming.max_name_length", 20)
@@ -189,7 +189,7 @@ local function apply_preset(level)
     end
 end
 
-local function print_usage()
+local function printUsage()
     print(colors.white .. "Usage: " .. colors.reset .. colors.cyan .. "./hercules.lua *.lua (+ any options)" .. colors.reset)
     print(colors.white .. "\nOptional Presets:" .. colors.reset)
     print(colors.cyan .. "--min" .. string.rep(" ", 17) .. colors.green .. "Minimal parameters for lighter obfuscation" .. colors.reset)
@@ -242,14 +242,14 @@ end
 local function main()
     if #arg < 1 then
         print(colors.red .. "Error: No input file specified" .. colors.reset)
-        print_usage()
+        printUsage()
         os.exit(1)
     end
 
     local input = arg[1]
     if input:sub(1,1) == "-" then
         print(colors.red .. "Error: Unexpected flag '" .. input .. "'" .. colors.reset)
-        print_usage()
+        printUsage()
         os.exit(1)
     end
 
@@ -317,26 +317,26 @@ local function main()
             options.preset_level = "max"
         else
             print(colors.red .. "Error: Unknown option '" .. arg[i] .. "'" .. colors.reset)
-            print_usage()
+            printUsage()
             os.exit(1)
         end
     end
     if not options.folder_mode and not input:match("%.lua$") then
         print(colors.red .. "Error: Invalid file extension for '" .. input .. "'" .. colors.reset)
-        print_usage()
+        printUsage()
         os.exit(1)
     end
     if options.folder_mode then
         if not os.rename(input, input) then
             print(colors.red .. "Error: Folder '" .. input .. "' does not exist or could not be found" .. colors.reset)
-            print_usage()
+            printUsage()
             os.exit(1)
         end
     else
         local fh = io.open(input, "r")
         if not fh then
             print(colors.red .. "Error: File '" .. input .. "' does not exist or could not be found" .. colors.reset)
-            print_usage()
+            printUsage()
             os.exit(1)
         end
         fh:close()
@@ -358,18 +358,18 @@ local function main()
 
     local files = {}
     if options.folder_mode then
-        local findCommand
+        local find_command
         if package.config:sub(1,1) == "\\" then
             -- windows
             local pattern = input .. "\\*.lua"
-            findCommand = string.format('dir %q /b /s 2>nul', pattern)
+            find_command = string.format('dir %q /b /s 2>nul', pattern)
         else
             -- mac/linux
-            findCommand = string.format('find %q -type f -name "*.lua"', input)
+            find_command = string.format('find %q -type f -name "*.lua"', input)
         end
-        local p = io.popen(findCommand)
+        local p = io.popen(find_command)
         if not p then
-            error("Error: Failed to execute find command: " .. findCommand)
+            error("Error: Failed to execute find command: " .. find_command)
         end
         for file in p:lines() do
             table.insert(files, file)
@@ -409,7 +409,7 @@ local function main()
             end
 
             if options.sanity_check then
-                success, sanity_info = runsanecheck(code, obfuscated_code)
+                success, sanity_info = runSanityCheck(code, obfuscated_code)
                 if not success and attempts >= 3 then
                     sanity_failed = true
                     break
@@ -429,12 +429,12 @@ local function main()
         options.sanity_failed = sanity_failed
         options.sanity_info = sanity_info
         if not options.folder_mode then
-            printcliresult(file_path, output_file, file_time, options)
+            printCliResult(file_path, output_file, file_time, options)
         end
     end
     if options.folder_mode then
         local total_time = os.clock() - batch_start
-        printcliresult(input, nil, total_time, options)
+        printCliResult(input, nil, total_time, options)
     end
 end
 main()

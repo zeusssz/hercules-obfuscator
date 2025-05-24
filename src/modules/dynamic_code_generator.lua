@@ -1,7 +1,7 @@
 local DynamicCodeGenerator = {}
 -- TODO : make it work
 function DynamicCodeGenerator.process(code)
-    local function dynamic_wrapper(block)
+    local function dynamicWrapper(block)
         local func, err = load("return " .. block)
         if not func then
             error("Failed to load block: " .. err)
@@ -19,7 +19,7 @@ function DynamicCodeGenerator.process(code)
         end
         local block = code:sub(position, next_position - 1)
         if #block > 0 then
-            local success, result = pcall(dynamic_wrapper, block)
+            local success, result = pcall(dynamicWrapper, block)
             if success then
                 table.insert(processed_code, tostring(result))
             else

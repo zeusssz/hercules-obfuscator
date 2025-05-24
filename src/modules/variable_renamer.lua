@@ -1,5 +1,5 @@
 local VariableRenamer = {}
-local varencNames = {}
+local varenc_names = {}
 local lua_functions = {
     "assert", "collectgarbage", "dofile", "loadfile", "loadstring",
     "ipairs", "pairs", "tonumber", "tostring", "type", "print",
@@ -29,7 +29,7 @@ local reserved_words = {
 local DEFAULT_MIN_NAME_LENGTH, DEFAULT_MAX_NAME_LENGTH = 8, 12
 local name_min, name_max = DEFAULT_MIN_NAME_LENGTH, DEFAULT_MAX_NAME_LENGTH
 
-local function generate_random_name()
+local function generateRandomName()
     local len = math.random(name_min, name_max)
     local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     local name = ""
@@ -40,7 +40,7 @@ local function generate_random_name()
     return name
 end
 
-local function replace_unquoted(input, target, replacement)
+local function replaceUnquoted(input, target, replacement)
     local placeholder = "!!!"
     local protected_input = input:gsub('(["\'])(.-)%1', function(q, content)
         content = content:gsub('\\"', '!@!'):gsub("\\'", "@!@")
@@ -55,34 +55,34 @@ local function replace_unquoted(input, target, replacement)
     return result
 end
 
-local function obfuscate_local_variables(code)
+local function obfuscateLocalVariables(code)
     local local_var_pattern = "local%s+([%w_,%s]+)%s*=%s*"
     local var_map = {}
     local obfuscated_code = code
     for local_vars in code:gmatch(local_var_pattern) do
         for var in local_vars:gmatch("[%w_]+") do
-            if #var > 1 and not varencNames[var] and not reserved_words[var] then
-                var_map[var] = generate_random_name()
+            if #var > 1 and not varenc_names[var] and not reserved_words[var] then
+                var_map[var] = generateRandomName()
             end
         end
     end
     for original_var, obfuscated_var in pairs(var_map) do
-        obfuscated_code = replace_unquoted(obfuscated_code, original_var, obfuscated_var)
+        obfuscated_code = replaceUnquoted(obfuscated_code, original_var, obfuscated_var)
     end
     return obfuscated_code, var_map
 end
 
-local function obfuscate_functions(code)
+local function obfuscateFunctions(code)
     local func_map = {}
     local arg_map = {}
     local obfuscated_code = code
     for func_name, args in code:gmatch("function%s+([%w_]+)%s*%(([%w_,%s]*)%)") do
         if not reserved_words[func_name] and not func_map[func_name] then
-            func_map[func_name] = generate_random_name()
+            func_map[func_name] = generateRandomName()
         end
         for arg in args:gmatch("[%w_]+") do
             if not reserved_words[arg] and not arg_map[arg] then
-                arg_map[arg] = generate_random_name()
+                arg_map[arg] = generateRandomName()
             end
         end
     end
@@ -93,7 +93,7 @@ local function obfuscate_functions(code)
         obfuscated_code = obfuscated_code:gsub(original_func .. "%(", obfuscated_func .. "(")
     end
     for original_arg, obfuscated_arg in pairs(arg_map) do
-        obfuscated_code = replace_unquoted(obfuscated_code, original_arg, obfuscated_arg)
+        obfuscated_code = replaceUnquoted(obfuscated_code, original_arg, obfuscated_arg)
     end
     return obfuscated_code
 end
@@ -105,17 +105,17 @@ function VariableRenamer.process(code, options)
     name_max = options.max_length or DEFAULT_MAX_NAME_LENGTH
     local renamed_vars = {}
     local assignment_lines = {}
-    local obfuscated_code, var_map = obfuscate_local_variables(code)
-    obfuscated_code = obfuscate_functions(obfuscated_code)
+    local obfuscated_code, var_map = obfuscateLocalVariables(code)
+    obfuscated_code = obfuscateFunctions(obfuscated_code)
     for _, function_name in ipairs(lua_functions) do
         if string.find(code, function_name, 1, true) then
-            if not varencNames[function_name] then
-                local new_name = generate_random_name()
-                varencNames[function_name] = new_name
+            if not varenc_names[function_name] then
+                local new_name = generateRandomName()
+                varenc_names[function_name] = new_name
                 table.insert(renamed_vars, new_name)
                 table.insert(assignment_lines, new_name .. " = " .. function_name .. ";")
             end
-            obfuscated_code = obfuscated_code:gsub(function_name .. "%(", varencNames[function_name] .. "(")
+            obfuscated_code = obfuscated_code:gsub(function_name .. "%(", varenc_names[function_name] .. "(")
         end
     end
     local local_declaration = #renamed_vars > 0 and "local " .. table.concat(renamed_vars, ", ") or ""

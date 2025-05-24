@@ -1,7 +1,7 @@
 local AntiTamper = {}
 -- anti beautify + simple anti tamper for now
 function AntiTamper.process(code)
-  local antiBeautifyCode = [[
+  local anti_beautify_code = [[
 pcall((function()
     return function()
         while true do error() end
@@ -9,7 +9,7 @@ pcall((function()
 end)())  
 
 local dbg = debug
-local function antitamper()
+local function antiTamper()
   if type(dbg.getinfo) ~= "function" or pcall(string.dump, dbg.getinfo) then return true end
   for _, f in ipairs({pcall, string.dump, dbg.getinfo, dbg.getlocal, dbg.getupvalue}) do
     local i = dbg.getinfo(f)
@@ -19,7 +19,7 @@ local function antitamper()
   end
 end
 
-local function antibeautify()
+local function antiBeautify()
   local i
   (function()
   i = dbg.getinfo(2, "Sl")
@@ -27,12 +27,12 @@ local function antibeautify()
   return not i or i.linedefined ~= 2 or i.currentline ~= 2
 end
 
-if antibeautify() or antitamper() then
+if antiBeautify() or antiTamper() then
   print("HERCULES: Tamper Detected!")
   return
 end
 ]]
-  return antiBeautifyCode .. "\n" .. code
+  return anti_beautify_code .. "\n" .. code
 end
 
 return AntiTamper

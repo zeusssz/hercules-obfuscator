@@ -1,6 +1,6 @@
 local StringEncoder = {}
 
-local function generate_random_name(len)
+local function generateRandomName(len)
     len = len or math.random(8, 12)
     local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     local name = ""
@@ -11,11 +11,11 @@ local function generate_random_name(len)
     return name
 end
 
-local function is_valid_char(byte)
+local function isValidChar(byte)
     return (byte >= 48 and byte <= 57) or (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122)
 end
 
-local function caesar_cipher(data, offset)
+local function caesarCipher(data, offset)
     local result = {}
     local i = 1
     while i <= #data do
@@ -32,7 +32,7 @@ local function caesar_cipher(data, offset)
                 table.insert(result, next_char)
                 i = i + 1
             end
-        elseif is_valid_char(byte) then
+        elseif isValidChar(byte) then
             local new_byte
             if byte >= 48 and byte <= 57 then
                 new_byte = ((byte - 48 + offset) % 10) + 48
@@ -52,13 +52,13 @@ local function caesar_cipher(data, offset)
 end
 
 function StringEncoder.process(code)
-    local random_decrypt_name = generate_random_name()
-    local random_isvalidchar_name = generate_random_name()
-    local random_result_name = generate_random_name()
-    local random_code_name = generate_random_name()
-    local random_offset_name = generate_random_name()
-    local random_byte_name = generate_random_name()
-    local random_new_byte_name = generate_random_name()
+    local random_decrypt_name = generateRandomName()
+    local random_isvalidchar_name = generateRandomName()
+    local random_result_name = generateRandomName()
+    local random_code_name = generateRandomName()
+    local random_offset_name = generateRandomName()
+    local random_byte_name = generateRandomName()
+    local random_new_byte_name = generateRandomName()
 
     local decode_function = [[
 local function ]] .. random_isvalidchar_name .. [[(]] .. random_byte_name .. [[)
@@ -100,7 +100,7 @@ end
             if str:match("%a") then
                 offset = math.random(1, 25)
             end
-            local encoded_str = caesar_cipher(str, offset)
+            local encoded_str = caesarCipher(str, offset)
             return string.format("%s(" .. quote .. "%s" .. quote .. ", %d)", random_decrypt_name, encoded_str, offset)
         else
             return str
