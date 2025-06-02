@@ -18,11 +18,11 @@
 <a href="https://discord.com/oauth2/authorize?client_id=1293608330123804682">
  <img src="https://img.shields.io/badge/Add%20Bot-5865F2?style=flat&logo=discord&logoColor=%23ffffff" alt="Bot Invite">
 </a>
-  
+<!--
 <a href="https://top.gg/bot/1293608330123804682">
   <img src="https://top.gg/api/widget/servers/1293608330123804682.svg" alt="TopGG" />
 </a>
-  
+-->  
 <a href="https://github.com/Serpensin/DiscordBots-Hercules">
 <img src="https://img.shields.io/badge/Discord%20Bot%20Repo-181717?style=flat&logo=github" alt="Bot Repo"/>
 </a>
