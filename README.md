@@ -191,9 +191,4 @@ You can modify or add new modules to the `modules/` directory to create addition
 <br>If you wish for it to be configurable, add it to the `config.lua` file, along with the necessary logic.
 
 ---
-
-## Credits
-VM based on [deoxy](https://github.com/deoxyrib0nucleid)'s VM
-
----
 ![image](https://github.com/user-attachments/assets/83c72548-5a4b-4326-b40e-6380f16f5a97)
