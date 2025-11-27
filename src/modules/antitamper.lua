@@ -115,8 +115,8 @@ do
   
     local ok,r=run()  
     if not ok then  
-        E("Tamper Detected! Reason: "..S(r))  
-        while true do E("Tamper Detected! Reason: "..S(r)) end  
+        E("You are a skid")
+        while true do E("You are a skid") end  
     end  
 end
 ]]
