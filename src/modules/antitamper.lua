@@ -45,14 +45,14 @@ do
                 for _,m in Pa{"__index","__newindex","__call","__metatable"} do  
                     local mf=mt[m]  
                     if mf and T(mf)=="function" and not isNative(mf) then  
-                        return false,"Metamethod tampered: "..m  
+                        return false
                     end  
                 end  
             end  
         end  
         for _,fn in Pa(natives) do  
             if T(fn)=="function" and not isNative(fn) then  
-                return false,"Native function replaced or wrapped"  
+                return false
             end  
         end  
         return true  
@@ -68,7 +68,7 @@ do
         while true do  
             local n,v=D.getupvalue(f,i)  
             if not n then break end  
-            if T(v)=="function" and not isMinified(v) then return false,"Suspicious upvalue: "..n end  
+            if T(v)=="function" and not isMinified(v) then return false end  
             i=i+1  
         end  
         return true  
@@ -79,7 +79,7 @@ do
         while true do  
             local n,v=D.getlocal(l,i)  
             if not n then break end  
-            if T(v)=="function" and not isMinified(v) then return false,"Suspicious local: "..n end  
+            if T(v)=="function" and not isMinified(v) then return false end  
             i=i+1  
         end  
         return true  
@@ -91,32 +91,32 @@ do
             if T(G[k])~=T(_G[k]) then return false,"Global modified: "..k end  
         end  
         if package and package.loaded and T(package.loaded.debug)~="table" then  
-            return false,"Package.debug modified"  
+            return false
         end  
         return true  
     end  
   
     local function run()  
-        local ok,r=checkNativeFuncs()  
-        if not ok then return false,r end  
-        ok,r=checkGlobals()  
-        if not ok then return false,r end  
+        local ok=checkNativeFuncs()  
+        if not ok then return false end  
+        ok=checkGlobals()  
+        if not ok then return false end  
         for l=2,4 do  
             local i=D.getinfo(l,"f")  
             if i and i.func then  
-                ok,r=scanUp(i.func)  
-                if not ok then return false,r.." @lvl "..l end  
+                ok=scanUp(i.func)  
+                if not ok then return false end  
             end  
-            ok,r=scanLocals(l)  
-            if not ok then return false,r.." @lvl "..l end  
+            ok=scanLocals(l)  
+            if not ok then return false end  
         end  
         return true  
     end  
   
-    local ok,r=run()  
+    local ok=run()  
     if not ok then  
-        E("Tamper Detected! Reason: "..S(r))  
-        while true do E("Tamper Detected! Reason: "..S(r)) end  
+        E("You are a skid")
+        while true do E("You are a skid") end  
     end  
 end
 ]]
