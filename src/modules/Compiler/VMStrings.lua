@@ -114,10 +114,9 @@ function BcToState(Bytecode, charset)
         decoded[#decoded + 1] = string.char(n)
     end
     local bytes = {}
-    for char in table.concat(decoded):gmatch("(.?)\\") do
-        if #char > 0 then
-            bytes[#bytes + 1] = chartoascii(char)
-        end
+    local concat_decoded = table.concat(decoded)
+    for num_str in concat_decoded:gmatch("\\(%d+)") do
+        bytes[#bytes + 1] = tonumber(num_str)
     end
 
     local Pos = 1
@@ -223,7 +222,7 @@ function BcToState(Bytecode, charset)
                 v.D = Chunk.D[v.F]
             else
                 if v.s then
-                    v.A = Chunk.D[v.B - 256]
+                    v.B = Chunk.D[v.B - 256]
                 end
                 if v.a then
                     v.C = Chunk.D[v.C - 256]
@@ -245,7 +244,7 @@ function LuaFunc(State, Env, n)
     local SenB = {}
     local X = State.X;
     local z = State.z;
-    while alpha do
+    while true do
         local Inst = x[z]
         local S = Inst.S;
         local C = Inst.C;

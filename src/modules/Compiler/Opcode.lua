@@ -44,7 +44,7 @@ function GetOpcodeCode(S)
 		return [=[
         local N, m
         if Inst.s then
-            N = Inst.A
+            N = Inst.B
         else
             N = X[Inst.B]
         end
@@ -76,7 +76,7 @@ function GetOpcodeCode(S)
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.B
         else
             Lhs = X[Inst.B]
         end
@@ -85,13 +85,14 @@ function GetOpcodeCode(S)
         else
             Rhs = X[Inst.C]
         end
-        X[Inst.A] = NormalizeNumber(Lhs + Rhs)
+        local result = Lhs + Rhs
+        X[Inst.A] = type(result) == "number" and NormalizeNumber(result) or result
         ]=]
 	elseif (S == 13) then
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.B
         else
             Lhs = X[Inst.B]
         end
@@ -100,13 +101,14 @@ function GetOpcodeCode(S)
         else
             Rhs = X[Inst.C]
         end
-        X[Inst.A] = NormalizeNumber(Lhs - Rhs)
+        local result = Lhs - Rhs
+        X[Inst.A] = type(result) == "number" and NormalizeNumber(result) or result
         ]=]
 	elseif (S == 14) then
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.B
         else
             Lhs = X[Inst.B]
         end
@@ -115,13 +117,14 @@ function GetOpcodeCode(S)
         else
             Rhs = X[Inst.C]
         end
-        X[Inst.A] = NormalizeNumber(Lhs * Rhs)
+        local result = Lhs * Rhs
+        X[Inst.A] = type(result) == "number" and NormalizeNumber(result) or result
         ]=]
 	elseif (S == 15) then
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.B
         else
             Lhs = X[Inst.B]
         end
@@ -130,13 +133,14 @@ function GetOpcodeCode(S)
         else
             Rhs = X[Inst.C]
         end
-        X[Inst.A] = NormalizeNumber(Lhs / Rhs)
+        local result = Lhs / Rhs
+        X[Inst.A] = type(result) == "number" and NormalizeNumber(result) or result
         ]=]
 	elseif (S == 16) then
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.B
         else
             Lhs = X[Inst.B]
         end
@@ -145,13 +149,14 @@ function GetOpcodeCode(S)
         else
             Rhs = X[Inst.C]
         end
-        X[Inst.A] = NormalizeNumber(Lhs % Rhs)
+        local result = Lhs % Rhs
+        X[Inst.A] = type(result) == "number" and NormalizeNumber(result) or result
         ]=]
 	elseif (S == 17) then
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.B
         else
             Lhs = X[Inst.B]
         end
@@ -160,7 +165,8 @@ function GetOpcodeCode(S)
         else
             Rhs = X[Inst.C]
         end
-        X[Inst.A] = NormalizeNumber(Lhs ^ Rhs)
+        local result = Lhs ^ Rhs
+        X[Inst.A] = type(result) == "number" and NormalizeNumber(result) or result
         ]=]
 	elseif (S == 18) then
 		return [=[

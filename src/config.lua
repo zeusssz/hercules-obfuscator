@@ -16,13 +16,8 @@ config.settings = {
         enabled = true,
         max_fake_blocks = 6,
     },
-    StringToExpressions = {
-        enabled = false,
-        min_number_length = 100,
-        max_number_length = 999,
-    },
     string_encoding = {
-        enabled = false,
+        enabled = true,
     },
     WrapInFunction = {
         enabled = true,
@@ -38,15 +33,6 @@ config.settings = {
     },
     opaque_predicates = {
         enabled = true,
-    },
-    function_inlining = {
-        enabled = false,
-    },
-    dynamic_code = {
-        enabled = false,
-    },
-    bytecode_encoding = {
-        enabled = false,
     },
     compressor = {
         enabled = true,

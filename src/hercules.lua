@@ -134,15 +134,11 @@ local function printCliResult(input, output, time, options)
 
     local settings = {
         { "Watermark", config.get("settings.watermark_enabled") },
-        { "String To Expressions", config.get("settings.StringToExpressions.enabled") },
         { "Control Flow", config.get("settings.control_flow.enabled") },
         { "String Encoding", config.get("settings.string_encoding.enabled") },
         { "Variable Renaming", config.get("settings.variable_renaming.enabled") },
         { "Garbage Code", config.get("settings.garbage_code.enabled") },
         { "Opaque Predicates", config.get("settings.opaque_predicates.enabled") },
-        { "Function Inlining", config.get("settings.function_inlining.enabled") },
-        { "Dynamic Code", config.get("settings.dynamic_code.enabled") },
-        { "Bytecode Encoding", config.get("settings.bytecode_encoding.enabled") },
         { "Compressor", config.get("settings.compressor.enabled") },
         { "Function Wrapping", config.get("settings.WrapInFunction.enabled") },
         { "Virtual Machine", config.get("settings.VirtualMachine.enabled") },
@@ -184,8 +180,6 @@ local function applyPreset(level)
         config.set("settings.variable_renaming.max_name_length", 120)
         config.set("settings.garbage_code.garbage_blocks", 50)
         config.set("settings.control_flow.max_fake_blocks", 12)
-        config.set("settings.StringToExpressions.min_number_length", 800)
-        config.set("settings.StringToExpressions.max_number_length", 999)
     end
 end
 
@@ -214,8 +208,6 @@ local obfuscation_flags = {
     { flags = {"-vr", "--variable_renaming"}, description = "Enable variable renaming" },
     { flags = {"-gci", "--garbage_code"}, description = "Enable garbage code injection" },
     { flags = {"-opi", "--opaque_preds"}, description = "Enable opaque predicates injection" },
-    { flags = {"-be", "--bytecode_encoder"}, description = "Enable bytecode encoding" },
-    { flags = {"-st", "--string_to_expr"}, description = "Enable string to expression conversion" },
     { flags = {"-vm", "--virtual_machine"}, description = "Enable virtual machine transformation" },
     { flags = {"-wif", "--wrap_in_func"}, description = "Enable function wrapping" },
     { flags = {"-fi", "--func_inlining"}, description = "Enable function inlining" },
@@ -266,9 +258,7 @@ local function main()
         variable_renaming = false,
         garbage_code = false,
         opaque_predicates = false,
-        bytecode_encoding = false,
         compressor = false,
-        StringToExpressions = false,
         VirtualMachine = false,
         WrapInFunction = false,
         function_inlining = false,
@@ -295,10 +285,6 @@ local function main()
             features.garbage_code = true
         elseif arg[i] == "-opi" or arg[i] == "--opaque_preds" then
             features.opaque_predicates = true
-        elseif arg[i] == "-be" or arg[i] == "--bytecode_encoder" then
-            features.bytecode_encoding = true
-        elseif arg[i] == "-st" or arg[i] == "--string_to_expr" then
-            features.StringToExpressions = true
         elseif arg[i] == "-vm" or arg[i] == "--virtual_machine" then
             features.VirtualMachine = true
         elseif arg[i] == "-wif" or arg[i] == "--wrap_in_func" then
