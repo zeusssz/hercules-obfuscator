@@ -25,24 +25,24 @@ local function map(func, tbl)
 end
 
 local colors = {
-    reset = "\27[0m",
-    green = "\27[32m",
-    red = "\27[31m",
-    white = "\27[37m",
-    cyan = "\27[36m", 
-    blue = "\27[34m",
-    yellow = "\27[33m"
+    reset = "",
+    green = "",
+    red = "",
+    white = "",
+    cyan = "", 
+    blue = "",
+    yellow = ""
 }
 
 local obfuscated_list = {}
 
-local BANNER = colors.blue .. [[
+local BANNER = [[
                                 _                      _        __   
   /\  /\ ___  _ __  ___  _   _ | |  ___  ___   __   __/ |      / /_  
  / /_/ // _ \| '__|/ __|| | | || | / _ \/ __|  \ \ / /| |     | '_ \ 
 / __  /|  __/| |  | (__ | |_| || ||  __/\__ \   \ V / | |  _  | (_) |
 \/ /_/  \___||_|   \___| \__,_||_| \___||___/    \_/  |_| (_)  \___/ 
-                                       ]] .. colors.reset
+                                       ]]
 
 local function runSanityCheck(original_code, obfuscated_code)
     local function captureOutput(code)
@@ -90,43 +90,42 @@ local function printCliResult(input, output, time, options)
         size_diff_percent = "N/A"
     end
 
-    local line = colors.white .. string.rep("═", 65) .. colors.reset
+    local line = string.rep("=", 65)
     print("\n" .. line)
     print(BANNER)
-    print(colors.white .. "Obfuscation Complete!" .. colors.reset)
-    print(colors.white .. "Details:" .. colors.reset)
+    print("Obfuscation Complete!")
+    print("Details:")
     print(line)
-    print(colors.white .. "Time Taken        : " .. string.format("%.2f", time) .. " seconds" .. colors.reset)
-    print(colors.cyan .. "Original Size     : " .. original_size .. " bytes" .. colors.reset)
-    print(colors.cyan .. "Obfuscated Size   : " .. obfuscated_size .. " bytes" .. colors.reset)
-    print(colors.cyan .. "Size Difference   : " .. (obfuscated_size - original_size) .. " bytes (" .. size_diff_percent .. "%)" .. colors.reset)
+    print("Time Taken        : " .. string.format("%.2f", time) .. " seconds")
+    print("Original Size     : " .. original_size .. " bytes")
+    print("Obfuscated Size   : " .. obfuscated_size .. " bytes")
+    print("Size Difference   : " .. (obfuscated_size - original_size) .. " bytes (" .. size_diff_percent .. "%)")
 
     local function formatBool(val) 
-        return val and colors.green .. "True" .. colors.reset or colors.red .. "False" .. colors.reset 
+        return val and "True" or "False"
     end
 
     print(colors.cyan .. "Overwrite         : " .. formatBool(options.overwrite))
     print(colors.cyan .. "Folder Mode       : " .. formatBool(options.folder_mode))
     if options.folder_mode then
         if not output then
-            print(colors.white .. "Output File       : " .. colors.reset
-                .. colors.cyan .. table.concat(obfuscated_list, ", ") .. colors.reset)
+            print("Output File       : " .. table.concat(obfuscated_list, ", "))
         end
     else
-        print(colors.white .. "Output File       : " .. output .. colors.reset)
+        print("Output File       : " .. output)
     end
 
     if options.sanity_check then
         if options.sanity_failed then
-            print(colors.red .. "Sanity Check      : Failed" .. colors.reset)
-            print(colors.yellow .. "\nExpected output:" .. colors.reset)
-            print(colors.white .. options.sanity_info.expected .. colors.reset)
-            print(colors.yellow .. "\nGot output:" .. colors.reset)
-            print(colors.white .. options.sanity_info.got .. colors.reset)
-            print(colors.red .. "Please dm 'zeusssz_' on Discord with with the file, or make an issue on the GitHub" .. colors.reset)
-            print(colors.red .. "You may also join the Discord Server using the invite link" .. colors.reset)
+            print("Sanity Check      : Failed")
+            print("\nExpected output:")
+            print(options.sanity_info.expected)
+            print("\nGot output:")
+            print(options.sanity_info.got)
+            print("Please dm 'zeusssz_' on Discord with with the file, or make an issue on the GitHub")
+            print("You may also join the Discord Server using the invite link")
         else
-            print(colors.green .. "Sanity Check      : Passed" .. colors.reset)
+            print("Sanity Check      : Passed")
         end
     end
 
@@ -134,15 +133,11 @@ local function printCliResult(input, output, time, options)
 
     local settings = {
         { "Watermark", config.get("settings.watermark_enabled") },
-        { "String To Expressions", config.get("settings.StringToExpressions.enabled") },
         { "Control Flow", config.get("settings.control_flow.enabled") },
         { "String Encoding", config.get("settings.string_encoding.enabled") },
         { "Variable Renaming", config.get("settings.variable_renaming.enabled") },
         { "Garbage Code", config.get("settings.garbage_code.enabled") },
         { "Opaque Predicates", config.get("settings.opaque_predicates.enabled") },
-        { "Function Inlining", config.get("settings.function_inlining.enabled") },
-        { "Dynamic Code", config.get("settings.dynamic_code.enabled") },
-        { "Bytecode Encoding", config.get("settings.bytecode_encoding.enabled") },
         { "Compressor", config.get("settings.compressor.enabled") },
         { "Function Wrapping", config.get("settings.WrapInFunction.enabled") },
         { "Virtual Machine", config.get("settings.VirtualMachine.enabled") },
@@ -158,9 +153,9 @@ local function printCliResult(input, output, time, options)
 
     for _, setting in ipairs(settings) do
         local name = setting[1]
-        local status = (setting[2] and colors.green .. "Enabled" or colors.red .. "Disabled")
+        local status = (setting[2] and "Enabled" or "Disabled")
         local padding = string.rep(" ", max_length - #name + 1)
-        print(colors.white .. name .. padding .. ":" .. " " .. status .. colors.reset)
+        print(name .. padding .. ":" .. " " .. status)
     end
 
     print(line .. "\n")
@@ -184,29 +179,27 @@ local function applyPreset(level)
         config.set("settings.variable_renaming.max_name_length", 120)
         config.set("settings.garbage_code.garbage_blocks", 50)
         config.set("settings.control_flow.max_fake_blocks", 12)
-        config.set("settings.StringToExpressions.min_number_length", 800)
-        config.set("settings.StringToExpressions.max_number_length", 999)
     end
 end
 
 local function printUsage()
-    print(colors.white .. "Usage: " .. colors.reset .. colors.cyan .. "./hercules.lua *.lua (+ any options)" .. colors.reset)
-    print(colors.white .. "\nOptional Presets:" .. colors.reset)
-    print(colors.cyan .. "--min" .. string.rep(" ", 17) .. colors.green .. "Minimal parameters for lighter obfuscation" .. colors.reset)
-    print(colors.cyan .. "--mid" .. string.rep(" ", 17) .. colors.green .. "Moderate parameters for balanced obfuscation" .. colors.reset)
-    print(colors.cyan .. "--max" .. string.rep(" ", 17) .. colors.green .. "Maximum parameters for heavy obfuscation" .. colors.reset)
+    print("Usage: ./hercules.lua *.lua (+ any options)")
+    print("\nOptional Presets:")
+    print("--min" .. string.rep(" ", 17) .. "Minimal parameters for lighter obfuscation")
+    print("--mid" .. string.rep(" ", 17) .. "Moderate parameters for balanced obfuscation")
+    print("--max" .. string.rep(" ", 17) .. "Maximum parameters for heavy obfuscation")
     
-    print(colors.white .. "\nGeneral Flags:" .. colors.reset)
+    print("\nGeneral Flags:")
     local general_flags = {
         { flags = {"--overwrite", ""}, description = "Overwrites the original file with obfuscated code" },
         { flags = {"--folder", ""}, description = "Process all Lua files in the given folder" },
         { flags = {"--sanity", ""}, description = "Check if obfuscated code output matches original" }
     }
     for _, flag in ipairs(general_flags) do
-        print(colors.cyan .. flag.flags[1] .. flag.flags[2] .. colors.green .. string.rep(" ", 20 - #flag.flags[1] - #flag.flags[2]) .. flag.description .. colors.reset)
+        print(flag.flags[1] .. flag.flags[2] .. string.rep(" ", 20 - #flag.flags[1] - #flag.flags[2]) .. flag.description)
     end
 
-    print(colors.white .. "\nObfuscation Flags:" .. colors.reset)
+    print("\nObfuscation Flags:")
 
 local obfuscation_flags = {
     { flags = {"-cf", "--control_flow"}, description = "Enable control flow obfuscation" },
@@ -214,8 +207,6 @@ local obfuscation_flags = {
     { flags = {"-vr", "--variable_renaming"}, description = "Enable variable renaming" },
     { flags = {"-gci", "--garbage_code"}, description = "Enable garbage code injection" },
     { flags = {"-opi", "--opaque_preds"}, description = "Enable opaque predicates injection" },
-    { flags = {"-be", "--bytecode_encoder"}, description = "Enable bytecode encoding" },
-    { flags = {"-st", "--string_to_expr"}, description = "Enable string to expression conversion" },
     { flags = {"-vm", "--virtual_machine"}, description = "Enable virtual machine transformation" },
     { flags = {"-wif", "--wrap_in_func"}, description = "Enable function wrapping" },
     { flags = {"-fi", "--func_inlining"}, description = "Enable function inlining" },
@@ -234,21 +225,21 @@ for _, flag in ipairs(obfuscation_flags) do
     local short_flag = flag.flags[1]
     local long_flag = flag.flags[2]
     local padding = string.rep(" ", max_flag_length - (#short_flag + #long_flag + 2))
-    print(colors.cyan .. short_flag .. ", " .. long_flag .. padding .. colors.white .. ": " .. colors.green .. flag.description .. colors.reset)
+    print(short_flag .. ", " .. long_flag .. padding .. ": " .. flag.description)
 end
 os.exit(1)
 end
 
 local function main()
     if #arg < 1 then
-        print(colors.red .. "Error: No input file specified" .. colors.reset)
+        print("Error: No input file specified")
         printUsage()
         os.exit(1)
     end
 
     local input = arg[1]
     if input:sub(1,1) == "-" then
-        print(colors.red .. "Error: Unexpected flag '" .. input .. "'" .. colors.reset)
+        print("Error: Unexpected flag '" .. input .. "'")
         printUsage()
         os.exit(1)
     end
@@ -266,9 +257,7 @@ local function main()
         variable_renaming = false,
         garbage_code = false,
         opaque_predicates = false,
-        bytecode_encoding = false,
         compressor = false,
-        StringToExpressions = false,
         VirtualMachine = false,
         WrapInFunction = false,
         function_inlining = false,
@@ -295,10 +284,6 @@ local function main()
             features.garbage_code = true
         elseif arg[i] == "-opi" or arg[i] == "--opaque_preds" then
             features.opaque_predicates = true
-        elseif arg[i] == "-be" or arg[i] == "--bytecode_encoder" then
-            features.bytecode_encoding = true
-        elseif arg[i] == "-st" or arg[i] == "--string_to_expr" then
-            features.StringToExpressions = true
         elseif arg[i] == "-vm" or arg[i] == "--virtual_machine" then
             features.VirtualMachine = true
         elseif arg[i] == "-wif" or arg[i] == "--wrap_in_func" then
@@ -316,26 +301,26 @@ local function main()
         elseif arg[i] == "--max" then
             options.preset_level = "max"
         else
-            print(colors.red .. "Error: Unknown option '" .. arg[i] .. "'" .. colors.reset)
+            print("Error: Unknown option '" .. arg[i] .. "'")
             printUsage()
             os.exit(1)
         end
     end
     if not options.folder_mode and not input:match("%.lua$") then
-        print(colors.red .. "Error: Invalid file extension for '" .. input .. "'" .. colors.reset)
+        print("Error: Invalid file extension for '" .. input .. "'")
         printUsage()
         os.exit(1)
     end
     if options.folder_mode then
         if not os.rename(input, input) then
-            print(colors.red .. "Error: Folder '" .. input .. "' does not exist or could not be found" .. colors.reset)
+            print("Error: Folder '" .. input .. "' does not exist or could not be found")
             printUsage()
             os.exit(1)
         end
     else
         local fh = io.open(input, "r")
         if not fh then
-            print(colors.red .. "Error: File '" .. input .. "' does not exist or could not be found" .. colors.reset)
+            print("Error: File '" .. input .. "' does not exist or could not be found")
             printUsage()
             os.exit(1)
         end
