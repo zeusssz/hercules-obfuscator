@@ -50,12 +50,12 @@ You may also use the [Website](https://hercules-obfuscator.xyz/) to obfuscate yo
 Obfuscation is not a foolproof method for protecting your code! Always consider additional security measures depending on your use case.
 
 >[!NOTE]
-Hercules is very much still in development and may not be the best yet, but we are committed to making it one of the best. Hercules is currently on version: `1.6.2`
+Hercules is very much still in development and may not be the best yet, but we are committed to making it one of the best. Hercules is currently on version: `1.6.3`
 ---
 
 ## Features
 
-- **String Encoding:** Transform strings into seemingly indecipherable formats using an advanced Caesar Cipher, making reverse engineering a daunting task.
+- **String Encoding:** Transform strings into seemingly indecipherable formats using an advanced Cipher, making reverse engineering a daunting task.
 
 - **Variable Renaming:** Elevates your code's security by replacing original variable names with a unique set of randomly generated identifiers, effectively masking their true intent.
 
@@ -65,13 +65,7 @@ Hercules is very much still in development and may not be the best yet, but we a
 
 - **Bytecode Encoding:** Seamlessly convert critical sections of your script into bytecode, adding an additional layer of complexity that hinders comprehension.
 
-- **Function Inlining:** Enhances obfuscation by embedding function bodies directly into their calls, effectively disguising the original flow and logic of the code.
-
 - **Opaque Predicates:** Utilizes constructed conditions that always evaluate to true or false, creating confusion about the actual functionality of your code.
-
-- **Dynamic Code Generator:** Generates code blocks dynamically from the script itself, complicating static analysis and enhancing security.
-
-- **String to Expressions:** Transform string literals into complex mathematical expressions, making it nearly impossible to deduce their original meaning.
 
 - **Virtual Machinery:** Employs a virtual machine environment to execute obfuscated code, adding a layer of execution complexity that challenges traditional analysis techniques.
 
@@ -85,7 +79,7 @@ Hercules is very much still in development and may not be the best yet, but we a
 ## Installation
 
 >[!IMPORTANT]
->It is recommended to use the `Lua 5.4` compiler to run Hercules
+>It is recommended to use the `Lua 5.1` compiler to run Hercules
 
 1. Clone this repository (alternatively, install the ZIP file):
     ```bash

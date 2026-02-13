@@ -1,5 +1,15 @@
-local Parts = {
-	Variables = [=[
+local Parts = {}
+
+function Parts.generate(varMap)
+	local function applyVarMap(code)
+		for old, new in pairs(varMap) do
+			code = code:gsub("%f[%w_]" .. old .. "%f[^%w_]", new)
+		end
+		return code
+	end
+	
+	return {
+		Variables = applyVarMap([=[
 -- Generic Helpers
 local LuaFunc, WrapState, BcToState, gChunk;
 local FIELDS_PER_FLUSH = 50
@@ -101,8 +111,8 @@ local function chartoascii(str, pos)
     local ch = str:sub(pos, pos)
     return asciilookup[ch]
 end
-]=],
-	Deserializer = [=[
+]=]),
+		Deserializer = applyVarMap([=[
 function BcToState(Bytecode, charset)
     local base, decoded = #charset, {}
     local decode_lookup = {}
@@ -234,8 +244,8 @@ function BcToState(Bytecode, charset)
 
     return gChunk()
 end
-]=],
-	Wrapper_1 = [=[
+]=]),
+		Wrapper_1 = applyVarMap([=[
 function LuaFunc(State, Env, n)
     local x = State.x;
     local V = State.Z;
@@ -253,8 +263,8 @@ function LuaFunc(State, Env, n)
         local D = Inst.D;
         local F = Inst.F;
         z = z + __;
-]=],
-	Wrapper_2 = [=[
+]=]),
+		Wrapper_2 = applyVarMap([=[
         State.z = z;
     end;
 end;
@@ -281,6 +291,8 @@ function WrapState(V, Env, Upval)
     end;
     return Wrapped;
 end;
-]=]
-}
+]=])
+	}
+end
+
 return Parts
