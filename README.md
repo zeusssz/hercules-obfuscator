@@ -225,8 +225,8 @@ lua test.lua --help
 **Test results (14 modules, 30 fixtures):**
 - **383 / 16,383** combinations pass all fixtures
 - **16,000 / 16,383** combinations fail
-- **8 working modules**: function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark
-- **6 failing modules**: opaque_predicates, bytecode_encoding, VirtualMachine, antitamper, variable_renaming, StringToExpressions
+- **9 working modules**: opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark
+- **5 failing modules**: bytecode_encoding, VirtualMachine, antitamper, variable_renaming, StringToExpressions
 
 The test suite covers:
 - **Full combination sweep**: All 2^14 combinations against all 30 fixtures
@@ -238,7 +238,6 @@ The test suite covers:
 **Known failing modules:**
 | Module | Reason |
 |--------|--------|
-| `opaque_predicates` | Missing space after `then` → `thenlocal` |
 | `bytecode_encoding` | Unescaped `%256` in `string.format` |
 | `VirtualMachine` | Fails on complex scripts with nested functions |
 | `antitamper` | Detects the test environment as tampered |
