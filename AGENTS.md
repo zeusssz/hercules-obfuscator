@@ -117,7 +117,6 @@ Presets (`--min`/`--mid`/`--max`) override `variable_renaming` name lengths, `ga
 
 | Module | Issue |
 |--------|-------|
-| `dynamic_code_generator` | Marked `TODO : make it work` — tries to eval source char-by-char, always fails |
 | `function_inliner` | Marked `TODO : make it work` — naive regex breaks on functions with control flow |
 | `opaque_predicate_injector` | Missing space after `then` — produces `thenlocal` instead of `then local` |
 | `bytecode_encoder` | Unescaped `%256` in `string.format` template causes format errors |

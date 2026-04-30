@@ -223,8 +223,10 @@ lua test.lua --help
 ```
 
 **Test results (14 modules, 30 fixtures):**
-- **191 / 16,383** combinations pass all fixtures
-- **16,192 / 16,383** combinations fail (mostly due to known broken modules)
+- **383 / 16,383** combinations pass all fixtures
+- **16,000 / 16,383** combinations fail
+- **7 working modules**: dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark
+- **7 failing modules**: function_inlining, opaque_predicates, bytecode_encoding, VirtualMachine, antitamper, variable_renaming, StringToExpressions
 
 The test suite covers:
 - **Full combination sweep**: All 2^14 combinations against all 30 fixtures
@@ -236,7 +238,6 @@ The test suite covers:
 **Known failing modules:**
 | Module | Reason |
 |--------|--------|
-| `dynamic_code` | TODO: tries to eval source char-by-char |
 | `function_inlining` | TODO: naive regex breaks on control flow |
 | `opaque_predicates` | Missing space after `then` → `thenlocal` |
 | `bytecode_encoding` | Unescaped `%256` in `string.format` |
