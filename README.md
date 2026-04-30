@@ -191,4 +191,59 @@ You can modify or add new modules to the `modules/` directory to create addition
 <br>If you wish for it to be configurable, add it to the `config.lua` file, along with the necessary logic.
 
 ---
+
+## Testing
+
+A comprehensive end-to-end test suite in `src/test.lua` tests **all 2^14 = 16,384 module combinations** against **30 real Lua code fixtures**. Each test runs actual obfuscation via `Pipeline.process()` and verifies the output matches expected results.
+
+```bash
+# Full combination sweep: 16,383 combos × 30 fixtures (~9 min)
+lua test.lua --test full_combinations --verbose
+
+# Run all tests (includes full sweep)
+lua test.lua --verbose
+
+# Quick mode: baseline + single modules + working combos only
+lua test.lua --quick --verbose
+
+# Test a specific fixture against all combinations
+lua test.lua --test fixture_sweep_hello_world --verbose
+
+# Baseline only (no modules)
+lua test.lua --test baseline_no_modules --verbose
+
+# Single module tests
+lua test.lua --group single --verbose
+
+# List all tests
+lua test.lua --list
+
+# Show help
+lua test.lua --help
+```
+
+**Test results (14 modules, 30 fixtures):**
+- **191 / 16,383** combinations pass all fixtures
+- **16,192 / 16,383** combinations fail (mostly due to known broken modules)
+
+The test suite covers:
+- **Full combination sweep**: All 2^14 combinations against all 30 fixtures
+- **Per-fixture sweeps**: Each fixture tested against all 16,383 combinations
+- **Baseline**: No modules enabled (preserves semantics exactly)
+- **Single modules**: Each of the 14 modules tested individually against all fixtures
+- **Utility tests**: Compressor, garbage code scaling, watermark, config API
+
+**Known failing modules:**
+| Module | Reason |
+|--------|--------|
+| `dynamic_code` | TODO: tries to eval source char-by-char |
+| `function_inlining` | TODO: naive regex breaks on control flow |
+| `opaque_predicates` | Missing space after `then` → `thenlocal` |
+| `bytecode_encoding` | Unescaped `%256` in `string.format` |
+| `VirtualMachine` | Fails on complex scripts with nested functions |
+| `antitamper` | Detects the test environment as tampered |
+| `variable_renaming` | Global state bug with builtin renaming |
+| `StringToExpressions` | Global `used_ascii` state persists across calls |
+
+---
 ![image](https://github.com/user-attachments/assets/83c72548-5a4b-4326-b40e-6380f16f5a97)
