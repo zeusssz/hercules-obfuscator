@@ -47,9 +47,8 @@ function DynamicCodeGenerator.process(code)
         else
             local ws = line:match("^(%s*)")
             local stmt = line:gsub("^%s*", ""):gsub("%s+$", "")
-            -- Prefix with ; to prevent Lua from parsing adjacent IIFEs as one expression
-            -- e.g. (f())(g()) would call result of f() with g() as argument
-            table.insert(output, ws .. ";(function() " .. stmt .. " end)()")
+            -- Wrap in IIFE inside do-end block to avoid semicolon issues with VM parser
+            table.insert(output, ws .. "do (function() " .. stmt .. " end)() end")
         end
     end
 
