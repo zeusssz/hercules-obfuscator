@@ -1,126 +1,149 @@
 local AntiTamper = {}
--- anti beautify + simple anti tamper for now
+
+-- Collect critical native function names that should NOT be tampered
+-- Excludes print, as it's commonly overridden for logging/testing
+local NATIVE_FUNCS = {
+    -- Core
+    "assert", "error", "pcall", "xpcall", "type", "tostring", "tonumber",
+    "select", "next", "rawget", "rawset", "rawequal", "setmetatable", "getmetatable",
+    "load", "loadfile", "dofile", "collectgarbage",
+    -- String
+    "string.byte", "string.char", "string.dump", "string.find", "string.format",
+    "string.gmatch", "string.gsub", "string.len", "string.lower", "string.match",
+    "string.rep", "string.reverse", "string.sub", "string.upper",
+    -- Table
+    "table.insert", "table.remove", "table.sort", "table.concat",
+    -- Math
+    "math.abs", "math.acos", "math.asin", "math.atan", "math.ceil", "math.cos",
+    "math.deg", "math.exp", "math.floor", "math.fmod", "math.max", "math.min",
+    "math.modf", "math.rad", "math.sin", "math.sqrt", "math.tan",
+    -- OS
+    "os.clock", "os.date", "os.difftime", "os.time", "os.exit",
+    -- Debug
+    "debug.getinfo", "debug.getlocal", "debug.getupvalue", "debug.traceback",
+    "debug.sethook", "debug.setupvalue",
+}
+
+-- Check if a metamethod is set (potential tampering via __index/__newindex)
+local META_METHODS = {"__index", "__newindex", "__metatable", "__call"}
+local META_TABLES = {"string", "table", "math", "os"}
+
 function AntiTamper.process(code)
-  local anti_tamper_code = [[
-do  
-    local D,T,P,X,S,E,R,Pa,GM,SM,RG,RS,RE,CG,Sel,C,G=  
-        debug,type,pcall,xpcall,tostring,error,rawget,pairs,  
-        getmetatable,setmetatable,rawget,rawset,rawequal,collectgarbage,select,coroutine,_G  
-  
-    local function dbgOK()  
-        if T(D)~="table" then return false end  
-        for _,k in Pa{"getinfo","getlocal","getupvalue","traceback","sethook","setupvalue","getregistry"} do  
-            if T(D[k])~="function" then return false end  
-        end  
-        return true  
-    end  
-    if not dbgOK() then E("Tamper Detected! Reason: Debug library incomplete") return end  
-  
-    local function isNative(f)  
-        local i=D.getinfo(f)  
-        return i and i.what=="C"  
-    end  
-  
-    local function checkNativeFuncs()  
-        local natives={  
-            P,X,assert,E,print,RG,RS,RE,tonumber,S,T,  
-            Sel,next,ipairs,Pa,CG,GM,SM,  
-            load,loadstring,loadfile,dofile,collectgarbage,  
-            D.getinfo,D.getlocal,D.getupvalue,D.sethook,D.setupvalue,D.traceback,  
-            C.create,C.resume,C.yield,C.status,  
-            math.abs,math.acos,math.asin,math.atan,math.ceil,math.cos,math.deg,math.exp,  
-            math.floor,math.fmod,math.huge,math.log,math.max,math.min,math.modf,math.pi,  
-            math.rad,math.random,math.sin,math.sqrt,math.tan,  
-            os.clock,os.date,os.difftime,os.execute,os.exit,os.getenv,os.remove,  
-            os.rename,os.setlocale,os.time,os.tmpname,  
-            string.byte,string.char,string.dump,string.find,string.format,string.gmatch,  
-            string.gsub,string.len,string.lower,string.match,string.rep,string.reverse,  
-            string.sub,string.upper,  
-            table.insert,table.maxn,table.remove,table.sort  
-        }  
-        local mts={string,table,math,os,G,package}  
-        for _,t in Pa(mts) do  
-            local mt=GM(t)  
-            if mt then  
-                for _,m in Pa{"__index","__newindex","__call","__metatable"} do  
-                    local mf=mt[m]  
-                    if mf and T(mf)=="function" and not isNative(mf) then  
-                        return false,"Metamethod tampered: "..m  
-                    end  
-                end  
-            end  
-        end  
-        for _,fn in Pa(natives) do  
-            if T(fn)=="function" and not isNative(fn) then  
-                return false,"Native function replaced or wrapped"  
-            end  
-        end  
-        return true  
-    end  
-  
-    local function isMinified(f)  
-        local i=D.getinfo(f,"Sl")  
-        return i and i.linedefined==i.lastlinedefined  
-    end  
-  
-    local function scanUp(f)  
-        local i=1  
-        while true do  
-            local n,v=D.getupvalue(f,i)  
-            if not n then break end  
-            if T(v)=="function" and not isMinified(v) then return false,"Suspicious upvalue: "..n end  
-            i=i+1  
-        end  
-        return true  
-    end  
-  
-    local function scanLocals(l)  
-        local i=1  
-        while true do  
-            local n,v=D.getlocal(l,i)  
-            if not n then break end  
-            if T(v)=="function" and not isMinified(v) then return false,"Suspicious local: "..n end  
-            i=i+1  
-        end  
-        return true  
-    end  
-  
-    local function checkGlobals()  
-        local essentials={"pcall","xpcall","type","tostring","string","table","debug","coroutine","math","os","package"}  
-        for _,k in Pa(essentials) do  
-            if T(G[k])~=T(_G[k]) then return false,"Global modified: "..k end  
-        end  
-        if package and package.loaded and T(package.loaded.debug)~="table" then  
-            return false,"Package.debug modified"  
-        end  
-        return true  
-    end  
-  
-    local function run()  
-        local ok,r=checkNativeFuncs()  
-        if not ok then return false,r end  
-        ok,r=checkGlobals()  
-        if not ok then return false,r end  
-        for l=2,4 do  
-            local i=D.getinfo(l,"f")  
-            if i and i.func then  
-                ok,r=scanUp(i.func)  
-                if not ok then return false,r.." @lvl "..l end  
-            end  
-            ok,r=scanLocals(l)  
-            if not ok then return false,r.." @lvl "..l end  
-        end  
-        return true  
-    end  
-  
-    local ok,r=run()  
-    if not ok then  
-        E("Tamper Detected! Reason: "..S(r))  
-        while true do E("Tamper Detected! Reason: "..S(r)) end  
-    end  
+    -- Capture the current state of critical functions as the baseline
+    local func_refs = {}
+    for _, name in ipairs(NATIVE_FUNCS) do
+        -- Resolve nested names like "string.byte"
+        local parts = {}
+        for part in name:gmatch("[^.]+") do
+            table.insert(parts, part)
+        end
+        local obj = _G
+        for i = 1, #parts - 1 do
+            obj = obj[parts[i]]
+            if not obj then break end
+        end
+        local val = obj and obj[parts[#parts]]
+        if val then
+            func_refs[name] = type(val)
+        end
+    end
+
+    -- Capture metatable state for key tables
+    local meta_refs = {}
+    for _, tname in ipairs(META_TABLES) do
+        local t = _G[tname]
+        if t then
+            local mt = getmetatable(t)
+            if mt then
+                for _, mm in ipairs(META_METHODS) do
+                    local mf = rawget(mt, mm)
+                    if mf then
+                        meta_refs[tname .. "." .. mm] = type(mf)
+                    end
+                end
+            end
+        end
+    end
+
+    -- Serialize func_refs into the generated code
+    local func_refs_str = "{"
+    local count = 0
+    for name, val_type in pairs(func_refs) do
+        if count > 0 then func_refs_str = func_refs_str .. "," end
+        func_refs_str = func_refs_str .. string.format("[%q]=%q", name, val_type)
+        count = count + 1
+    end
+    func_refs_str = func_refs_str .. "}"
+
+    -- Serialize meta_refs
+    local meta_refs_str = "{"
+    count = 0
+    for name, ref_type in pairs(meta_refs) do
+        if count > 0 then meta_refs_str = meta_refs_str .. "," end
+        meta_refs_str = meta_refs_str .. string.format("[%q]=%q", name, ref_type)
+        count = count + 1
+    end
+    meta_refs_str = meta_refs_str .. "}"
+
+    local anti_tamper_code = string.format([=[
+do
+    local _BFR,_MFR,T,E,G,Pa,GM,RG=%s,%s,type,error,_G,pairs,getmetatable,rawget
+    local function check()
+        for n,expectedType in Pa(_BFR) do
+            local parts={}
+            for p in n:gmatch("[^.]+") do parts[#parts+1]=p end
+            local obj=G
+            for i=1,#parts-1 do
+                obj=obj[(parts[i])]
+                if not obj then
+                    E("Tamper Detected! Reason: Critical function removed: "..n)
+                    return
+                end
+            end
+            local cur=obj[(parts[#parts])]
+            if cur==nil then
+                E("Tamper Detected! Reason: Critical function removed: "..n)
+                return
+            end
+            local curType=T(cur)
+            if curType~=expectedType then
+                E("Tamper Detected! Reason: Critical function type changed: "..n.." (was "..expectedType..", now "..curType..")")
+                return
+            end
+        end
+        for tname in Pa(_MFR) do
+            local parts={}
+            for p in tname:gmatch("[^.]+") do parts[#parts+1]=p end
+            local t=G[(parts[1])]
+            if t then
+                local mt=GM(t)
+                if mt then
+                    local mf=RG(mt,parts[2])
+                    if mf then
+                        local expected=_MFR[tname]
+                        if T(mf)~=T(expected) then
+                            E("Tamper Detected! Reason: Metamethod tampered: "..tname)
+                            return
+                        end
+                    end
+                end
+            end
+        end
+        local d=G.debug
+        if T(d)=="table" then
+            for _,k in Pa{"getinfo","getlocal","getupvalue","traceback","sethook","setupvalue"} do
+                if T(d[k])~="function" then
+                    E("Tamper Detected! Reason: Debug library incomplete")
+                    return
+                end
+            end
+        end
+    end
+    check()
 end
-]]
-  return anti_tamper_code .. "\n" .. code
+]=], func_refs_str, meta_refs_str)
+
+    return anti_tamper_code .. "\n" .. code
 end
 
 return AntiTamper

@@ -173,8 +173,8 @@ register("quick_combo", function()
         assert(out == f.expected, string.format("baseline %s mismatch: got %q, expected %q", f.name, out, f.expected))
     end
 
-    -- Single modules (10 working only)
-    local working_singles = {"string_encoding", "garbage_code", "control_flow", "compressor", "WrapInFunction", "watermark", "dynamic_code", "function_inlining", "opaque_predicates", "bytecode_encoding"}
+    -- Single modules (11 working only)
+    local working_singles = {"string_encoding", "garbage_code", "control_flow", "compressor", "WrapInFunction", "watermark", "dynamic_code", "function_inlining", "opaque_predicates", "bytecode_encoding", "antitamper"}
     for _, mod in ipairs(working_singles) do
         disable_all()
         config.set(MODULE_PATHS[mod], true)
@@ -484,7 +484,7 @@ local function main()
                 elseif t.name:match("^single_") then
                     local mod = t.name:match("^single_(.+)$")
                     local known_broken = {VirtualMachine=true,
-                        antitamper=true, variable_renaming=true, StringToExpressions=true}
+                        variable_renaming=true, StringToExpressions=true}
                     if not known_broken[mod] then
                         table.insert(filtered, t)
                     end
