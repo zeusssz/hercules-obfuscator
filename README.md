@@ -223,8 +223,8 @@ lua test.lua --help
 ```
 
 **Test results (14 modules, 30 fixtures):**
-- **12 working modules**: antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming
-- **2 failing modules**: VirtualMachine, StringToExpressions
+- **13 working modules**: antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming, StringToExpressions
+- **1 failing module**: VirtualMachine
 
 The test suite covers:
 - **Full combination sweep**: All 2^14 combinations against all 30 fixtures
@@ -237,7 +237,6 @@ The test suite covers:
 | Module | Reason |
 |--------|--------|
 | `VirtualMachine` | Fails on complex scripts with nested functions |
-| `StringToExpressions` | Global `used_ascii` state persists across calls |
 
 ---
 ![image](https://github.com/user-attachments/assets/83c72548-5a4b-4326-b40e-6380f16f5a97)

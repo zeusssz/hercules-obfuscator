@@ -54,11 +54,12 @@ local function obfuscateStringLiteral(str, base1, base2)
 end
 
 function StringToExpressions.process(script_content, base1, base2)
+    used_ascii = {}
     script_content = script_content:gsub('\\"', '!@!'):gsub("\\'", "@!@")
     local obfuscated_script = script_content:gsub("(['\"])(.-)%1", function(quote, str)
         str = str:gsub('!@!', '\\"'):gsub('@!@', "\\'")
         local obf = obfuscateStringLiteral(str, base1, base2)
-        return obf
+        return "(" .. obf .. ")"
     end)
 
     local chars_table_parts = {}

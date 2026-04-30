@@ -115,9 +115,9 @@ lua test.lua --verbose                       # detailed output
 - `fixture_sweep_<name>` — all 16,383 combos against one fixture
 - `compressor_*`, `garbage_code_*`, `watermark_*`, `config_get_set` — utility tests
 
-**Working modules (12/14):** antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming
+**Working modules (13/14):** antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming, StringToExpressions
 
-**Failing modules (2/14):** VirtualMachine, StringToExpressions
+**Failing modules (1/14):** VirtualMachine
 
 ## Key Conventions & Gotchas
 
@@ -126,12 +126,11 @@ lua test.lua --verbose                       # detailed output
 - **Module coupling**: Some modules depend on earlier passes. E.g., `VirtualMachine` and `antitamper` run before `control_flow` and `variable_renaming` so they can protect the un-renamed, un-scrambled code structure.
 - **`math.ldexp` / `math.frexp` polyfills**: These were removed in Lua 5.3+ but the `Compiler` submodule uses them. The test suite adds polyfills; the obfuscator itself may need them for VM/bytecode modules to work on Lua 5.4.
 - **Lua 5.4 float printing**: `math.sqrt(16)` prints as `4.0` not `4`. The test suite normalizes this for cross-version compatibility.
-- **Global module state**: `StringToExpressions` uses a module-level `used_ascii` table that persists across calls, causing incorrect encodings on subsequent runs.
+- **Global module state**: No known global state issues. Previous bugs in `StringToExpressions` (persistent `used_ascii`) and `variable_renamer` (persistent `varenc_names`) have been fixed.
 - **`tests/` is gitignored** — test files may exist locally but are not tracked.
 
 ## Known Module Bugs
 
 | Module | Issue |
 |--------|-------|
-| `StringToExpressions` | Global `used_ascii` state persists across calls — second encoding reuses ASCII values, corrupting strings |
 | `VirtualMachine` | Fails on complex scripts with nested functions (`attempt to index a number value`) |
