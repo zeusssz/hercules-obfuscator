@@ -173,8 +173,8 @@ register("quick_combo", function()
         assert(out == f.expected, string.format("baseline %s mismatch: got %q, expected %q", f.name, out, f.expected))
     end
 
-    -- Single modules (7 working only)
-    local working_singles = {"string_encoding", "garbage_code", "control_flow", "compressor", "WrapInFunction", "watermark", "dynamic_code"}
+    -- Single modules (8 working only)
+    local working_singles = {"string_encoding", "garbage_code", "control_flow", "compressor", "WrapInFunction", "watermark", "dynamic_code", "function_inlining"}
     for _, mod in ipairs(working_singles) do
         disable_all()
         config.set(MODULE_PATHS[mod], true)
@@ -189,22 +189,26 @@ register("quick_combo", function()
         end
     end
 
-    -- Working module combinations (6 working modules = 2^6 = 64 combos, minus empty = 63)
-    for mask = 1, 2 ^ #working_singles - 1 do
+    -- Working module combinations (6 core modules = 2^6 = 64 combos, minus empty = 63)
+    local core_working = {"string_encoding", "garbage_code", "control_flow", "compressor", "WrapInFunction", "watermark"}
+    for mask = 1, 2 ^ #core_working - 1 do
         disable_all()
-        for j = 1, #working_singles do
+        local combo_names = {}
+        for j = 1, #core_working do
             if (mask >> (j - 1)) & 1 == 1 then
-                config.set(MODULE_PATHS[working_singles[j]], true)
+                config.set(MODULE_PATHS[core_working[j]], true)
+                table.insert(combo_names, core_working[j])
             end
         end
+        local label = table.concat(combo_names, "+")
         for _, f in ipairs(ALL_FIXTURES) do
             local ok, result = pcall(function() return Pipeline.process(f.code) end)
-            assert(ok, string.format("combo %s %s: pipeline error", modules_to_label(mask_to_modules(mask)), f.name))
+            assert(ok, string.format("combo %s %s: pipeline error", label, f.name))
             local load_ok, load_err = load(result, "=test", "t")
-            assert(load_ok, string.format("combo %s %s: invalid Lua: %s", modules_to_label(mask_to_modules(mask)), f.name, load_err))
+            assert(load_ok, string.format("combo %s %s: invalid Lua: %s", label, f.name, load_err))
             local out, err = capture_output(result)
-            assert(err == nil, string.format("combo %s %s: exec error: %s", modules_to_label(mask_to_modules(mask)), f.name, err))
-            assert(out == f.expected, string.format("combo %s %s: mismatch got %q expected %q", modules_to_label(mask_to_modules(mask)), f.name, out, f.expected))
+            assert(err == nil, string.format("combo %s %s: exec error: %s", label, f.name, err))
+            assert(out == f.expected, string.format("combo %s %s: mismatch got %q expected %q", label, f.name, out, f.expected))
         end
     end
 end)
@@ -479,8 +483,7 @@ local function main()
                     table.insert(filtered, t)
                 elseif t.name:match("^single_") then
                     local mod = t.name:match("^single_(.+)$")
-                    local known_broken = {function_inlining=true,
-                        opaque_predicates=true, bytecode_encoding=true, VirtualMachine=true,
+                    local known_broken = {opaque_predicates=true, bytecode_encoding=true, VirtualMachine=true,
                         antitamper=true, variable_renaming=true, StringToExpressions=true}
                     if not known_broken[mod] then
                         table.insert(filtered, t)
