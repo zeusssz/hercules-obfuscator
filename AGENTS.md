@@ -117,5 +117,4 @@ Presets (`--min`/`--mid`/`--max`) override `variable_renaming` name lengths, `ga
 
 | Module | Issue |
 |--------|-------|
-| `bytecode_encoder` | Unescaped `%256` in `string.format` template causes format errors |
 | `variable_renamer` | Global `varenc_names` table persists across calls — second call with same builtins uses a new random name without creating the assignment |

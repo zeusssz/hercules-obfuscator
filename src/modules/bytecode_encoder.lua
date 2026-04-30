@@ -18,7 +18,7 @@ function BytecodeEncoder.process(code)
         local e, o, d = "%s", %d, {}
         for i = 1, #e, 2 do
             local b = tonumber(e:sub(i, i + 1), 16)
-            b = (b - o + 256) % 256
+            b = (b - o + 256) %% 256
             d[#d + 1] = string.char(b)
         end
         local f = assert(load(table.concat(d)))
