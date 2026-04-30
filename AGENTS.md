@@ -91,17 +91,33 @@ Presets (`--min`/`--mid`/`--max`) override `variable_renaming` name lengths, `ga
 
 ## Testing
 
-60 end-to-end tests across 30 real Lua code fixtures in `src/test_fixtures.lua`. Tests run actual obfuscation via Pipeline.process() and verify output by executing the obfuscated code and comparing captured print output.
+End-to-end test suite in `src/test.lua`. Runs actual obfuscation via Pipeline.process() and verifies the output by executing the obfuscated code and comparing captured print output.
 
-**Test phases:**
-1. **Baseline** — no modules, all fixtures
-2. **Single modules** — each working module individually against all fixtures
-3. **All working modules** — combined (string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark)
-4. **Module combinations** — all pairs and triples of working modules (36 combos)
-5. **Heavy modules** — VM, antitamper, StringToExpressions (valid_lua + limited semantics)
-6. **Working + VM** — combined
-7. **Known broken** — dynamic_code, function_inlining, opaque_predicates, bytecode_encoder (confirm they fail)
-8. **Config** — get/set API
+**Quick mode** (~5s): baseline + 12 working single modules + 64 working combos
+```sh
+lua test.lua --quick          # 18 tests, all should pass
+lua test.lua --verbose        # detailed output
+lua test.lua --test single_variable_renaming  # single module
+lua test.lua --list           # list all 52 tests
+```
+
+**Full sweep** (long): all 2^14 = 16,384 module combinations against all 30 fixtures
+```sh
+lua test.lua --test full_combinations
+lua test.lua --fixture hello_world           # sweep single fixture
+lua test.lua --verbose                       # detailed output
+```
+
+**Test structure:**
+- `quick_combo` — baseline + 12 working singles + 64 core combos
+- `full_combinations` — 16,383 non-empty module masks × 30 fixtures
+- `single_<module>` — each of 14 modules individually against all 30 fixtures
+- `fixture_sweep_<name>` — all 16,383 combos against one fixture
+- `compressor_*`, `garbage_code_*`, `watermark_*`, `config_get_set` — utility tests
+
+**Working modules (12/14):** antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming
+
+**Failing modules (2/14):** VirtualMachine, StringToExpressions
 
 ## Key Conventions & Gotchas
 
@@ -110,11 +126,12 @@ Presets (`--min`/`--mid`/`--max`) override `variable_renaming` name lengths, `ga
 - **Module coupling**: Some modules depend on earlier passes. E.g., `VirtualMachine` and `antitamper` run before `control_flow` and `variable_renaming` so they can protect the un-renamed, un-scrambled code structure.
 - **`math.ldexp` / `math.frexp` polyfills**: These were removed in Lua 5.3+ but the `Compiler` submodule uses them. The test suite adds polyfills; the obfuscator itself may need them for VM/bytecode modules to work on Lua 5.4.
 - **Lua 5.4 float printing**: `math.sqrt(16)` prints as `4.0` not `4`. The test suite normalizes this for cross-version compatibility.
-- **Global module state**: Some modules (`StringToExpressions`, `variable_renamer`) use module-level tables that persist across calls. Tests reload modules or use isolated fixtures to avoid flaky results.
+- **Global module state**: `StringToExpressions` uses a module-level `used_ascii` table that persists across calls, causing incorrect encodings on subsequent runs.
 - **`tests/` is gitignored** — test files may exist locally but are not tracked.
 
 ## Known Module Bugs
 
 | Module | Issue |
 |--------|-------|
-| `variable_renamer` | Global `varenc_names` table persists across calls — second call with same builtins uses a new random name without creating the assignment |
+| `StringToExpressions` | Global `used_ascii` state persists across calls — second encoding reuses ASCII values, corrupting strings |
+| `VirtualMachine` | Fails on complex scripts with nested functions (`attempt to index a number value`) |
