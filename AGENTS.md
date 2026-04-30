@@ -93,12 +93,12 @@ Presets (`--min`/`--mid`/`--max`) override `variable_renaming` name lengths, `ga
 
 End-to-end test suite in `src/test.lua`. Runs actual obfuscation via Pipeline.process() and verifies the output by executing the obfuscated code and comparing captured print output.
 
-**Quick mode** (~5s): baseline + 12 working single modules + 64 working combos
+**Quick mode** (~5s): baseline + 14 working single modules + 64 working combos
 ```sh
-lua test.lua --quick          # 18 tests, all should pass
+lua test.lua --quick          # 21 tests, all should pass
 lua test.lua --verbose        # detailed output
 lua test.lua --test single_variable_renaming  # single module
-lua test.lua --list           # list all 52 tests
+lua test.lua --list           # list all 53 tests
 ```
 
 **Full sweep** (long): all 2^14 = 16,384 module combinations against all 30 fixtures
@@ -109,15 +109,13 @@ lua test.lua --verbose                       # detailed output
 ```
 
 **Test structure:**
-- `quick_combo` — baseline + 12 working singles + 64 core combos
+- `quick_combo` — baseline + 14 working singles + 64 core combos
 - `full_combinations` — 16,383 non-empty module masks × 30 fixtures
 - `single_<module>` — each of 14 modules individually against all 30 fixtures
 - `fixture_sweep_<name>` — all 16,383 combos against one fixture
 - `compressor_*`, `garbage_code_*`, `watermark_*`, `config_get_set` — utility tests
 
-**Working modules (13/14):** antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming, StringToExpressions
-
-**Failing modules (1/14):** VirtualMachine
+**Working modules (14/14):** VirtualMachine, antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming, StringToExpressions
 
 ## Key Conventions & Gotchas
 
@@ -131,6 +129,4 @@ lua test.lua --verbose                       # detailed output
 
 ## Known Module Bugs
 
-| Module | Issue |
-|--------|-------|
-| `VirtualMachine` | Fails on complex scripts with nested functions (`attempt to index a number value`) |
+All 14 modules are working. No known bugs.

@@ -25,7 +25,7 @@ function GetOpcodeCode(S)
 		return [=[
         local N
         if Inst.a then
-            N = Inst.C;
+            N = Inst.R
         else
             N = X[Inst.C]
         end
@@ -44,12 +44,12 @@ function GetOpcodeCode(S)
 		return [=[
         local N, m
         if Inst.s then
-            N = Inst.A
+            N = Inst.L
         else
             N = X[Inst.B]
         end
         if Inst.a then
-            m = Inst.C
+            m = Inst.R
         else
             m = X[Inst.C]
         end
@@ -65,7 +65,7 @@ function GetOpcodeCode(S)
         local B = Inst.B
         local N;
         if Inst.a then
-            N = Inst.C
+            N = Inst.R
         else
             N = X[Inst.C]
         end
@@ -76,12 +76,12 @@ function GetOpcodeCode(S)
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.L
         else
             Lhs = X[Inst.B]
         end
         if Inst.a then
-            Rhs = Inst.C
+            Rhs = Inst.R
         else
             Rhs = X[Inst.C]
         end
@@ -91,12 +91,12 @@ function GetOpcodeCode(S)
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.L
         else
             Lhs = X[Inst.B]
         end
         if Inst.a then
-            Rhs = Inst.C
+            Rhs = Inst.R
         else
             Rhs = X[Inst.C]
         end
@@ -106,12 +106,12 @@ function GetOpcodeCode(S)
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.L
         else
             Lhs = X[Inst.B]
         end
         if Inst.a then
-            Rhs = Inst.C
+            Rhs = Inst.R
         else
             Rhs = X[Inst.C]
         end
@@ -121,12 +121,12 @@ function GetOpcodeCode(S)
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.L
         else
             Lhs = X[Inst.B]
         end
         if Inst.a then
-            Rhs = Inst.C
+            Rhs = Inst.R
         else
             Rhs = X[Inst.C]
         end
@@ -136,12 +136,12 @@ function GetOpcodeCode(S)
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.L
         else
             Lhs = X[Inst.B]
         end
         if Inst.a then
-            Rhs = Inst.C
+            Rhs = Inst.R
         else
             Rhs = X[Inst.C]
         end
@@ -151,12 +151,12 @@ function GetOpcodeCode(S)
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.L
         else
             Lhs = X[Inst.B]
         end
         if Inst.a then
-            Rhs = Inst.C
+            Rhs = Inst.R
         else
             Rhs = X[Inst.C]
         end
@@ -196,12 +196,12 @@ function GetOpcodeCode(S)
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.L
         else
             Lhs = X[Inst.B]
         end
         if Inst.a then
-            Rhs = Inst.C
+            Rhs = Inst.R
         else
             Rhs = X[Inst.C]
         end
@@ -212,12 +212,12 @@ function GetOpcodeCode(S)
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.L
         else
             Lhs = X[Inst.B]
         end
         if Inst.a then
-            Rhs = Inst.C
+            Rhs = Inst.R
         else
             Rhs = X[Inst.C]
         end
@@ -228,12 +228,12 @@ function GetOpcodeCode(S)
 		return [=[
         local Lhs, Rhs;
         if Inst.s then
-            Lhs = Inst.A
+            Lhs = Inst.L
         else
             Lhs = X[Inst.B]
         end
         if Inst.a then
-            Rhs = Inst.C
+            Rhs = Inst.R
         else
             Rhs = X[Inst.C]
         end

@@ -72,8 +72,8 @@ local function SenLuaUpvalue(B, N, X)
     return Prev
 end;
 local function NormalizeNumber(value)
-    if value % 1 == 0 then
-        return value
+    if type(value) == "number" and value % 1 == 0 then
+        return math.tointeger(value) or value
     end
     return value
 end
@@ -81,14 +81,6 @@ end
 -- losing sanity, please help
 local _orig_tostring = tostring
 function tostring(v)
-    if type(v) == 'number' then
-        local s = _orig_tostring(v)
-        -- if no dot or exponent, assume a whole number and append .0
-        if not s:find('[%.eE]') then
-            return s .. '.0'
-        end
-        return s
-    end
     return _orig_tostring(v)
 end
 local asciilookup = {}
@@ -223,10 +215,10 @@ function BcToState(Bytecode, charset)
                 v.D = Chunk.D[v.F]
             else
                 if v.s then
-                    v.A = Chunk.D[v.B - 256]
+                    v.L = Chunk.D[v.B - 256]
                 end
                 if v.a then
-                    v.C = Chunk.D[v.C - 256]
+                    v.R = Chunk.D[v.C - 256]
                 end
             end
         end
