@@ -116,6 +116,36 @@ local C = {
 }
 local function col(c, s) return c .. s .. C.reset end
 
+local function format_eta(seconds)
+    if seconds < 60 then
+        return string.format("%ds", math.ceil(seconds))
+    elseif seconds < 3600 then
+        return string.format("%dm %ds", math.floor(seconds / 60), math.ceil(seconds % 60))
+    else
+        return string.format("%dh %dm", math.floor(seconds / 3600), math.floor((seconds % 3600) / 60))
+    end
+end
+
+local function format_eta(seconds)
+    if seconds < 60 then
+        return string.format("%ds", math.ceil(seconds))
+    elseif seconds < 3600 then
+        return string.format("%dm %ds", math.floor(seconds / 60), math.ceil(seconds % 60))
+    else
+        return string.format("%dh %dm", math.floor(seconds / 3600), math.floor((seconds % 3600) / 60))
+    end
+end
+
+local function format_eta(seconds)
+    if seconds < 60 then
+        return string.format("%ds", math.ceil(seconds))
+    elseif seconds < 3600 then
+        return string.format("%dm %ds", math.floor(seconds / 60), math.ceil(seconds % 60))
+    else
+        return string.format("%dh %dm", math.floor(seconds / 3600), math.floor((seconds % 3600) / 60))
+    end
+end
+
 -- ─── Test Runner ───────────────────────────────────────────────────────────────
 local ALL_FIXTURES = fixtures.get_all()
 local total_start = os.clock()
@@ -226,8 +256,8 @@ register("full_combinations", function()
                 local elapsed = os.clock() - start_time
                 local rate = total / elapsed
                 local eta = (total_tests - total) / rate
-                io.write(string.format("\r  [%5.1f%%] %d/%d  (%.0f tests/s, ETA: %.0fs) ",
-                    pct, total, total_tests, rate, eta))
+                io.write(string.format("\r  [%5.1f%%] %d/%d  (%.0f tests/s, ETA: %s) ",
+                    pct, total, total_tests, rate, format_eta(eta)))
                 io.flush()
                 next_progress = next_progress + progress_interval
             end
