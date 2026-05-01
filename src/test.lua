@@ -119,6 +119,7 @@ local function col(c, s) return c .. s .. C.reset end
 -- ─── Test Runner ───────────────────────────────────────────────────────────────
 local ALL_FIXTURES = fixtures.get_all()
 local total_start = os.clock()
+local VERBOSE = false
 
 local function parse_args()
     local filters = {}
@@ -195,7 +196,8 @@ register("full_combinations", function()
     local pass_combos = 0
     local fail_combos = 0
     local total_tests = (NUM_COMBOS - 1) * #ALL_FIXTURES
-    local progress_interval = 1000
+    -- Adaptive progress: verbose = every combo, otherwise every ~500 fixtures
+    local progress_interval = VERBOSE and 1 or math.max(1, math.floor(500 / #ALL_FIXTURES))
     local next_progress = progress_interval
     local start_time = os.clock()
 
@@ -409,6 +411,7 @@ end)
 -- ─── Main ──────────────────────────────────────────────────────────────────────
 local function main()
     local filters, group, list_only, verbose, quick, fixture_filter = parse_args()
+    VERBOSE = verbose
 
     local filtered = {}
     for _, t in ipairs(tests) do

@@ -146,6 +146,88 @@ lua hercules.lua my_script.lua -c --antitamper
 
 <h6>above enables compressor and antitamper</h6>
 
+## Adding a New Module
+
+To add a module so it runs in the pipeline **and** gets picked up by the test suite, follow these steps:
+
+### 1. Create the module file
+
+Create a new Lua file in `src/modules/` (e.g. `my_module.lua`). It must export a `.process(code, ...)` function that returns the transformed code:
+
+```lua
+-- modules/my_module.lua
+local M = {}
+
+function M.process(code, some_option)
+    -- transform code here
+    return code
+end
+
+return M
+```
+
+### 2. Register it in `config.lua`
+
+Add a default config entry under `settings` so the module can be toggled:
+
+```lua
+settings = {
+    -- ...existing entries...
+    my_module = { enabled = false },  -- or enabled = true
+},
+```
+
+If your module has configurable parameters (e.g. intensity, name lengths), add them here as well.
+
+### 3. Wire it into `pipeline.lua`
+
+**a)** Add a `require` at the top:
+```lua
+local MyModule = require("modules/my_module")
+```
+
+**b)** Call it inside `Pipeline.process(code)` at the correct position (order matters!):
+```lua
+if config.get("settings.my_module.enabled") then
+    local param = config.get("settings.my_module.some_parameter")
+    code = MyModule.process(code, param)
+end
+```
+
+>[!IMPORTANT]
+>The pipeline order is critical. See the [Pipeline Execution Order](#pipeline-execution-order-pipelinelua) section to decide where your module belongs. Later passes transform the output of earlier passes.
+
+### 4. Register it in `test.lua`
+
+**a)** Add the module name to `ALL_MODULES`:
+```lua
+local ALL_MODULES = {
+    "VirtualMachine",
+    -- ...existing modules...
+    "my_module",    -- add here
+}
+```
+
+**b)** Map it to its config path in `MODULE_PATHS`:
+```lua
+local MODULE_PATHS = {
+    -- ...existing mappings...
+    my_module       = "settings.my_module.enabled",   -- add here
+}
+```
+
+>[!NOTE]
+>The key in `MODULE_PATHS` must exactly match the string in `ALL_MODULES`, and the value must be the dot-path to the `.enabled` key in `config.lua`.
+
+### 5. Verify
+
+```bash
+cd src
+lua test.lua --quick --verbose   # should show your new module in single-module tests
+```
+
+---
+
 ## Customization
 
 You can modify or add new modules to the `modules/` directory to create additional layers of obfuscation. The `pipeline.lua` file controls the order of obfuscation steps.
