@@ -32,6 +32,7 @@ end
 local function find_matching_end(code, start_pos)
     local depth = 1
     local pos = start_pos
+    local skip_next_do = false  -- skip 'do' after 'for' or 'while'
 
     while pos <= #code and depth > 0 do
         local char = code:sub(pos, pos)
@@ -55,8 +56,19 @@ local function find_matching_end(code, start_pos)
         if remaining:match("^elseif[^%w_]") or remaining:match("^elseif$") then
             -- elseif is NOT a block opener or closer, skip over it
             pos = pos + 6
-        elseif remaining:match("^do[^%w_]") or remaining:match("^do$") then
+        elseif remaining:match("^for[^%w_]") or remaining:match("^for$") then
             depth = depth + 1
+            skip_next_do = true
+            pos = pos + 3
+        elseif remaining:match("^while[^%w_]") or remaining:match("^while$") then
+            depth = depth + 1
+            skip_next_do = true
+            pos = pos + 5
+        elseif remaining:match("^do[^%w_]") or remaining:match("^do$") then
+            if not skip_next_do then
+                depth = depth + 1
+            end
+            skip_next_do = false
             pos = pos + 2
         elseif remaining:match("^function[^%w_]") or remaining:match("^function$") then
             depth = depth + 1
@@ -64,12 +76,6 @@ local function find_matching_end(code, start_pos)
         elseif remaining:match("^if[^%w_]") or remaining:match("^if$") then
             depth = depth + 1
             pos = pos + 2
-        elseif remaining:match("^for[^%w_]") or remaining:match("^for$") then
-            depth = depth + 1
-            pos = pos + 3
-        elseif remaining:match("^while[^%w_]") or remaining:match("^while$") then
-            depth = depth + 1
-            pos = pos + 5
         elseif remaining:match("^repeat[^%w_]") or remaining:match("^repeat$") then
             depth = depth + 1
             pos = pos + 6
@@ -143,7 +149,7 @@ local function find_functions(code)
         -- Match: local function name(params)
         local match_start, match_end, name, params = remaining:find("^local%s+function%s+([%a_][%w_]*)%s*%(([^)]*)%)")
         if match_start then
-            local body_start = match_end + 1
+            local body_start = pos + match_end
             local body_end_pos = find_matching_end(code, body_start)
             if body_end_pos then
                 local body = code:sub(body_start, body_end_pos - 4) -- -4 to exclude "end"
@@ -152,7 +158,7 @@ local function find_functions(code)
                     params = params,
                     body = body,
                     start = pos + match_start - 1,
-                    end_pos = pos + body_end_pos - 1,
+                    end_pos = body_end_pos,
                     is_local = true,
                     is_recursive = is_recursive(name, body),
                 })
@@ -164,7 +170,7 @@ local function find_functions(code)
         -- Match: function name(params)  (global function)
         match_start, match_end, name, params = remaining:find("^function%s+([%a_][%w_]*)%s*%(([^)]*)%)")
         if match_start then
-            local body_start = match_end + 1
+            local body_start = pos + match_end
             local body_end_pos = find_matching_end(code, body_start)
             if body_end_pos then
                 local body = code:sub(body_start, body_end_pos - 4)
@@ -173,7 +179,7 @@ local function find_functions(code)
                     params = params,
                     body = body,
                     start = pos + match_start - 1,
-                    end_pos = pos + body_end_pos - 1,
+                    end_pos = body_end_pos,
                     is_local = false,
                     is_recursive = is_recursive(name, body),
                 })
@@ -185,7 +191,7 @@ local function find_functions(code)
         -- Match: local name = function(params)
         match_start, match_end, name, params = remaining:find("^local%s+([%a_][%w_]*)%s*=%s*function%s*%(([^)]*)%)")
         if match_start then
-            local body_start = match_end + 1
+            local body_start = pos + match_end
             local body_end_pos = find_matching_end(code, body_start)
             if body_end_pos then
                 local body = code:sub(body_start, body_end_pos - 4)
@@ -194,7 +200,7 @@ local function find_functions(code)
                     params = params,
                     body = body,
                     start = pos + match_start - 1,
-                    end_pos = pos + body_end_pos - 1,
+                    end_pos = body_end_pos,
                     is_local = true,
                     is_recursive = is_recursive(name, body),
                 })
@@ -210,23 +216,51 @@ local function find_functions(code)
     return functions
 end
 
--- Replace function calls with inlined IIFEs
+-- Replace function calls with inlined IIFEs (skip function definitions)
 local function inline_calls(code, functions)
     local result = code
 
-    -- For each non-recursive function, replace calls with IIFEs
-    for _, func in ipairs(functions) do
+    -- Process in reverse order so inner function calls get replaced
+    -- when outer function IIFEs are created
+    for i = #functions, 1, -1 do
+        local func = functions[i]
         if func.is_recursive then
             goto continue
         end
 
-        -- Find and replace function calls: funcName(args)
-        local pattern = func.name .. "%s*(%b())"
-
-        result = result:gsub(pattern, function(call_args)
-            local args_inside = call_args:sub(2, -2)
-            return "(function(" .. func.params .. ")\n" .. func.body .. "\nend)(" .. args_inside .. ")"
-        end)
+        -- Manually find and replace calls, skipping definitions
+        local parts = {}
+        local pos = 1
+        -- Pattern: capture (char before optional whitespace)(name(...))
+        local pattern = "([^%w_])%s*(" .. func.name .. "%s*(%b()))"
+        while pos <= #result do
+            local s, e, sep, full_call, call_args = result:find(pattern, pos)
+            if not s then
+                table.insert(parts, result:sub(pos))
+                break
+            end
+            -- Check if this is a function definition, not a call
+            -- Definitions: "function name(" or "local function name(" or "name = function("
+            local after_text = result:sub(e + 1, e + 20)
+            local is_def = false
+            local before_word = result:sub(math.max(1, s - 20), s - 1)
+            if before_word:match("function%s*$") then
+                is_def = true
+            elseif before_word:match("=%s*$") and after_text:match("^%s*function") then
+                is_def = true
+            end
+            if is_def then
+                -- This is a definition, keep it as-is
+                table.insert(parts, result:sub(pos, e))
+            else
+                -- This is a call, inline it (keep the separator char and any whitespace)
+                table.insert(parts, result:sub(pos, s - 1))
+                local args_inside = call_args:sub(2, -2)
+                table.insert(parts, sep .. "(function(" .. func.params .. ")\n" .. func.body .. "\nend)(" .. args_inside .. ")")
+            end
+            pos = e + 1
+        end
+        result = table.concat(parts)
 
         ::continue::
     end
@@ -235,6 +269,35 @@ local function inline_calls(code, functions)
     -- Pattern: )(args)\n(function → )(args);\n(function
     result = result:gsub("(%b())\n(%(function)", function(args, func_start)
         return args .. ";\n" .. func_start
+    end)
+
+    -- Fix same-line IIFE calls with trailing comments followed by newline: )(args) -- comment\n(function
+    result = result:gsub("(%b())(%s*%-%-[^\n]*)(\n%s*)(%(function)", function(args, comment, ws, func_start)
+        return args .. ";" .. comment .. ws .. func_start
+    end)
+    -- Fix same-line IIFE calls with trailing comments immediately followed by next IIFE: )(args) -- comment(function
+    result = result:gsub("(%b())(%s*%-%-[^\n]*)(%(function)", function(args, comment, func_start)
+        return args .. ";" .. comment .. "\n" .. func_start
+    end)
+    -- Fix same-line IIFE calls without comments: )(args)(function → )(args);(function
+    result = result:gsub("(%b())(%s*)(%(function)", function(args, ws, func_start)
+        return args .. ";" .. ws .. func_start
+    end)
+
+    -- Fix any statement followed by an IIFE on the next line
+    -- Only add ; when the previous line ends with a statement terminator
+    -- (not after { , ( + - * / ^ % = < > ~ : [ which indicate continuation)
+    -- Also skip after control flow keywords: then, else, do, repeat, elseif
+    -- And skip if line already ends with ; (from adjacent IIFE fix above)
+    result = result:gsub("([^\n]+)%s*\n(%(function)", function(prev_line, func_start)
+        local trimmed = prev_line:gsub("%s+$", "")
+        -- Skip if line ends with control flow keywords, continuation chars, or already has semicolon
+        if trimmed:match("then$") or trimmed:match("else$") or trimmed:match("do$") or
+           trimmed:match("repeat$") or trimmed:match("elseif%s+.*$") or
+           trimmed:match("[{%(+%-%*/%%^~=<>~:%[]%s*$") or trimmed:match(";%s*$") then
+            return prev_line .. "\n" .. func_start
+        end
+        return prev_line .. ";\n" .. func_start
     end)
 
     return result
@@ -270,11 +333,51 @@ function FunctionInliner.process(code)
         return code
     end
 
+    -- Count calls for each function; only process functions that are actually called
+    -- (exclude function definitions themselves from the count)
+    for i = 1, #functions do
+        local func = functions[i]
+        if func.is_recursive then
+            func.call_count = 0
+            goto count_continue
+        end
+        local count = 0
+        -- Match name( that is NOT preceded by "function" (to exclude definitions)
+        local pos = 1
+        local pattern = "[^%w_]" .. func.name .. "%s*%("
+        while pos <= #code do
+            local s = code:find(pattern, pos)
+            if not s then break end
+            -- Check if this is a "function name(" definition
+            -- The character at position s is the non-word char before name
+            -- Check if the text before s ends with "function "
+            local before_text = code:sub(math.max(1, s - 10), s - 1)
+            if not before_text:match("function%s*$") then
+                count = count + 1
+            end
+            pos = s + 1
+        end
+        func.call_count = count
+        ::count_continue::
+    end
+
+    -- Filter to only functions that are actually called
+    local called_functions = {}
+    for i = 1, #functions do
+        if functions[i].call_count and functions[i].call_count > 0 then
+            table.insert(called_functions, functions[i])
+        end
+    end
+
+    if #called_functions == 0 then
+        return code
+    end
+
     -- Remove original function definitions first (to avoid matching them as calls)
-    local result = remove_functions(code, functions)
+    local result = remove_functions(code, called_functions)
 
     -- Then inline function calls (replace with IIFEs)
-    result = inline_calls(result, functions)
+    result = inline_calls(result, called_functions)
 
     return result
 end

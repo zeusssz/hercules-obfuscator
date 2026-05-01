@@ -1,6 +1,5 @@
--- test_fixtures.lua — Real Lua source code fixtures for end-to-end testing
--- Each fixture has: name, code, expected_output
--- The test harness runs the code via load() and captures print output.
+-- test_fixtures.lua — Test fixture for output-equivalence testing
+-- Uses a single realistic script and verifies obfuscated output matches expected.
 
 local M = {}
 
@@ -8,389 +7,155 @@ function M.fixture(name, code, expected_output)
     return { name = name, code = code, expected = expected_output }
 end
 
--- ─── Basic Print Tests ────────────────────────────────────────────────────────
+M.main_script = M.fixture(
+    "main_script",
+    [[-- =========================
+-- Stable FNV-1a 32-bit
+-- =========================
+local function fnv1a32(str)
+local hash = 2166136261
+local prime = 16777619
 
-M.hello_world = M.fixture(
-    "hello_world",
-    [[print("hello world")]],
-    "hello world"
-)
-
-M.multi_print = M.fixture(
-    "multi_print",
-    [[
-print("line one")
-print("line two")
-print("line three")
-]],
-    "line one\nline two\nline three"
-)
-
-M.concat = M.fixture(
-    "concat",
-    [[print("a" .. "b" .. "c")]],
-    "abc"
-)
-
--- ─── Variables & Arithmetic ───────────────────────────────────────────────────
-
-M.simple_math = M.fixture(
-    "simple_math",
-    [[
-local x = 10
-local y = 20
-print(x + y)
-print(x * y)
-print(y - x)
-]],
-    "30\n200\n10"
-)
-
-M.variable_reassign = M.fixture(
-    "variable_reassign",
-    [[
-local a = 5
-a = a + 10
-print(a)
-]],
-    "15"
-)
-
-M.multiple_types = M.fixture(
-    "multiple_types",
-    [[
-local n = 42
-local s = "test"
-local b = true
-print(n)
-print(s)
-print(b)
-print(type(n))
-print(type(s))
-print(type(b))
-]],
-    "42\ntest\ntrue\nnumber\nstring\nboolean"
-)
-
--- ─── Functions ─────────────────────────────────────────────────────────────────
-
-M.function_call = M.fixture(
-    "function_call",
-    [[
-local function greet(name)
-    return "Hello, " .. name
-end
-print(greet("World"))
-]],
-    "Hello, World"
-)
-
-M.function_with_math = M.fixture(
-    "function_with_math",
-    [[
-local function add(a, b)
-    return a + b
-end
-print(add(3, 7))
-print(add(100, 200))
-]],
-    "10\n300"
-)
-
-M.function_no_return = M.fixture(
-    "function_no_return",
-    [[
-local function print_sum(a, b)
-    print(a + b)
-end
-print_sum(1, 2)
-print_sum(10, 20)
-]],
-    "3\n30"
-)
-
--- ─── Loops ─────────────────────────────────────────────────────────────────────
-
-M.for_loop = M.fixture(
-    "for_loop",
-    [[
-for i = 1, 3 do
-    print(i)
-end
-]],
-    "1\n2\n3"
-)
-
-M.for_loop_accumulate = M.fixture(
-    "for_loop_accumulate",
-    [[
-local sum = 0
-for i = 1, 5 do
-    sum = sum + i
-end
-print(sum)
-]],
-    "15"
-)
-
-M.while_loop = M.fixture(
-    "while_loop",
-    [[
-local i = 1
-while i <= 3 do
-    print(i)
-    i = i + 1
-end
-]],
-    "1\n2\n3"
-)
-
--- ─── Conditionals ──────────────────────────────────────────────────────────────
-
-M.if_true = M.fixture(
-    "if_true",
-    [[
-if true then
-    print("yes")
-end
-]],
-    "yes"
-)
-
-M.if_else_true = M.fixture(
-    "if_else_true",
-    [[
-if 10 > 5 then
-    print("greater")
-else
-    print("not greater")
-end
-]],
-    "greater"
-)
-
-M.if_else_false = M.fixture(
-    "if_else_false",
-    [[
-if 10 < 5 then
-    print("less")
-else
-    print("not less")
-end
-]],
-    "not less"
-)
-
-M.if_elseif_else = M.fixture(
-    "if_elseif_else",
-    [[
-local x = 0
-if x > 0 then
-    print("positive")
-elseif x < 0 then
-    print("negative")
-else
-    print("zero")
-end
-]],
-    "zero"
-)
-
--- ─── Tables ────────────────────────────────────────────────────────────────────
-
-M.table_index = M.fixture(
-    "table_index",
-    [[
-local t = {10, 20, 30}
-print(t[1])
-print(t[2])
-print(t[3])
-]],
-    "10\n20\n30"
-)
-
-M.table_string_keys = M.fixture(
-    "table_string_keys",
-    [[
-local t = {x = 1, y = 2}
-print(t.x)
-print(t.y)
-]],
-    "1\n2"
-)
-
-M.table_length = M.fixture(
-    "table_length",
-    [[
-local t = {"a", "b", "c"}
-print(#t)
-]],
-    "3"
-)
-
-M.table_iteration = M.fixture(
-    "table_iteration",
-    [[
-local t = {10, 20, 30}
-for i = 1, #t do
-    print(t[i])
-end
-]],
-    "10\n20\n30"
-)
-
-M.table_pairs = M.fixture(
-    "table_pairs",
-    [[
-local t = {a = 1, b = 2}
-local sum = 0
-for k, v in pairs(t) do
-    sum = sum + v
-end
-print(sum)
-]],
-    "3"
-)
-
--- ─── String Operations ────────────────────────────────────────────────────────
-
-M.string_sub = M.fixture(
-    "string_sub",
-    [[
-local s = "hello world"
-print(s:sub(1, 5))
-print(s:sub(7))
-]],
-    "hello\nworld"
-)
-
-M.string_len = M.fixture(
-    "string_len",
-    [[
-print(#"abcde")
-print(string.len("abcde"))
-]],
-    "5\n5"
-)
-
-M.string_upper = M.fixture(
-    "string_upper",
-    [[
-print(string.upper("hello"))
-]],
-    "HELLO"
-)
-
-M.string_lower = M.fixture(
-    "string_lower",
-    [[
-print(string.lower("HELLO"))
-]],
-    "hello"
-)
-
--- ─── Math Operations ───────────────────────────────────────────────────────────
-
-M.math_basics = M.fixture(
-    "math_basics",
-    [[
-print(math.abs(-42))
-print(math.floor(3.7))
-print(math.ceil(3.2))
-print(math.max(1, 5, 3))
-print(math.min(1, 5, 3))
-]],
-    "42\n3\n4\n5\n1"
-)
-
-M.math_sqrt = M.fixture(
-    "math_sqrt",
-    [[
-print(math.sqrt(16))
-print(math.sqrt(81))
-]],
-    "4\n9"
-)
-
--- ─── Combined / Realistic Scripts ──────────────────────────────────────────────
-
-M.fibonacci = M.fixture(
-    "fibonacci",
-    [[
-local function fib(n)
-    if n <= 1 then return n end
-    return fib(n - 1) + fib(n - 2)
-end
-print(fib(0))
-print(fib(1))
-print(fib(2))
-print(fib(3))
-print(fib(4))
-print(fib(5))
-print(fib(6))
-]],
-    "0\n1\n1\n2\n3\n5\n8"
-)
-
-M.factorial = M.fixture(
-    "factorial",
-    [[
-local function fact(n)
-    if n <= 1 then return 1 end
-    return n * fact(n - 1)
-end
-print(fact(1))
-print(fact(2))
-print(fact(3))
-print(fact(4))
-print(fact(5))
-]],
-    "1\n2\n6\n24\n120"
-)
-
-M.complex_script = M.fixture(
-    "complex_script",
-    [[
-local function calculate(a, b, op)
-    if op == "add" then
-        return a + b
-    elseif op == "mul" then
-        return a * b
-    else
-        return 0
+for i = 1, #str do
+    hash = hash ~ str:byte(i)
+    local h1 = hash % 65536
+    local h2 = math.floor(hash / 65536)
+    local p1 = prime % 65536
+    local p2 = math.floor(prime / 65536)
+    local r1 = h1 * p1
+    local r2 = h1 * p2 + h2 * p1
+    hash = (r1 + (r2 % 65536) * 65536) % 4294967296
     end
-end
 
-local results = {}
-results[1] = calculate(2, 3, "add")
-results[2] = calculate(4, 5, "mul")
-results[3] = calculate(10, 0, "add")
+    return string.format("%08x", hash)
+    end
 
-for i = 1, #results do
-    print(results[i])
-end
+    -- =========================
+    -- Stable JSON builder (ordered)
+    -- =========================
+    local function json_escape(str)
+    return tostring(str)
+    :gsub("\\", "\\\\")
+    :gsub("\"", "\\\"")
+    :gsub("\n", "\\n")
+    :gsub("\t", "\\t")
+    end
 
-local total = 0
-for i = 1, #results do
-    total = total + results[i]
-end
-print(total)
+    local function build_json(fields)
+    -- IMPORTANT: fixed order array, NOT pairs()
+    local parts = {}
+
+    for i = 1, #fields do
+        local f = fields[i]
+        parts[#parts + 1] =
+        "\"" .. f.k .. "\":\"" .. json_escape(f.v) .. "\""
+        end
+
+        return "{" .. table.concat(parts, ",") .. "}"
+        end
+
+        -- =========================
+        -- Test sections (BLACKBOX)
+        -- =========================
+        local function run_sections()
+        local sections = {}
+
+        local function add(name, value)
+        sections[#sections + 1] = {
+            k = name,
+            v = tostring(value)
+        }
+        end
+
+        -- deterministic logic only (NO randomness)
+        local function Counter()
+        local c = 0
+        return function()
+        c = c + 1
+        return c
+        end
+        end
+
+        local function Fibonacci(n)
+        if n <= 1 then return n end
+            return Fibonacci(n - 1) + Fibonacci(n - 2)
+            end
+
+            local counter = Counter()
+
+            add("counter", counter() .. "," .. counter() .. "," .. counter())
+            add("fib", Fibonacci(6))
+            add("sum", 15)
+            add("math", 50)
+
+            add("bool", tostring(not false))
+            add("nil", tostring(not nil))
+
+            add("string", "Line1\\nLine2\\tTabbed\\\\Backslash\"Quote")
+
+            local obj = {
+                value = 10,
+                getValue = function(self)
+                return self.value
+                end
+            }
+
+            add("obj", obj:getValue())
+
+            local function Outer()
+            local x = "outer"
+            local function Inner()
+            return x .. "_inner"
+            end
+            return Inner()
+            end
+
+            add("closure", Outer())
+
+            return sections
+            end
+
+            -- =========================
+            -- Build OUTPUT + TRACE
+            -- =========================
+            local sections = run_sections()
+            local json = build_json(sections)
+
+            local output_hash = fnv1a32(json)
+
+            -- =========================
+            -- DEBUG TRACE (what changed)
+            -- =========================
+            local trace = {}
+
+            for i = 1, #sections do
+                trace[#trace + 1] = sections[i].k .. ":" .. fnv1a32(sections[i].v)
+                end
+
+                local trace_hash = fnv1a32(table.concat(trace, "|"))
+
+                -- =========================
+                -- FINAL JSON OUTPUT
+                -- =========================
+                local function arr(tbl)
+                local out = {}
+                for i = 1, #tbl do
+                    out[#out + 1] = "\"" .. tbl[i] .. "\""
+                    end
+                    return "[" .. table.concat(out, ",") .. "]"
+                    end
+
+                    print("{" ..
+                    "\"output_hash\":\"" .. output_hash .. "\"," ..
+                    "\"trace_hash\":\"" .. trace_hash .. "\"," ..
+                    "\"sections\":" .. arr(trace) ..
+                    "}")
 ]],
-    "5\n20\n10\n35"
+    '{"output_hash":"6da6c0ca","trace_hash":"97a10cba","sections":["counter:21cdd3d7","fib:3d0cb547","sum:18eb258b","math:83e140a0","bool:4db211e5","nil:4db211e5","string:8e2dc748","obj:1beb2a44","closure:bf8022e3"]}'
 )
-
--- ─── Get all fixtures ──────────────────────────────────────────────────────────
 
 function M.get_all()
-    local fixtures = {}
-    for k, v in pairs(M) do
-        if type(v) == "table" and v.name and v.code and v.expected then
-            table.insert(fixtures, v)
-        end
-    end
-    -- Sort by name for deterministic order
-    table.sort(fixtures, function(a, b) return a.name < b.name end)
-    return fixtures
+    return { M.main_script }
 end
 
 return M

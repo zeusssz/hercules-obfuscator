@@ -24,3 +24,4 @@ Temporary Items
 file_obfuscated.lua
 file.lua
 tests/
+__pycache__/

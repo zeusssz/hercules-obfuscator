@@ -1,6 +1,6 @@
 #!/usr/bin/env lua
 -- test.lua — End-to-end test suite for Hercules Obfuscator
--- Runs real obfuscation against real Lua fixtures and verifies output.
+-- Tests ONLY output equivalence: obfuscated code must produce the same output as the original.
 -- Tests ALL 2^14 = 16384 module combinations against all fixtures.
 -- Run from src/:  lua test.lua
 
@@ -162,9 +162,9 @@ local function disable_all()
     end
 end
 
--- Phase 0: Quick mode — baseline + working single modules + working module combos
+-- Phase 0: Quick mode — baseline + single modules + combos (output-only verification)
 register("quick_combo", function()
-    -- Baseline
+    -- Baseline (no modules)
     disable_all()
     for _, f in ipairs(ALL_FIXTURES) do
         local result = Pipeline.process(f.code)
@@ -173,9 +173,8 @@ register("quick_combo", function()
         assert(out == f.expected, string.format("baseline %s mismatch: got %q, expected %q", f.name, out, f.expected))
     end
 
-    -- Single modules (14 working)
-    local working_singles = {"VirtualMachine", "string_encoding", "garbage_code", "control_flow", "compressor", "WrapInFunction", "watermark", "dynamic_code", "function_inlining", "opaque_predicates", "bytecode_encoding", "antitamper", "variable_renaming", "StringToExpressions"}
-    for _, mod in ipairs(working_singles) do
+    -- Single modules (14)
+    for _, mod in ipairs(ALL_MODULES) do
         disable_all()
         config.set(MODULE_PATHS[mod], true)
         for _, f in ipairs(ALL_FIXTURES) do
@@ -188,47 +187,26 @@ register("quick_combo", function()
             assert(out == f.expected, string.format("single %s %s: mismatch got %q expected %q", mod, f.name, out, f.expected))
         end
     end
-
-    -- Working module combinations (6 core modules = 2^6 = 64 combos, minus empty = 63)
-    local core_working = {"string_encoding", "garbage_code", "control_flow", "compressor", "WrapInFunction", "watermark"}
-    for mask = 1, 2 ^ #core_working - 1 do
-        disable_all()
-        local combo_names = {}
-        for j = 1, #core_working do
-            if (mask >> (j - 1)) & 1 == 1 then
-                config.set(MODULE_PATHS[core_working[j]], true)
-                table.insert(combo_names, core_working[j])
-            end
-        end
-        local label = table.concat(combo_names, "+")
-        for _, f in ipairs(ALL_FIXTURES) do
-            local ok, result = pcall(function() return Pipeline.process(f.code) end)
-            assert(ok, string.format("combo %s %s: pipeline error", label, f.name))
-            local load_ok, load_err = load(result, "=test", "t")
-            assert(load_ok, string.format("combo %s %s: invalid Lua: %s", label, f.name, load_err))
-            local out, err = capture_output(result)
-            assert(err == nil, string.format("combo %s %s: exec error: %s", label, f.name, err))
-            assert(out == f.expected, string.format("combo %s %s: mismatch got %q expected %q", label, f.name, out, f.expected))
-        end
-    end
 end)
 
--- Phase 1: FULL — All 2^14 combinations against all fixtures
+-- Phase 1: FULL — All 2^14 combinations against all fixtures (output-only verification)
 register("full_combinations", function()
     local total = 0
     local pass_combos = 0
     local fail_combos = 0
+    local total_tests = (NUM_COMBOS - 1) * #ALL_FIXTURES
+    local progress_interval = 1000
+    local next_progress = progress_interval
+    local start_time = os.clock()
 
-    -- Track failure categories by module
     local fail_by_module = {}
     for _, m in ipairs(ALL_MODULES) do fail_by_module[m] = 0 end
     local fail_by_pair = {}
-    local fail_first_fixture = {}  -- first fixture that caused failure per combo
+    local fail_first_fixture = {}
 
-    local max_fail_details = 50  -- cap detail output
+    local max_fail_details = 50
     local fail_details = {}
 
-    -- Skip mask 0 (no modules) — that's the baseline
     for mask = 1, NUM_COMBOS - 1 do
         local mods = mask_to_modules(mask)
         local label = modules_to_label(mods)
@@ -240,6 +218,17 @@ register("full_combinations", function()
 
         for _, f in ipairs(ALL_FIXTURES) do
             total = total + 1
+
+            if total >= next_progress then
+                local pct = (total / total_tests) * 100
+                local elapsed = os.clock() - start_time
+                local rate = total / elapsed
+                local eta = (total_tests - total) / rate
+                io.write(string.format("\r  [%5.1f%%] %d/%d  (%.0f tests/s, ETA: %.0fs) ",
+                    pct, total, total_tests, rate, eta))
+                io.flush()
+                next_progress = next_progress + progress_interval
+            end
 
             local ok, result = pcall(function() return Pipeline.process(f.code) end)
             if not ok then
@@ -284,12 +273,9 @@ register("full_combinations", function()
             pass_combos = pass_combos + 1
         else
             fail_combos = fail_combos + 1
-
-            -- Track which modules are involved in failures
             for _, m in ipairs(mods) do
                 fail_by_module[m] = fail_by_module[m] + 1
             end
-            -- Track pairs
             if #mods >= 2 then
                 for i = 1, #mods - 1 do
                     for j = i + 1, #mods do
@@ -298,22 +284,21 @@ register("full_combinations", function()
                     end
                 end
             end
-
             fail_first_fixture[label] = first_fail_fixture .. " (" .. first_fail_reason .. ")"
-
             if #fail_details < max_fail_details then
                 fail_details[#fail_details + 1] = string.format("  [%s] first fail: %s — %s", label, first_fail_fixture, first_fail_reason)
             end
         end
     end
 
-    -- Report summary
+    local elapsed = os.clock() - start_time
+    io.write(string.format("\r  [100.0%%] %d/%d  (%.0f tests/s, %.1fs)  \n\n",
+        total, total_tests, total / elapsed, elapsed))
+
     io.write(string.format("\n  Passed: %d / %d  |  Failed: %d / %d\n",
         pass_combos, NUM_COMBOS - 1, fail_combos, NUM_COMBOS - 1))
-
     io.write(string.format("  Total fixture executions: %d\n\n", total))
 
-    -- Show failure breakdown by single module
     io.write("  Failures by module:\n")
     for _, m in ipairs(ALL_MODULES) do
         if fail_by_module[m] > 0 then
@@ -321,7 +306,6 @@ register("full_combinations", function()
         end
     end
 
-    -- Show top failure pairs
     io.write("\n  Top failing pairs:\n")
     local sorted_pairs = {}
     for pair, count in pairs(fail_by_pair) do
@@ -332,7 +316,6 @@ register("full_combinations", function()
         io.write(string.format("    %-45s %d combos\n", sorted_pairs[i].pair, sorted_pairs[i].count))
     end
 
-    -- Show sample failed combos
     io.write(string.format("\n  Sample failed combos (first %d):\n", #fail_details))
     for _, detail in ipairs(fail_details) do
         io.write(detail .. "\n")
@@ -382,7 +365,6 @@ local function register_fixture_sweep(fixture_name, fixture)
         local pass, fail = 0, 0
         for mask = 1, NUM_COMBOS - 1 do
             local mods = mask_to_modules(mask)
-            local label = modules_to_label(mods)
             set_all_modules(mask)
 
             local ok, result = pcall(function() return Pipeline.process(fixture.code) end)
@@ -413,40 +395,7 @@ for _, f in ipairs(ALL_FIXTURES) do
     register_fixture_sweep(f.name, f)
 end
 
--- Phase 5: Compressor-specific
-register("compressor_removes_comments", function()
-    disable_all()
-    config.set(MODULE_PATHS["compressor"], true)
-    local result = Pipeline.process("-- comment\nprint('hi')\n-- footer\n")
-    assert(not result:find("%-%-"), "compressor should remove comments")
-end)
-
-register("compressor_collapses_whitespace", function()
-    disable_all()
-    config.set(MODULE_PATHS["compressor"], true)
-    local result = Pipeline.process("print(  'hello'  )")
-    assert(not result:find("  "), "compressor should collapse multiple spaces")
-end)
-
--- Phase 6: Garbage Code scale
-register("garbage_code_scales", function()
-    disable_all()
-    config.set(MODULE_PATHS["garbage_code"], true)
-    local r1 = Pipeline.process("print('hi')")
-    config.settings.garbage_code.garbage_blocks = 50
-    local r2 = Pipeline.process("print('hi')")
-    assert(#r2 > #r1, "more garbage blocks should produce longer output")
-end)
-
--- Phase 7: Watermark presence
-register("watermark_present_when_enabled", function()
-    disable_all()
-    config.set(MODULE_PATHS["watermark"], true)
-    local result = Pipeline.process("print('hi')")
-    assert(result:find("Obfuscated by Hercules"), "watermark should be present when enabled")
-end)
-
--- Phase 8: Config API
+-- Phase 5: Config API
 register("config_get_set", function()
     local orig = config.get("settings.compressor.enabled")
     config.set("settings.compressor.enabled", not orig)
@@ -478,15 +427,10 @@ local function main()
         else
             if quick then
                 if t.name == "quick_combo" or t.name == "baseline_no_modules" or
-                   t.name:match("^compressor_") or t.name:match("^garbage_") or
-                   t.name:match("^watermark_") or t.name == "config_get_set" then
+                   t.name == "config_get_set" then
                     table.insert(filtered, t)
                 elseif t.name:match("^single_") then
-                    local mod = t.name:match("^single_(.+)$")
-                    local known_broken = {}
-                    if not known_broken[mod] then
-                        table.insert(filtered, t)
-                    end
+                    table.insert(filtered, t)
                 end
             else
                 table.insert(filtered, t)

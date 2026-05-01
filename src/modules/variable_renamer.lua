@@ -246,66 +246,105 @@ function VariableRenamer.process(code, options)
     end
 
     -- Step 4: Apply replacements
-    -- Strategy: protect strings/comments with unique placeholders, replace keywords, restore
+    -- Strategy: scan character by character, protect strings/comments with placeholders,
+    -- replace keywords in unprotected code, restore
     local function protect_and_replace(source, renames)
         if next(renames) == nil then return source end
-        
+
         -- Collect all strings and comments, replace with placeholders
         local protected = {}
         local idx = 0
-        
-        local function protect(match)
-            idx = idx + 1
-            local ph = string.format("\001STR%d\001", idx)
-            protected[ph] = match
-            return ph
+        local parts = {}
+        local pos = 1
+
+        while pos <= #source do
+            local ch = source:sub(pos, pos)
+            -- Long strings [[...]] or [=*[...]*=]
+            if ch == "[" then
+                local eq = source:match("^%[(=*)%[", pos)
+                if eq then
+                    local close_str = "]" .. string.rep("=", #eq) .. "]"
+                    local _, end_pos = source:find(close_str, pos + #eq + 2, true)
+                    if end_pos then
+                        idx = idx + 1
+                        local ph = string.format("\001STR%d\001", idx)
+                        protected[ph] = source:sub(pos, end_pos)
+                        table.insert(parts, ph)
+                        pos = end_pos + 1
+                        goto continue
+                    end
+                end
+            end
+            -- Short strings "..." or '...'
+            if ch == '"' or ch == "'" then
+                local end_pos = skip_string(source, pos)
+                if end_pos and end_pos > pos then
+                    idx = idx + 1
+                    local ph = string.format("\001STR%d\001", idx)
+                    protected[ph] = source:sub(pos, end_pos - 1)
+                    table.insert(parts, ph)
+                    pos = end_pos
+                    goto continue
+                end
+            end
+            -- Long comments --[=[...]=]
+            if ch == "-" and source:sub(pos + 1, pos + 1) == "-" then
+                if source:sub(pos + 2, pos + 2) == "[" then
+                    local eq = source:match("^%[(=*)%[", pos + 2)
+                    if eq then
+                        local close_str = "]" .. string.rep("=", #eq) .. "]"
+                        local _, end_pos = source:find(close_str, pos + #eq + 4, true)
+                        if end_pos then
+                            -- Include trailing newline in comment
+                            local nl = source:find("\n", end_pos)
+                            local comment_end = nl and nl + 1 or end_pos + 1
+                            idx = idx + 1
+                            local ph = string.format("\001STR%d\001", idx)
+                            protected[ph] = source:sub(pos, comment_end - 1)
+                            table.insert(parts, ph)
+                            pos = comment_end
+                            goto continue
+                        end
+                    end
+                end
+                -- Line comment --...
+                local nl = source:find("\n", pos)
+                local comment_end = nl and nl or #source
+                idx = idx + 1
+                local ph = string.format("\001STR%d\001", idx)
+                protected[ph] = source:sub(pos, comment_end)
+                table.insert(parts, ph)
+                pos = comment_end + 1
+                goto continue
+            end
+            -- Regular character
+            table.insert(parts, ch)
+            pos = pos + 1
+            ::continue::
         end
-        
-        -- Protect long strings first (they might contain short string patterns)
-        source = source:gsub("(%[(=*)%[(.-)%2%])", protect)
-        -- Protect short strings
-        source = source:gsub('(["\'])(.-)%1', function(q, c) return protect(q .. c .. q) end)
-        -- Protect long comments (--[=[...]=])
-        source = source:gsub("(%-%-%[=*)%[(.-)%]%])", protect)
-        -- Protect line comments
-        source = source:gsub("(%-%-[^\n]*)", protect)
-        
+
+        local result = table.concat(parts)
+
         -- Sort renames by length (longest first) to avoid partial replacements
         local sorted = {}
         for k, v in pairs(renames) do
             table.insert(sorted, {key = k, val = v})
         end
         table.sort(sorted, function(a, b) return #a.key > #b.key end)
-        
+
         -- Apply replacements using gsub with word boundaries
-        local result = source
         for _, entry in ipairs(sorted) do
             local kw = entry.key:gsub("%%", "%%%%"):gsub("%.", "%%.")
             result = result:gsub("(%f[%w_])" .. kw .. "(%f[^%w_])", function(before, after)
                 return before .. entry.val .. after
             end)
         end
-        
-        -- Restore protected content using simple string replacement
+
+        -- Restore protected content
         for ph, original in pairs(protected) do
-            local parts = {}
-            local pos = 1
-            while pos <= #result do
-                local found_pos = result:find(ph, pos, true)
-                if found_pos then
-                    if found_pos > pos then
-                        table.insert(parts, result:sub(pos, found_pos - 1))
-                    end
-                    table.insert(parts, original)
-                    pos = found_pos + #ph
-                else
-                    table.insert(parts, result:sub(pos))
-                    break
-                end
-            end
-            result = table.concat(parts)
+            result = result:gsub(ph, function() return original end, 1)
         end
-        
+
         return result
     end
 
@@ -328,8 +367,11 @@ function VariableRenamer.process(code, options)
             table.insert(decl_parts, entry.new_name)
             table.insert(assign_parts, entry.new_name .. "=" .. entry.original)
         end
+        -- Always add semicolon after assignments to prevent Lua from parsing
+        -- "X=print\n(function..." as "X = print(function...)" across lines
+        -- (line comments do NOT terminate multi-line expressions in Lua)
         result = "local " .. table.concat(decl_parts, ",") .. "\n" ..
-                 table.concat(assign_parts, ";") .. "\n" .. result
+                   table.concat(assign_parts, ";") .. ";\n" .. result
     end
 
     return result

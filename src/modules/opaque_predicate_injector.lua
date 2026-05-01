@@ -74,6 +74,23 @@ local function random_true_predicate()
     return TRUE_PREDICATES[math.random(#TRUE_PREDICATES)]()
 end
 
+local function countChar(s, ch)
+    local count = 0
+    for _ in s:gmatch(ch) do count = count + 1 end
+    return count
+end
+
+local function isBalanced(stmt)
+    local stripped = stmt:gsub('"[^"]*"', ""):gsub("'[^']*'", ""):gsub("%-%-[^\n]*", "")
+    local open_paren = countChar(stripped, "%(")
+    local close_paren = countChar(stripped, "%)")
+    local open_brace = countChar(stripped, "%{")
+    local close_brace = countChar(stripped, "%}")
+    local open_bracket = countChar(stripped, "%[")
+    local close_bracket = countChar(stripped, "%]")
+    return open_paren == close_paren and open_brace == close_brace and open_bracket == close_bracket
+end
+
 local function random_false_predicate()
     return FALSE_PREDICATES[math.random(#FALSE_PREDICATES)]()
 end
@@ -96,6 +113,7 @@ local SKIP_PATTERNS = {
     "^%s*local%s+function%s",
     "^%s*local%s+.-%s*=%s*function%s",
     "^%s*module%s",
+    "^%s*return%s",
 }
 
 local function should_skip(line)
@@ -146,43 +164,106 @@ local function is_local_declaration(line)
 end
 
 function OpaquePredicateInjector.process(code)
-    -- Split code into lines
     local lines = {}
     for line in code:gmatch("[^\n]*") do
         table.insert(lines, line)
     end
 
-    -- Track block depth and determine injectable lines
-    -- We only inject at depth 0 (top-level) or inside simple blocks (not nested control flow)
     local output = {}
     local inject_count = 0
 
-    for _, line in ipairs(lines) do
+    local i = 1
+    while i <= #lines do
+        local line = lines[i]
+        local trimmed = line:gsub("^%s*", ""):gsub("%s+$", "")
+
         if should_skip(line) or not line:match("%S") then
             table.insert(output, line)
+            i = i + 1
+            while i <= #lines do
+                local next_trimmed = lines[i]:gsub("^%s*", ""):gsub("%s+$", "")
+                if next_trimmed == "" then break end
+                local last = output[#output]:gsub("^%s*", ""):gsub("%s+$", "")
+                if next_trimmed:match("^:") or last:match("=%s*$") or last:match("{%s*$") or last:match(",%s*$") then
+                    table.insert(output, lines[i])
+                    i = i + 1
+                else
+                    break
+                end
+            end
         else
             local ws = line:match("^(%s*)") or ""
-            local stmt = line:gsub("^%s*", ""):gsub("%s+$", "")
+            local stmt = trimmed
 
-            -- Local variable declarations must NOT be wrapped in if blocks
-            -- because that would limit their scope to the if block
             if is_local_declaration(line) then
-                table.insert(output, line)
+                local skip_block = {line}
+                i = i + 1
+                local brace_depth = 0
+                local bracket_depth = 0
+                local paren_depth = 0
+                -- Calculate initial depth from first line
+                for ch in line:gmatch(".") do
+                    if ch == "{" then brace_depth = brace_depth + 1
+                    elseif ch == "}" then brace_depth = brace_depth - 1
+                    elseif ch == "[" then bracket_depth = bracket_depth + 1
+                    elseif ch == "]" then bracket_depth = bracket_depth - 1
+                    elseif ch == "(" then paren_depth = paren_depth + 1
+                    elseif ch == ")" then paren_depth = paren_depth - 1 end
+                end
+                while i <= #lines and (brace_depth > 0 or bracket_depth > 0 or paren_depth > 0) do
+                    local next_trimmed = lines[i]:gsub("^%s*", ""):gsub("%s+$", "")
+                    if next_trimmed == "" then break end
+                    table.insert(skip_block, lines[i])
+                    for ch in lines[i]:gmatch(".") do
+                        if ch == "{" then brace_depth = brace_depth + 1
+                        elseif ch == "}" then brace_depth = brace_depth - 1
+                        elseif ch == "[" then bracket_depth = bracket_depth + 1
+                        elseif ch == "]" then bracket_depth = bracket_depth - 1
+                        elseif ch == "(" then paren_depth = paren_depth + 1
+                        elseif ch == ")" then paren_depth = paren_depth - 1 end
+                    end
+                    i = i + 1
+                end
+                for _, sl in ipairs(skip_block) do
+                    table.insert(output, sl)
+                end
             else
+                local block_lines = {line}
+                local j = i + 1
+                while j <= #lines do
+                    local next_line = lines[j]
+                    local next_trimmed = next_line:gsub("^%s*", ""):gsub("%s+$", "")
+                    if next_trimmed == "" then break end
+                    if next_trimmed == "end" or next_trimmed == "else" or next_trimmed:match("^then") or next_trimmed:match("^elseif") then break end
+                    if next_trimmed:match("^local%s") then break end
+                    local last = block_lines[#block_lines]:gsub("^%s*", ""):gsub("%s+$", "")
+                    local needs_continuation = next_trimmed:match("^:") or last:match("=%s*$") or last:match("{%s*$") or last:match(",%s*$")
+                    local combined = table.concat(block_lines, " ") .. " " .. next_trimmed
+                    table.insert(block_lines, next_line)
+                    j = j + 1
+                    if isBalanced(combined) and not needs_continuation then break end
+                end
+
                 inject_count = inject_count + 1
                 local predicate = random_true_predicate()
 
                 if inject_count % 3 == 0 then
                     table.insert(output, ws .. "if " .. predicate .. " then")
-                    table.insert(output, ws .. "    " .. stmt)
+                    for _, bl in ipairs(block_lines) do
+                        table.insert(output, ws .. "    " .. bl:gsub("^%s*", ""))
+                    end
                     table.insert(output, ws .. "elseif " .. random_false_predicate() .. " then")
                     table.insert(output, ws .. "    -- dead")
                     table.insert(output, ws .. "end")
                 else
                     table.insert(output, ws .. "if " .. predicate .. " then")
-                    table.insert(output, ws .. "    " .. stmt)
+                    for _, bl in ipairs(block_lines) do
+                        table.insert(output, ws .. "    " .. bl:gsub("^%s*", ""))
+                    end
                     table.insert(output, ws .. "end")
                 end
+
+                i = j
             end
         end
     end
