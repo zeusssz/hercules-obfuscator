@@ -23,9 +23,20 @@ local SKIP_PATTERNS = {
     "^%s*:",
 }
 
+-- Characters/patterns that indicate Lua 5.3+ syntax the VM compiler can't handle
+local UNSAFE_CONTENT_PATTERNS = {
+    "~",  -- Lua 5.3+ bitwise XOR (VM compiler is Lua 5.1-based)
+}
+
 local function should_skip(line)
     for _, pat in ipairs(SKIP_PATTERNS) do
         if line:match(pat) then
+            return true
+        end
+    end
+    -- Skip lines containing Lua 5.3+ syntax that the VM compiler can't parse
+    for _, pat in ipairs(UNSAFE_CONTENT_PATTERNS) do
+        if line:find(pat, 1, true) then
             return true
         end
     end

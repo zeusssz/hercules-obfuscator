@@ -59,11 +59,11 @@ src/
 5. bytecode_encoding
 6. function_inlining
 7. StringToExpressions
-8. antitamper
-9. VirtualMachine
-10. control_flow
-11. garbage_code (second pass)
-12. variable_renaming
+8. variable_renaming (MUST be before VirtualMachine — bytecode serializes renamed names)
+9. antitamper
+10. VirtualMachine
+11. control_flow
+12. garbage_code (second pass)
 13. compressor
 14. WrapInFunction
 15. watermark (final)
@@ -101,17 +101,17 @@ lua test.lua --test single_variable_renaming  # single module
 lua test.lua --list           # list all 53 tests
 ```
 
-**Full sweep** (long): all 2^14 = 16,384 module combinations against all 30 fixtures
+**Full sweep** (long): all 2^14 = 16,384 module combinations against the main fixture
 ```sh
 lua test.lua --test full_combinations
-lua test.lua --fixture hello_world           # sweep single fixture
+lua test.lua --test fixture_sweep_main_script
 lua test.lua --verbose                       # detailed output
 ```
 
 **Test structure:**
 - `quick_combo` — baseline + 14 working singles + 64 core combos
-- `full_combinations` — 16,383 non-empty module masks × 30 fixtures
-- `single_<module>` — each of 14 modules individually against all 30 fixtures
+- `full_combinations` — 16,383 non-empty module masks × 1 fixture
+- `single_<module>` — each of 14 modules individually against the fixture
 - `fixture_sweep_<name>` — all 16,383 combos against one fixture
 - `compressor_*`, `garbage_code_*`, `watermark_*`, `config_get_set` — utility tests
 
@@ -121,7 +121,7 @@ lua test.lua --verbose                       # detailed output
 
 - **Always run from `src/`** — `hercules.lua` uses `require()` for relative module paths, so the working directory must be `src/`.
 - **Output naming**: defaults to `<input>_obfuscated.lua`. Use `--overwrite` to replace the original.
-- **Module coupling**: Some modules depend on earlier passes. E.g., `VirtualMachine` and `antitamper` run before `control_flow` and `variable_renaming` so they can protect the un-renamed, un-scrambled code structure.
+- **Module coupling**: Some modules depend on earlier passes. `variable_renaming` MUST run BEFORE `VirtualMachine` so the bytecode serializes the already-renamed variable names. `antitamper` and `VirtualMachine` run before `control_flow` so they can protect the un-scrambled code structure.
 - **`math.ldexp` / `math.frexp` polyfills**: These were removed in Lua 5.3+ but the `Compiler` submodule uses them. The test suite adds polyfills; the obfuscator itself may need them for VM/bytecode modules to work on Lua 5.4.
 - **Lua 5.4 float printing**: `math.sqrt(16)` prints as `4.0` not `4`. The test suite normalizes this for cross-version compatibility.
 - **Global module state**: No known global state issues. Previous bugs in `StringToExpressions` (persistent `used_ascii`) and `variable_renamer` (persistent `varenc_names`) have been fixed.

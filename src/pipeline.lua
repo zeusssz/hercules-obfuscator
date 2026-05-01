@@ -46,12 +46,22 @@ function Pipeline.process(code)
         code = FunctionInliner.process(code)
     end
 
-    -- Phase 4: Virtual Machine — compiles all pre-transformed code into bytecode
+    -- Phase 4: Variable renaming — MUST run BEFORE VirtualMachine so the
+    -- bytecode serializes the already-renamed variable names. Running it
+    -- after VM would rename locals in the VM runtime while the bytecode
+    -- still references the original names → nil at runtime.
+    if config.get("settings.variable_renaming.enabled") then
+        local min_length = config.get("settings.variable_renaming.min_name_length")
+        local max_length = config.get("settings.variable_renaming.max_name_length")
+        code = VariableRenamer.process(code, { min_length = min_length, max_length = max_length })
+    end
+
+    -- Phase 5: Virtual Machine — compiles all pre-transformed code into bytecode
     if config.get("settings.VirtualMachine.enabled") then
         code = VirtualMachinery.process(code)
     end
 
-    -- Phase 5: Post-VM transformations (work on single-line VM output)
+    -- Phase 6: Post-VM transformations (work on single-line VM output)
     if config.get("settings.antitamper.enabled") then
         code = AntiTamper.process(code)
     end
@@ -61,17 +71,10 @@ function Pipeline.process(code)
         code = ControlFlowObfuscator.process(code, max_fake_blocks)
     end
 
-    -- Phase 6: Garbage code
+    -- Phase 7: Garbage code
     if config.get("settings.garbage_code.enabled") then
         local garbage_blocks = config.get("settings.garbage_code.garbage_blocks")
         code = GarbageCodeInserter.process(code, garbage_blocks)
-    end
-
-    -- Phase 7: Variable renaming
-    if config.get("settings.variable_renaming.enabled") then
-        local min_length = config.get("settings.variable_renaming.min_name_length")
-        local max_length = config.get("settings.variable_renaming.max_name_length")
-        code = VariableRenamer.process(code, { min_length = min_length, max_length = max_length })
     end
 
     -- Phase 8: Compression
