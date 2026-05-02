@@ -1,5 +1,18 @@
 #!/usr/bin/env lua
 
+-- ─── Polyfills for Lua 5.3+ (math.ldexp/frexp removed in 5.3+) ────────────────
+if not math.ldexp then
+    math.ldexp = function(x, n) return x * 2 ^ n end
+end
+if not math.frexp then
+    math.frexp = function(x)
+        if x == 0 then return 0, 0 end
+        local exp = math.floor(math.log(math.abs(x)) / math.log(2)) + 1
+        local mantissa = x / 2 ^ exp
+        return mantissa, exp
+    end
+end
+
 local Pipeline = require("pipeline")
 local config = require("config")
 -- utils
@@ -395,6 +408,18 @@ local function main()
         local obfuscated_code, sanity_failed, sanity_info
         local attempts, success = 0, false
 
+        -- Polyfills for Lua 5.3+ (math.ldexp/frexp removed but used by VM/bytecode modules)
+        local polyfills = [[-- Lua 5.3+ compatibility polyfills
+if not math.ldexp then math.ldexp = function(x, n) return x * 2 ^ n end end
+if not math.frexp then math.frexp = function(x)
+    if x == 0 then return 0, 0 end
+    local exp = math.floor(math.log(math.abs(x)) / math.log(2)) + 1
+    local mantissa = x / 2 ^ exp
+    return mantissa, exp
+end end
+
+]]
+
         repeat
             attempts = attempts + 1
             if options.custom_file then
@@ -421,7 +446,7 @@ local function main()
 
         local output_file = options.overwrite and file_path or file_path:gsub("%.lua$", "_obfuscated.lua")
         local out_file_handle = assert(io.open(output_file, "w"))
-        out_file_handle:write(obfuscated_code)
+        out_file_handle:write(polyfills .. obfuscated_code)
         out_file_handle:close()
 
         table.insert(obfuscated_list, output_file)
