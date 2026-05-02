@@ -3,10 +3,10 @@ name: Test Suite
 on:
   push:
     #branches: [main, master]
-    branches-ignore: [main, master]
+    branches-ignore: []
   pull_request:
     #branches: [main, master]
-    branches-ignore: [main, master]
+    branches-ignore: []
 
 jobs:
   test:
