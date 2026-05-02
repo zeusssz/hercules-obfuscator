@@ -126,10 +126,6 @@ Output:
 
 ---
 
-> The test fixture used in the test suite exercises all modules with realistic Lua code including FNV-1a hashing, method chains, multi-line table constructors, escape sequences, and closures.
-
-<br>
-
 If you specify the overwrite option with the `--overwrite` flag, it will write over to the specified script, instead of creating a new file.
 <br>
 You may also specify a preset using `--min`, `--mid`, or `--max`.
@@ -240,17 +236,36 @@ You can modify or add new modules to the `modules/` directory to create addition
 
 ## Testing
 
-A comprehensive end-to-end test suite in `src/test.lua` tests **all 2^14 = 16,384 module combinations** against a realistic Lua fixture (FNV-1a hashing, JSON builder, escape sequences, closures, method chains, and multi-line table constructors). Each test runs actual obfuscation via `Pipeline.process()` and verifies the output matches expected results.
+A comprehensive end-to-end test suite verifies **all 2^14 − 1 = 16,383 module combinations** against a realistic Lua fixture (FNV-1a hashing, JSON builder, escape sequences, closures, method chains, and multi-line table constructors). Each test runs actual obfuscation via `Pipeline.process()` and verifies the output matches expected results.
+
+### Python Parallel Runner (recommended for full sweep)
+
+Fast parallel execution using multiple Lua worker processes:
 
 ```bash
-# Full combination sweep: 16,383 combos × all fixtures
+# Full combination sweep with auto-detected workers
+python3 test_py.py
+
+# Explicit worker count
+python3 test_py.py --jobs 8
+
+# Sequential with live progress
+python3 test_py.py --verbose
+```
+
+### Lua Test Runner (recommended for quick checks)
+
+Interactive test suite with selective test groups:
+
+```bash
+# Quick mode: baseline + 14 single modules + 64 core combos (~5s)
+lua test.lua --quick
+
+# Full combination sweep (single process)
 lua test.lua --test full_combinations --verbose
 
-# Run all tests (includes full sweep)
+# Run all tests
 lua test.lua --verbose
-
-# Quick mode: baseline + single modules only (~15 tests)
-lua test.lua --quick --verbose
 
 # Test a specific fixture against all combinations
 lua test.lua --test fixture_sweep_main_script --verbose
@@ -268,16 +283,19 @@ lua test.lua --list
 lua test.lua --help
 ```
 
-**Test results (14 modules):**
-- **14 working modules**: VirtualMachine, antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming, StringToExpressions
+**All commands must be run from the `src/` directory.**
 
-The test suite covers:
-- **Full combination sweep**: All 2^14 combinations against all fixtures
-- **Per-fixture sweeps**: Each fixture tested against all 16,383 combinations
-- **Baseline**: No modules enabled (preserves semantics exactly)
-- **Single modules**: Each of the 14 modules tested individually
-- **Quick mode**: Baseline + 14 single-module tests (fast sanity check)
-- **Utility tests**: Config API validation
+### Test Coverage
+
+| Suite | What it tests | Combinations |
+|-------|--------------|--------------|
+| `quick` | Baseline + 14 singles + 64 core combos | 79 tests |
+| `full_combinations` | All non-empty module subsets | 16,383 combos |
+| `single_<module>` | Each module individually | 14 tests |
+| `fixture_sweep_*` | All combos against one fixture | 16,383 each |
+| `config_get_set` | Config API validation | 16 tests |
+
+**Working modules (14/14):** VirtualMachine, antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming, StringToExpressions
 
 ---
 ![image](https://github.com/user-attachments/assets/83c72548-5a4b-4326-b40e-6380f16f5a97)

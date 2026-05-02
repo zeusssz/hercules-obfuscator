@@ -35,6 +35,11 @@ lua test.lua --verbose    # verbose output
 lua test.lua --group vm   # run only VM tests
 lua test.lua --test baseline_no_modules  # run single test
 lua test.lua --list       # list all available tests
+
+# Python parallel runner (from src/)
+python3 test_py.py        # full sweep, auto-detected workers
+python3 test_py.py -j 8   # 8 workers
+python3 test_py.py -v     # sequential with live progress
 ```
 
 ## Architecture
@@ -93,6 +98,8 @@ Presets (`--min`/`--mid`/`--max`) override `variable_renaming` name lengths, `ga
 
 End-to-end test suite in `src/test.lua`. Runs actual obfuscation via Pipeline.process() and verifies the output by executing the obfuscated code and comparing captured print output.
 
+Python parallel runner (`src/test_py.py`) spawns Lua worker processes directly for fast full-sweep execution.
+
 **Quick mode** (~5s): baseline + 14 working single modules + 64 working combos
 ```sh
 lua test.lua --quick          # 21 tests, all should pass
@@ -103,9 +110,11 @@ lua test.lua --list           # list all 53 tests
 
 **Full sweep** (long): all 2^14 = 16,384 module combinations against the main fixture
 ```sh
-lua test.lua --test full_combinations
+python3 test_py.py            # parallel (recommended)
+python3 test_py.py -j 8       # 8 workers
+lua test.lua --test full_combinations         # sequential
 lua test.lua --test fixture_sweep_main_script
-lua test.lua --verbose                       # detailed output
+lua test.lua --verbose                        # detailed output
 ```
 
 **Test structure:**
