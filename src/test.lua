@@ -244,6 +244,9 @@ register("full_combinations", function()
         local label = modules_to_label(mods)
         set_all_modules(mask)
 
+        -- Seed random deterministically so obfuscation output is reproducible
+        math.randomseed(mask * 1000 + 1)
+
         local combo_ok = true
         local first_fail_fixture = nil
         local first_fail_reason = nil
