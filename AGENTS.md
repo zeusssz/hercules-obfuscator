@@ -39,7 +39,6 @@ lua test.lua --list       # list all available tests
 # Python parallel runner (from src/)
 python3 test_py.py        # full sweep, auto-detected workers
 python3 test_py.py -j 8   # 8 workers
-python3 test_py.py -v     # sequential with live progress
 ```
 
 ## Architecture

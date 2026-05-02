@@ -248,9 +248,6 @@ python3 test_py.py
 
 # Explicit worker count
 python3 test_py.py --jobs 8
-
-# Sequential with live progress
-python3 test_py.py --verbose
 ```
 
 ### Lua Test Runner (recommended for quick checks)

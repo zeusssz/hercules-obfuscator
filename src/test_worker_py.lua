@@ -1,6 +1,5 @@
--- test_worker_py.lua — Worker for Python parallel test runner
--- Usage: lua test_worker_py.lua <masks_json>
--- Outputs: P:<mask> or F:<mask>:<fixture_idx>:<reason>
+-- test_worker_py.lua — Long-lived worker for Python parallel test runner
+-- Reads masks from stdin (one per line), outputs P:<mask> or F:<mask>:<fidx>:<reason>
 
 if not math.ldexp then math.ldexp = function(x,n) return x*2^n end end
 if not math.frexp then math.frexp = function(x)
@@ -63,14 +62,11 @@ local function capture_output(code)
     return normalize_output(table.concat(output, "\n")), nil
 end
 
--- Read masks from command line (JSON array)
-local masks_json = arg[1]
-local masks = {}
-for m in masks_json:gmatch("%d+") do
-    table.insert(masks, tonumber(m))
-end
+-- Read masks from stdin, one per line
+for line in io.lines() do
+    local mask = tonumber(line)
+    if not mask then break end
 
-for _, mask in ipairs(masks) do
     for i = 1, #ALL_MODULES do
         local bit = (mask >> (i-1)) & 1
         config.set(MODULE_PATHS[ALL_MODULES[i]], bit == 1)

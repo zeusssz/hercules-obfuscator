@@ -2,16 +2,16 @@
 """test_py.py — Parallel test runner for Hercules Obfuscator.
 
 Architecture:
-  Python generates all 2^14 = 16384 masks
-  Splits them into N ranges (one per Lua subprocess)
-  Spawns N Lua workers directly via subprocess
-  Threads read each worker's stdout concurrently
-  Python aggregates results and shows live progress
+  Master creates N long-lived Lua subprocesses
+  Master feeds masks to workers via stdin (one per line)
+  Workers process masks in-process (no per-mask subprocess overhead)
+  Workers write results to stdout (P:<mask> or F:<mask>:<fidx>:<reason>)
+  Master reads from all workers concurrently via threads
+  Dynamic load balancing: fastest workers get more work
 
 Usage:
     python3 test_py.py              # auto-detect CPU count
     python3 test_py.py --jobs 8     # explicit worker count
-    python3 test_py.py --verbose    # sequential (single process)
 """
 
 import subprocess
@@ -20,6 +20,7 @@ import sys
 import time
 import math
 import threading
+import queue
 
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKER_LUA = os.path.join(SRC_DIR, "test_worker_py.lua")
@@ -58,40 +59,59 @@ def get_cpu_count():
         return 4
 
 
-# ─── Worker process ───────────────────────────────────────────────────────────
-
 class Worker:
-    def __init__(self, worker_id, mask_from, mask_to):
+    def __init__(self, worker_id, mask_queue, results, lock):
         self.worker_id = worker_id
-        self.mask_from = mask_from
-        self.mask_to = mask_to
-        self.num_masks = mask_to - mask_from + 1
-        self.results = []
-        self.results_lock = threading.Lock()
-        self.done_count = 0
+        self.mask_queue = mask_queue
+        self.results = results
+        self.lock = lock
         self.process = None
+        self.stdin = None
         self.error = None
         self.finished = False
+        self.done_count = 0
+        self.pending_masks = []
 
     def start(self):
-        masks_str = ",".join(str(m) for m in range(self.mask_from, self.mask_to + 1))
         self.process = subprocess.Popen(
-            ["lua", WORKER_LUA, masks_str],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, cwd=SRC_DIR
+            ["lua", WORKER_LUA],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True, cwd=SRC_DIR, bufsize=1
         )
-        # Reader thread
+        self.stdin = self.process.stdin
         threading.Thread(target=self._reader, daemon=True).start()
+        threading.Thread(target=self._feeder, daemon=True).start()
+
+    def _feeder(self):
+        """Pull masks from shared queue and feed to this worker's stdin."""
+        try:
+            while True:
+                try:
+                    mask = self.mask_queue.get_nowait()
+                except Exception:
+                    break
+                self.pending_masks.append(mask)
+                self.stdin.write(str(mask) + "\n")
+                self.stdin.flush()
+        except BrokenPipeError:
+            pass
+        except Exception as e:
+            self.error = str(e)
+        finally:
+            try:
+                self.stdin.close()
+            except Exception:
+                pass
 
     def _reader(self):
-        """Read stdout line by line until process ends."""
+        """Read results from worker stdout."""
         try:
             for line in self.process.stdout:
                 line = line.strip()
                 if not line:
                     continue
                 parts = line.split(":")
-                with self.results_lock:
+                with self.lock:
                     if parts[0] == "P" and len(parts) >= 2:
                         self.results.append((int(parts[1]), True, None, None))
                     elif parts[0] == "F" and len(parts) >= 3:
@@ -107,37 +127,37 @@ class Worker:
 
     def wait(self):
         if self.process:
-            self.process.wait(timeout=600)
-            # Drain stderr for errors
-            if self.process.returncode != 0:
+            try:
+                self.process.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait()
+            if self.process.returncode != 0 and not self.error:
                 _, stderr = self.process.communicate()
                 if stderr:
                     self.error = stderr.strip()
 
 
-# ─── Parallel runner ─────────────────────────────────────────────────────────
-
 def run_parallel(num_workers):
     total_masks = NUM_COMBOS - 1
 
-    # Split masks evenly
-    chunk_size = math.ceil(total_masks / num_workers)
-    workers = []
-    for w in range(num_workers):
-        mask_from = 1 + w * chunk_size
-        mask_to = min((w + 1) * chunk_size, total_masks)
-        if mask_from > mask_to:
-            break
-        workers.append(Worker(w + 1, mask_from, mask_to))
+    # Shared mask queue — workers pull dynamically
+    mask_queue = list(range(1, NUM_COMBOS))
+    q = queue.Queue()
+    for m in mask_queue:
+        q.put(m)
+
+    results = []
+    lock = threading.Lock()
 
     print(f"Running {total_masks} combinations with {num_workers} workers...\n")
-    for w in workers:
-        print(f"  Worker {w.worker_id}: masks {w.mask_from}-{w.mask_to} ({w.num_masks} combos)")
-    print()
+    print("  Queue-based load balancing: long-lived Lua workers pull masks dynamically\n")
 
-    # Start all workers
-    for w in workers:
-        w.start()
+    workers = []
+    for w in range(num_workers):
+        worker = Worker(w + 1, q, results, lock)
+        worker.start()
+        workers.append(worker)
 
     # Poll progress
     start_time = time.monotonic()
@@ -174,78 +194,16 @@ def run_parallel(num_workers):
     sys.stdout.flush()
 
     # Aggregate results
-    all_results = []
-    for w in workers:
-        with w.results_lock:
-            all_results.extend(w.results)
-        # Find masks that didn't produce output
-        produced = {mask for mask, _, _, _ in w.results}
-        for mask in range(w.mask_from, w.mask_to + 1):
-            if mask not in produced:
-                reason = w.error or "no_output"
-                all_results.append((mask, False, None, f"worker_{w.worker_id}: {reason}"))
+    all_results = list(results)
+
+    # Find masks that didn't produce output
+    produced = {mask for mask, _, _, _ in all_results}
+    for mask in range(1, NUM_COMBOS):
+        if mask not in produced:
+            all_results.append((mask, False, None, "missing_result"))
 
     return all_results, elapsed
 
-
-# ─── Sequential runner ────────────────────────────────────────────────────────
-
-def run_sequential():
-    total_masks = NUM_COMBOS - 1
-    progress_interval = 500
-    next_progress = progress_interval
-
-    print(f"Running {total_masks} combinations sequentially...\n")
-
-    all_masks = ",".join(str(m) for m in range(1, NUM_COMBOS))
-
-    process = subprocess.Popen(
-        ["lua", WORKER_LUA, all_masks],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, cwd=SRC_DIR
-    )
-
-    all_results = []
-    total_done = 0
-    start_time = time.monotonic()
-
-    for line in process.stdout:
-        line = line.strip()
-        if not line:
-            continue
-        total_done += 1
-        parts = line.split(":")
-
-        if parts[0] == "P" and len(parts) >= 2:
-            all_results.append((int(parts[1]), True, None, None))
-        elif parts[0] == "F" and len(parts) >= 3:
-            mask = int(parts[1])
-            fidx = int(parts[2])
-            reason = parts[3] if len(parts) > 3 else "unknown"
-            all_results.append((mask, False, fidx, reason))
-
-        if total_done >= next_progress:
-            elapsed = time.monotonic() - start_time
-            if elapsed > 0:
-                rate = total_done / elapsed
-                remaining = total_masks - total_done
-                eta = remaining / rate
-                pct = (total_done / total_masks) * 100
-                sys.stdout.write(f"\r  [{pct:5.1f}%] {total_done}/{total_masks}  ({rate:.0f} combos/s, ETA: {format_eta(eta)}) ")
-                sys.stdout.flush()
-            next_progress += progress_interval
-
-    process.wait()
-
-    elapsed = time.monotonic() - start_time
-    rate = total_masks / elapsed if elapsed > 0 else 0
-    sys.stdout.write(f"\r  [100.0%] {total_masks}/{total_masks}  ({rate:.0f} combos/s, {elapsed:.1f}s)  \n\n")
-    sys.stdout.flush()
-
-    return all_results, elapsed
-
-
-# ─── Aggregation ──────────────────────────────────────────────────────────────
 
 def process_results(results_list):
     pass_combos = 0
@@ -307,24 +265,18 @@ def print_summary(pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_d
         print(f"\n  All {pass_combos} combinations passed.")
 
 
-# ─── Main ─────────────────────────────────────────────────────────────────────
-
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Hercules Obfuscator — Parallel Test Suite")
     parser.add_argument("--jobs", "-j", type=int, default=0, help="Number of parallel workers (0 = auto-detect)")
-    parser.add_argument("--verbose", "-v", action="store_true", help="Run sequentially with live progress")
     args = parser.parse_args()
 
     print("Hercules Obfuscator — Test Suite")
     print("─" * 60)
     print(f"Fixtures: 1  |  Modules: {NUM_MODULES}  |  Combinations: {NUM_COMBOS} (2^{NUM_MODULES})\n")
 
-    if args.verbose:
-        all_results, elapsed = run_sequential()
-    else:
-        num_workers = args.jobs if args.jobs > 0 else get_cpu_count()
-        all_results, elapsed = run_parallel(num_workers)
+    num_workers = args.jobs if args.jobs > 0 else get_cpu_count()
+    all_results, elapsed = run_parallel(num_workers)
 
     pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_details = process_results(all_results)
     print_summary(pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_details)
