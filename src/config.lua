@@ -2,6 +2,8 @@
 
 local config = {}
 
+config.target = "lua"  -- "lua" or "luau"
+
 config.settings = {
     output_suffix = "_obfuscated.lua",
     watermark_enabled = true,

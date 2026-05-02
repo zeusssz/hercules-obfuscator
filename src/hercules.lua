@@ -120,6 +120,11 @@ local function printCliResult(input, output, time, options)
 
     print(colors.cyan .. "Overwrite         : " .. formatBool(options.overwrite))
     print(colors.cyan .. "Folder Mode       : " .. formatBool(options.folder_mode))
+    local target_label = string.upper(options.target)
+    if not options.target_override then
+        target_label = target_label .. " (auto)"
+    end
+    print(colors.cyan .. "Target            : " .. target_label .. colors.reset)
     if options.folder_mode then
         if not output then
             print(colors.white .. "Output File       : " .. colors.reset
@@ -213,7 +218,8 @@ local function printUsage()
     local general_flags = {
         { flags = {"--overwrite", ""}, description = "Overwrites the original file with obfuscated code" },
         { flags = {"--folder", ""}, description = "Process all Lua files in the given folder" },
-        { flags = {"--sanity", ""}, description = "Check if obfuscated code output matches original" }
+        { flags = {"--sanity", ""}, description = "Check if obfuscated code output matches original" },
+        { flags = {"--target <t>", ""}, description = "Target runtime: 'lua', 'luau' (Roblox), or 'glua' (Garry's Mod)" }
     }
     for _, flag in ipairs(general_flags) do
         print(colors.cyan .. flag.flags[1] .. flag.flags[2] .. colors.green .. string.rep(" ", 20 - #flag.flags[1] - #flag.flags[2]) .. flag.description .. colors.reset)
@@ -252,6 +258,73 @@ end
 os.exit(1)
 end
 
+-- ─── Target Auto-Detection ─────────────────────────────────────────────────────
+-- Detects whether source code is written for Lua, Luau, or GLua (Garry's Mod)
+-- by scanning for dialect-specific syntax patterns.
+
+local LUAU_PATTERNS = {
+    -- Type annotations: local x: string, function foo(x: number)
+    ":%s*string%s*[=%)]", ":%s*number%s*[=%)]", ":%s*boolean%s*[=%)]",
+    ":%s*table%s*[=%)]", ":%s*any%s*[=%)]", ":%s*nil%s*[=%)]",
+    -- Return type annotations: ) -> string (escape ) for Lua pattern)
+    "%)%s*%->",
+    -- Type aliases: type Foo =
+    "type%s+%w+%s*=",
+    -- String interpolation: `hello {world}`
+    "`[^`]*{[^}]+}",
+    -- If-expressions: = if cond then
+    "=%s*if%s+.+%s+then%s+",
+    -- Generalized iteration: for k, v in t do
+    "for%s+.+%s+in%s+%w+%s+do",
+    -- Binary/hex literals with underscores
+    "0[bB][01_]+", "0[xX][%x_]+", "[%d]_[%d]",
+}
+
+local GLUA_PATTERNS = {
+    -- GLua constructors
+    "Vector%s*%(", "Angle%s*%(", "Color%s*%(",
+    -- GLua globals
+    "IsValid%s*%(", "IsValidAndEnt%s*%(",
+    -- GLua libraries
+    "hook%.%w+", "timer%.%w+", "util%.%w+",
+    "player%.%w+", "game%.%w+", "ents%.%w+",
+    "umsg%.%w+", "usermessage%.%w+", "net%.%w+",
+    -- GLua callbacks
+    "GM:%w+", "GAMEMODE:%w+",
+    -- GLua environment globals
+    "SERVER%s*[=%)]", "CLIENT%s*[=%)]",
+}
+
+local function detect_target(code)
+    local luau_score = 0
+    local glua_score = 0
+
+    for _, pattern in ipairs(LUAU_PATTERNS) do
+        if code:match(pattern) then
+            luau_score = luau_score + 1
+        end
+    end
+
+    for _, pattern in ipairs(GLUA_PATTERNS) do
+        if code:match(pattern) then
+            glua_score = glua_score + 1
+        end
+    end
+
+    -- Also check for file extension hint
+    -- (this is checked separately in main())
+
+    if glua_score >= 2 then
+        return "glua"
+    elseif luau_score >= 2 then
+        return "luau"
+    elseif input and input:match("%.luau$") then
+        return "luau"
+    end
+
+    return "lua"
+end
+
 local function main()
     if #arg < 1 then
         print(colors.red .. "Error: No input file specified" .. colors.reset)
@@ -270,7 +343,9 @@ local function main()
         overwrite = false,
         custom_file = nil,
         folder_mode = false,
-        sanity_check = false
+        sanity_check = false,
+        target = nil,
+        target_override = false,
     }
 
     local features = {
@@ -289,7 +364,8 @@ local function main()
         antitamper = false,
     }
 
-    for i = 2, #arg do
+    local i = 2
+    while i <= #arg do
         if arg[i] == "--overwrite" then
             options.overwrite = true
         elseif arg[i] == "--folder" then
@@ -328,13 +404,25 @@ local function main()
             options.preset_level = "mid"
         elseif arg[i] == "--max" then
             options.preset_level = "max"
+        elseif arg[i] == "--target" then
+            local next_arg = arg[i + 1]
+            if next_arg == "lua" or next_arg == "luau" or next_arg == "glua" then
+                options.target = next_arg
+                options.target_override = true
+                i = i + 1
+            else
+                print(colors.red .. "Error: --target requires 'lua', 'luau', or 'glua'" .. colors.reset)
+                printUsage()
+                os.exit(1)
+            end
         else
             print(colors.red .. "Error: Unknown option '" .. arg[i] .. "'" .. colors.reset)
             printUsage()
             os.exit(1)
         end
+        i = i + 1
     end
-    if not options.folder_mode and not input:match("%.lua$") then
+    if not options.folder_mode and not input:match("%.lua$") and not input:match("%.luau$") then
         print(colors.red .. "Error: Invalid file extension for '" .. input .. "'" .. colors.reset)
         printUsage()
         os.exit(1)
@@ -369,16 +457,25 @@ local function main()
         end
     end
 
+    -- Set target and disable VM/bytecode modules for Luau/GLua (incompatible bytecode)
+    config.target = options.target
+    if options.target == "luau" or options.target == "glua" then
+        config.settings.VirtualMachine.enabled = false
+        config.settings.bytecode_encoding.enabled = false
+    end
+
     local files = {}
     if options.folder_mode then
+        local ext_patterns = { lua = "*.lua", luau = "*.luau", glua = "*.lua" }
+        local ext = ext_patterns[options.target] or "*.lua"
         local find_command
         if package.config:sub(1,1) == "\\" then
             -- windows
-            local pattern = input .. "\\*.lua"
+            local pattern = input .. "\\" .. ext
             find_command = string.format('dir %q /b /s 2>nul', pattern)
         else
             -- mac/linux
-            find_command = string.format('find %q -type f -name "*.lua"', input)
+            find_command = string.format('find %q -type f -name "%s"', input, ext)
         end
         local p = io.popen(find_command)
         if not p then
@@ -404,12 +501,29 @@ local function main()
         local code = file:read("*all")
         file:close()
 
+        -- Auto-detect target from source code (can be overridden with --target)
+        if not options.target_override then
+            options.target = detect_target(code)
+        end
+        if not options.target then
+            options.target = "lua"
+        end
+
+        -- Luau/GLua compatibility: replace load() with loadstring()
+        -- Luau's load() only accepts functions, not strings
+        -- Only replace load( when preceded by whitespace, operators, or at line start
+        -- to avoid matching load( inside string literals
+        if options.target == "luau" then
+            code = code:gsub("([^%w_])load%(", "%1loadstring(")
+            code = code:gsub("^load(", "loadstring(")
+        end
+
         local start_time = os.clock()
         local obfuscated_code, sanity_failed, sanity_info
         local attempts, success = 0, false
 
-        -- Polyfills for Lua 5.3+ (math.ldexp/frexp removed but used by VM/bytecode modules)
-        local polyfills = [[-- Lua 5.3+ compatibility polyfills
+        -- Polyfills for Lua 5.3+ / Luau compatibility
+        local polyfills = [[-- Lua 5.3+ / Luau compatibility polyfills
 if not math.ldexp then math.ldexp = function(x, n) return x * 2 ^ n end end
 if not math.frexp then math.frexp = function(x)
     if x == 0 then return 0, 0 end
@@ -417,6 +531,8 @@ if not math.frexp then math.frexp = function(x)
     local mantissa = x / 2 ^ exp
     return mantissa, exp
 end end
+if not loadstring and load then loadstring = load end
+if not loadstring then loadstring = function(s) return load(s) end end
 
 ]]
 
@@ -444,7 +560,13 @@ end end
             end
         until success or attempts >= 3
 
-        local output_file = options.overwrite and file_path or file_path:gsub("%.lua$", "_obfuscated.lua")
+        local output_ext = options.target == "luau" and ".luau" or ".lua"
+        local output_file
+        if options.overwrite then
+            output_file = file_path
+        else
+            output_file = file_path:gsub("%.lua$", "_obfuscated" .. output_ext)
+        end
         local out_file_handle = assert(io.open(output_file, "w"))
         out_file_handle:write(polyfills .. obfuscated_code)
         out_file_handle:close()

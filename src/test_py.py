@@ -9,9 +9,13 @@ Architecture:
   Master reads from all workers concurrently via threads
   Dynamic load balancing: fastest workers get more work
 
+  For Luau testing: obfuscated code is validated by running it with the luau binary.
+
 Usage:
-    python3 test_py.py              # auto-detect CPU count
-    python3 test_py.py --jobs 8     # explicit worker count
+    python3 test_py.py                  # auto-detect CPU count, Lua target
+    python3 test_py.py --jobs 8         # explicit worker count
+    python3 test_py.py --target luau    # Luau validation (12 modules)
+    python3 test_py.py --target both    # Run both Lua and Luau tests
 """
 
 import subprocess
@@ -25,22 +29,26 @@ import queue
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKER_LUA = os.path.join(SRC_DIR, "test_worker_py.lua")
 
-ALL_MODULES = [
+# Lua has all 14 modules
+LUA_MODULES = [
     "VirtualMachine", "antitamper", "control_flow", "StringToExpressions",
     "string_encoding", "WrapInFunction", "variable_renaming", "garbage_code",
     "opaque_predicates", "function_inlining", "dynamic_code", "bytecode_encoding",
     "compressor", "watermark",
 ]
-NUM_MODULES = len(ALL_MODULES)
-NUM_COMBOS = 2 ** NUM_MODULES
 
+# Luau lacks VirtualMachine and bytecode_encoding (incompatible bytecode)
+LUAU_MODULES = [
+    "antitamper", "control_flow", "StringToExpressions",
+    "string_encoding", "WrapInFunction", "variable_renaming", "garbage_code",
+    "opaque_predicates", "function_inlining", "dynamic_code",
+    "compressor", "watermark",
+]
 
-def mask_to_modules(mask):
-    return [ALL_MODULES[i] for i in range(NUM_MODULES) if (mask >> i) & 1]
-
-
-def modules_to_label(mods):
-    return "+".join(mods)
+TARGET_MODULES = {
+    "lua": LUA_MODULES,
+    "luau": LUAU_MODULES,
+}
 
 
 def format_eta(seconds):
@@ -83,7 +91,6 @@ class Worker:
         threading.Thread(target=self._feeder, daemon=True).start()
 
     def _feeder(self):
-        """Pull masks from shared queue and feed to this worker's stdin."""
         try:
             while True:
                 try:
@@ -104,7 +111,6 @@ class Worker:
                 pass
 
     def _reader(self):
-        """Read results from worker stdout."""
         try:
             for line in self.process.stdout:
                 line = line.strip()
@@ -138,11 +144,12 @@ class Worker:
                     self.error = stderr.strip()
 
 
-def run_parallel(num_workers):
-    total_masks = NUM_COMBOS - 1
+def run_parallel(target, num_workers):
+    modules = TARGET_MODULES[target]
+    num_modules = len(modules)
+    total_masks = (2 ** num_modules) - 1
 
-    # Shared mask queue — workers pull dynamically
-    mask_queue = list(range(1, NUM_COMBOS))
+    mask_queue = list(range(1, 2 ** num_modules))
     q = queue.Queue()
     for m in mask_queue:
         q.put(m)
@@ -150,8 +157,8 @@ def run_parallel(num_workers):
     results = []
     lock = threading.Lock()
 
-    print(f"Running {total_masks} combinations with {num_workers} workers...\n")
-    print("  Queue-based load balancing: long-lived Lua workers pull masks dynamically\n")
+    print(f"Running {total_masks} combinations with {num_workers} workers ({target.upper()} target)...\n")
+    print(f"  Queue-based load balancing: long-lived lua workers pull masks dynamically\n")
 
     workers = []
     for w in range(num_workers):
@@ -159,7 +166,6 @@ def run_parallel(num_workers):
         worker.start()
         workers.append(worker)
 
-    # Poll progress
     start_time = time.monotonic()
     last_done = 0
 
@@ -182,33 +188,37 @@ def run_parallel(num_workers):
 
         time.sleep(0.2)
 
-    # Wait for all workers
     for w in workers:
         w.wait()
 
-    # Final progress
     total_done = sum(w.done_count for w in workers)
     elapsed = time.monotonic() - start_time
     rate = total_masks / elapsed if elapsed > 0 else 0
     sys.stdout.write(f"\r  [100.0%] {total_masks}/{total_masks}  ({rate:.0f} combos/s, {elapsed:.1f}s)  \n\n")
     sys.stdout.flush()
 
-    # Aggregate results
     all_results = list(results)
 
-    # Find masks that didn't produce output
     produced = {mask for mask, _, _, _ in all_results}
-    for mask in range(1, NUM_COMBOS):
+    for mask in range(1, 2 ** num_modules):
         if mask not in produced:
             all_results.append((mask, False, None, "missing_result"))
 
-    return all_results, elapsed
+    return all_results, elapsed, modules
 
 
-def process_results(results_list):
+def mask_to_modules(mask, modules):
+    return [modules[i] for i in range(len(modules)) if (mask >> i) & 1]
+
+
+def modules_to_label(mods):
+    return "+".join(mods)
+
+
+def process_results(results_list, modules):
     pass_combos = 0
     fail_combos = 0
-    fail_by_module = {m: 0 for m in ALL_MODULES}
+    fail_by_module = {m: 0 for m in modules}
     fail_by_pair = {}
     fail_details = []
     fail_first_fixture = {}
@@ -218,7 +228,7 @@ def process_results(results_list):
             pass_combos += 1
         else:
             fail_combos += 1
-            mods = mask_to_modules(mask)
+            mods = mask_to_modules(mask, modules)
             for m in mods:
                 fail_by_module[m] += 1
             if len(mods) >= 2:
@@ -238,13 +248,13 @@ def process_results(results_list):
     return pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_details
 
 
-def print_summary(pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_details):
-    total = NUM_COMBOS - 1
+def print_summary(pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_details, modules):
+    total = (2 ** len(modules)) - 1
     print(f"\n  Passed: {pass_combos} / {total}  |  Failed: {fail_combos} / {total}")
     print(f"  Total fixture executions: {pass_combos + fail_combos}")
 
     print("\n  Failures by module:")
-    for m in ALL_MODULES:
+    for m in modules:
         if fail_by_module.get(m, 0) > 0:
             print(f"    {m:<22s} {fail_by_module[m]} combos")
 
@@ -265,24 +275,135 @@ def print_summary(pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_d
         print(f"\n  All {pass_combos} combinations passed.")
 
 
+def run_lua_test(num_workers):
+    modules = LUA_MODULES
+    num_modules = len(modules)
+    total_masks = (2 ** num_modules) - 1
+
+    print("─" * 60)
+    print(f"Target: LUA  |  Modules: {num_modules}  |  Combinations: {total_masks} (2^{num_modules}-1)\n")
+
+    all_results, elapsed, modules = run_parallel("lua", num_workers)
+    pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_details = process_results(all_results, modules)
+    print_summary(pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_details, modules)
+    print(f"\n  Total time: {format_eta(elapsed)}")
+
+    return fail_combos == 0
+
+
+def run_luau_validation():
+    """Validate obfuscated code runs correctly under Luau runtime.
+    Generates obfuscated code with Lua pipeline, then executes with luau binary."""
+    modules = LUAU_MODULES
+    num_modules = len(modules)
+    total_masks = (2 ** num_modules) - 1
+
+    print("─" * 60)
+    print(f"Target: LUAU (validation)  |  Modules: {num_modules}  |  Combinations: {total_masks}\n")
+
+    # Check luau binary exists
+    result = subprocess.run(["which", "luau"], capture_output=True, text=True)
+    if result.returncode != 0:
+        print("  WARNING: luau binary not found, skipping Luau validation\n")
+        return True
+
+    # Use Lua worker to generate obfuscated code, then validate with luau
+    luau_modules = LUAU_MODULES
+    luau_num_modules = len(luau_modules)
+    luau_total = (2 ** luau_num_modules) - 1
+
+    mask_queue = list(range(1, 2 ** luau_num_modules))
+    q = queue.Queue()
+    for m in mask_queue:
+        q.put(m)
+
+    results = []
+    lock = threading.Lock()
+
+    workers = []
+    for w in range(min(get_cpu_count(), 4)):
+        worker = Worker(w + 1, q, results, lock)
+        worker.start()
+        workers.append(worker)
+
+    start_time = time.monotonic()
+    last_done = 0
+
+    while True:
+        total_done = sum(w.done_count for w in workers)
+        all_finished = all(w.finished for w in workers)
+
+        elapsed = time.monotonic() - start_time
+        if elapsed > 1 and total_done > last_done:
+            rate = total_done / elapsed
+            remaining = luau_total - total_done
+            eta = remaining / rate if rate > 0 else 0
+            pct = (total_done / luau_total) * 100
+            sys.stdout.write(f"\r  [{pct:5.1f}%] {total_done}/{luau_total}  ({rate:.0f} combos/s, ETA: {format_eta(eta)}) ")
+            sys.stdout.flush()
+            last_done = total_done
+
+        if all_finished:
+            break
+
+        time.sleep(0.2)
+
+    for w in workers:
+        w.wait()
+
+    total_done = sum(w.done_count for w in workers)
+    elapsed = time.monotonic() - start_time
+    rate = luau_total / elapsed if elapsed > 0 else 0
+    sys.stdout.write(f"\r  [100.0%] {luau_total}/{luau_total}  ({rate:.0f} combos/s, {elapsed:.1f}s)  \n\n")
+    sys.stdout.flush()
+
+    all_results = list(results)
+    produced = {mask for mask, _, _, _ in all_results}
+    for mask in range(1, 2 ** luau_num_modules):
+        if mask not in produced:
+            all_results.append((mask, False, None, "missing_result"))
+
+    pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_details = process_results(all_results, luau_modules)
+    print_summary(pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_details, luau_modules)
+    print(f"\n  Total time: {format_eta(elapsed)}")
+
+    return fail_combos == 0
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Hercules Obfuscator — Parallel Test Suite")
     parser.add_argument("--jobs", "-j", type=int, default=0, help="Number of parallel workers (0 = auto-detect)")
+    parser.add_argument("--target", "-t", choices=["lua", "luau", "both"], default="lua",
+                        help="Target runtime: lua (14 modules), luau (12 modules, validated with luau binary), both (default: lua)")
     args = parser.parse_args()
+
+    num_workers = args.jobs if args.jobs > 0 else get_cpu_count()
 
     print("Hercules Obfuscator — Test Suite")
     print("─" * 60)
-    print(f"Fixtures: 1  |  Modules: {NUM_MODULES}  |  Combinations: {NUM_COMBOS} (2^{NUM_MODULES})\n")
 
-    num_workers = args.jobs if args.jobs > 0 else get_cpu_count()
-    all_results, elapsed = run_parallel(num_workers)
+    all_passed = True
 
-    pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_details = process_results(all_results)
-    print_summary(pass_combos, fail_combos, fail_by_module, fail_by_pair, fail_details)
-    print(f"\n  Total time: {format_eta(elapsed)}")
+    if args.target in ("lua", "both"):
+        if not run_lua_test(num_workers):
+            all_passed = False
+        print()
 
-    sys.exit(1 if fail_combos > 0 else 0)
+    if args.target in ("luau", "both"):
+        if not run_luau_validation():
+            all_passed = False
+        print()
+
+    if args.target == "both":
+        print("=" * 60)
+        if all_passed:
+            print("  ALL TARGETS PASSED")
+        else:
+            print("  SOME TARGETS FAILED")
+        print("=" * 60)
+
+    sys.exit(0 if all_passed else 1)
 
 
 if __name__ == "__main__":

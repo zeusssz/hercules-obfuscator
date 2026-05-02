@@ -37,8 +37,11 @@ lua test.lua --test baseline_no_modules  # run single test
 lua test.lua --list       # list all available tests
 
 # Python parallel runner (from src/)
-python3 test_py.py        # full sweep, auto-detected workers
+python3 test_py.py        # full sweep, auto-detected workers, Lua target
 python3 test_py.py -j 8   # 8 workers
+python3 test_py.py -t lua     # Lua target (14 modules, incl. VM/bytecode)
+python3 test_py.py -t luau    # Luau target (12 modules, no VM/bytecode)
+python3 test_py.py -t both    # Run both Lua and Luau tests
 ```
 
 ## Architecture
@@ -97,7 +100,7 @@ Presets (`--min`/`--mid`/`--max`) override `variable_renaming` name lengths, `ga
 
 End-to-end test suite in `src/test.lua`. Runs actual obfuscation via Pipeline.process() and verifies the output by executing the obfuscated code and comparing captured print output.
 
-Python parallel runner (`src/test_py.py`) spawns Lua worker processes directly for fast full-sweep execution.
+Python parallel runner (`src/test_py.py`) spawns Lua worker processes directly for fast full-sweep execution. Supports both Lua and Luau targets.
 
 **Quick mode** (~5s): baseline + 14 working single modules + 64 working combos
 ```sh
@@ -109,8 +112,10 @@ lua test.lua --list           # list all 53 tests
 
 **Full sweep** (long): all 2^14 = 16,384 module combinations against the main fixture
 ```sh
-python3 test_py.py            # parallel (recommended)
+python3 test_py.py            # parallel, Lua target (recommended)
 python3 test_py.py -j 8       # 8 workers
+python3 test_py.py -t luau    # Luau target (12 modules, no VM/bytecode)
+python3 test_py.py -t both    # Run both Lua and Luau tests
 lua test.lua --test full_combinations         # sequential
 lua test.lua --test fixture_sweep_main_script
 lua test.lua --verbose                        # detailed output
@@ -123,14 +128,18 @@ lua test.lua --verbose                        # detailed output
 - `fixture_sweep_<name>` — all 16,383 combos against one fixture
 - `compressor_*`, `garbage_code_*`, `watermark_*`, `config_get_set` — utility tests
 
-**Working modules (14/14):** VirtualMachine, antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming, StringToExpressions
+**Working modules (14/14 for Lua):** VirtualMachine, antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming, StringToExpressions
+
+**Working modules (12/14 for Luau):** All except VirtualMachine and bytecode_encoding (incompatible bytecode format)
 
 ## Key Conventions & Gotchas
 
 - **Always run from `src/`** — `hercules.lua` uses `require()` for relative module paths, so the working directory must be `src/`.
-- **Output naming**: defaults to `<input>_obfuscated.lua`. Use `--overwrite` to replace the original.
+- **Output naming**: defaults to `<input>_obfuscated.lua` for Lua, `<input>_obfuscated.luau` for Luau. Use `--overwrite` to replace the original.
 - **Module coupling**: Some modules depend on earlier passes. `variable_renaming` MUST run BEFORE `VirtualMachine` so the bytecode serializes the already-renamed variable names. `antitamper` and `VirtualMachine` run before `control_flow` so they can protect the un-scrambled code structure.
-- **`math.ldexp` / `math.frexp` polyfills**: These were removed in Lua 5.3+ but the `Compiler` submodule uses them. The test suite adds polyfills; the obfuscator itself may need them for VM/bytecode modules to work on Lua 5.4.
+- **Luau target** (`--target luau`): Automatically disables VirtualMachine and bytecode_encoding (incompatible bytecode). Antitamper uses a reduced function list (no `loadfile`, `dofile`, `collectgarbage`, `debug.*`, `os.exit`). Output uses `.luau` extension.
+- **Luau compatibility**: The obfuscator converts `load()` to `loadstring()` in source code when targeting Luau. Polyfills for `math.ldexp`/`math.frexp` are prepended to output.
+- **`math.ldexp` / `math.frexp` polyfills**: These were removed in Lua 5.3+ but the `Compiler` submodule uses them. The test suite adds polyfills; the obfuscator itself adds them to the output file for both Lua 5.4 and Luau.
 - **Lua 5.4 float printing**: `math.sqrt(16)` prints as `4.0` not `4`. The test suite normalizes this for cross-version compatibility.
 - **Global module state**: No known global state issues. Previous bugs in `StringToExpressions` (persistent `used_ascii`) and `variable_renamer` (persistent `varenc_names`) have been fixed.
 - **`tests/` is gitignored** — test files may exist locally but are not tracked.

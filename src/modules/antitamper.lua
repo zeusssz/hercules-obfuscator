@@ -1,8 +1,11 @@
+local config = require("config")
+
 local AntiTamper = {}
 
 -- Collect critical native function names that should NOT be tampered
 -- Excludes print, as it's commonly overridden for logging/testing
-local NATIVE_FUNCS = {
+-- Luau doesn't have: loadfile, dofile, collectgarbage, debug.*, string.dump
+local NATIVE_FUNCS_LUA = {
     -- Core
     "assert", "error", "pcall", "xpcall", "type", "tostring", "tonumber",
     "select", "next", "rawget", "rawset", "rawequal", "setmetatable", "getmetatable",
@@ -24,11 +27,32 @@ local NATIVE_FUNCS = {
     "debug.sethook", "debug.setupvalue",
 }
 
+local NATIVE_FUNCS_LUAU = {
+    -- Core (Luau lacks loadfile, dofile, collectgarbage, debug)
+    "assert", "error", "pcall", "xpcall", "type", "tostring", "tonumber",
+    "select", "next", "rawget", "rawset", "rawequal", "setmetatable", "getmetatable",
+    "loadstring",
+    -- String (Luau lacks string.dump)
+    "string.byte", "string.char", "string.find", "string.format",
+    "string.gmatch", "string.gsub", "string.len", "string.lower", "string.match",
+    "string.rep", "string.reverse", "string.sub", "string.upper",
+    -- Table
+    "table.insert", "table.remove", "table.sort", "table.concat",
+    -- Math
+    "math.abs", "math.acos", "math.asin", "math.atan", "math.ceil", "math.cos",
+    "math.deg", "math.exp", "math.floor", "math.fmod", "math.max", "math.min",
+    "math.modf", "math.rad", "math.sin", "math.sqrt", "math.tan",
+    -- OS (Luau lacks os.exit)
+    "os.clock", "os.date", "os.difftime", "os.time",
+}
+
 -- Check if a metamethod is set (potential tampering via __index/__newindex)
 local META_METHODS = {"__index", "__newindex", "__metatable", "__call"}
 local META_TABLES = {"string", "table", "math", "os"}
 
 function AntiTamper.process(code)
+    local NATIVE_FUNCS = config.target == "luau" and NATIVE_FUNCS_LUAU or NATIVE_FUNCS_LUA
+
     -- Capture the current state of critical functions as the baseline
     local func_refs = {}
     for _, name in ipairs(NATIVE_FUNCS) do
@@ -131,7 +155,8 @@ do
         end
         local d=G.debug
         if T(d)=="table" then
-            for _,k in Pa{"getinfo","getlocal","getupvalue","traceback","sethook","setupvalue"} do
+            local _DK=%s
+            for _,k in Pa(_DK) do
                 if T(d[k])~="function" then
                     E("Tamper Detected! Reason: Debug library incomplete")
                     return
@@ -141,7 +166,7 @@ do
     end
     check()
 end
-]=], func_refs_str, meta_refs_str)
+]=], func_refs_str, meta_refs_str, config.target == "luau" and '{"info","traceback"}' or '{"getinfo","getlocal","getupvalue","traceback","sethook","setupvalue"}')
 
     return anti_tamper_code .. "\n" .. code
 end

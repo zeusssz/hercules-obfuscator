@@ -8,13 +8,18 @@ local GarbageCodeInserter = require("modules/garbage_code_inserter")
 local OpaquePredicateInjector = require("modules/opaque_predicate_injector")
 local FunctionInliner = require("modules/function_inliner")
 local DynamicCodeGenerator = require("modules/dynamic_code_generator")
-local BytecodeEncoder = require("modules/bytecode_encoder")
 local Watermarker = require("modules/watermark")
 local Compressor = require("modules/compressor")
 local StringToExpressions = require("modules/StringToExpressions")
 local WrapInFunction = require("modules/WrapInFunction")
-local VirtualMachinery = require("modules/VMGenerator")
 local AntiTamper = require("modules/antitamper")
+
+-- Lua VM/Bytecode modules (only loaded for Lua target — incompatible with Luau)
+local BytecodeEncoder, VirtualMachinery
+if config.target == "lua" then
+    BytecodeEncoder = require("modules/bytecode_encoder")
+    VirtualMachinery = require("modules/VMGenerator")
+end
 
 local Pipeline = {}
 
@@ -57,7 +62,7 @@ function Pipeline.process(code)
     end
 
     -- Phase 5: Virtual Machine — compiles all pre-transformed code into bytecode
-    if config.get("settings.VirtualMachine.enabled") then
+    if VirtualMachinery and config.get("settings.VirtualMachine.enabled") then
         code = VirtualMachinery.process(code)
     end
 
@@ -88,7 +93,7 @@ function Pipeline.process(code)
     end
 
     -- Phase 10: Bytecode encoding (replaces entire code with decoder)
-    if config.get("settings.bytecode_encoding.enabled") then
+    if BytecodeEncoder and config.get("settings.bytecode_encoding.enabled") then
         code = BytecodeEncoder.process(code)
     end
 
