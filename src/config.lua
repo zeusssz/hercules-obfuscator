@@ -10,6 +10,7 @@ config.settings = {
     final_print = true,
     VirtualMachine = {
         enabled = true,
+        incompatible_with = {"luau", "glua"},
     },
     antitamper = {
         enabled = true,
@@ -49,6 +50,7 @@ config.settings = {
     },
     bytecode_encoding = {
         enabled = true,
+        incompatible_with = {"luau", "glua"},
     },
     compressor = {
         enabled = true,
