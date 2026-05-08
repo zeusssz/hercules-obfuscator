@@ -232,12 +232,12 @@ local obfuscation_flags = {
     { flags = {"-se", "--string_encoding"}, description = "Enable string encoding" },
     { flags = {"-vr", "--variable_renaming"}, description = "Enable variable renaming" },
     { flags = {"-gci", "--garbage_code"}, description = "Enable garbage code injection" },
-    { flags = {"-opi", "--opaque_preds"}, description = "Enable opaque predicates injection" },
-    { flags = {"-be", "--bytecode_encoder"}, description = "Enable bytecode encoding" },
-    { flags = {"-st", "--string_to_expr"}, description = "Enable string to expression conversion" },
+    { flags = {"-opi", "--opaque_predicates"}, description = "Enable opaque predicates injection" },
+    { flags = {"-be", "--bytecode_encoding"}, description = "Enable bytecode encoding" },
+    { flags = {"-st", "--string_to_expressions"}, description = "Enable string to expression conversion" },
     { flags = {"-vm", "--virtual_machine"}, description = "Enable virtual machine transformation" },
-    { flags = {"-wif", "--wrap_in_func"}, description = "Enable function wrapping" },
-    { flags = {"-fi", "--func_inlining"}, description = "Enable function inlining" },
+    { flags = {"-wif", "--wrap_in_function"}, description = "Enable function wrapping" },
+    { flags = {"-fi", "--function_inlining"}, description = "Enable function inlining" },
     { flags = {"-dc", "--dynamic_code"}, description = "Enable dynamic code generation" },
     { flags = {"-c", "--compressor"}, description = "Enable compressor" },
     { flags = {"-at", "--antitamper"}, description = "Enable antitamper" }
@@ -382,17 +382,17 @@ local function main()
             features.variable_renaming = true
         elseif arg[i] == "-gci" or arg[i] == "--garbage_code" then
             features.garbage_code = true
-        elseif arg[i] == "-opi" or arg[i] == "--opaque_preds" then
+        elseif arg[i] == "-opi" or arg[i] == "--opaque_predicates" then
             features.opaque_predicates = true
-        elseif arg[i] == "-be" or arg[i] == "--bytecode_encoder" then
+        elseif arg[i] == "-be" or arg[i] == "--bytecode_encoding" then
             features.bytecode_encoding = true
-        elseif arg[i] == "-st" or arg[i] == "--string_to_expr" then
+        elseif arg[i] == "-st" or arg[i] == "--string_to_expressions" then
             features.StringToExpressions = true
         elseif arg[i] == "-vm" or arg[i] == "--virtual_machine" then
             features.VirtualMachine = true
-        elseif arg[i] == "-wif" or arg[i] == "--wrap_in_func" then
+        elseif arg[i] == "-wif" or arg[i] == "--wrap_in_function" then
             features.WrapInFunction = true
-        elseif arg[i] == "-fi" or arg[i] == "--func_inlining" then
+        elseif arg[i] == "-fi" or arg[i] == "--function_inlining" then
             features.function_inlining = true
         elseif arg[i] == "-dc" or arg[i] == "--dynamic_code" then
             features.dynamic_code = true
