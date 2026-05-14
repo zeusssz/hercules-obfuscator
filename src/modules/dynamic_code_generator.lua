@@ -106,8 +106,8 @@ function DynamicCodeGenerator.process(code)
                 local next_line = lines[j]
                 local trimmed = next_line:gsub("^%s*", ""):gsub("%s+$", "")
                 if trimmed == "" then break end
-                if trimmed == "end" or trimmed == "else" or trimmed:match("^then") or trimmed:match("^elseif") then break end
-                if trimmed:match("^local%s") then break end
+                if (trimmed == "end" or trimmed == "else" or trimmed:match("^then") or trimmed:match("^elseif")) and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
+                if trimmed:match("^local%s") and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
                 local last = table.concat(block_lines, " ")
                 local needs_cont = last:match("=%s*$") or last:match("{%s*$") or last:match(",%s*$")
                 if brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 and not needs_cont then break end
@@ -166,7 +166,15 @@ function DynamicCodeGenerator.process(code)
                 trailing_comment = full_stmt:sub(comment_start)
             end
 
-            if trailing_comment ~= "" then
+            -- Skip wrapping for statements containing function literals.
+            -- The do(function() ... end)() end wrapper adds 2 end keywords;
+            -- inner function(...) keyword consumes them and leaves do unclosed.
+            -- Output original lines to preserve formatting.
+            if clean_stmt:match("%f[%a]function%f[%A]") then
+                for k = i, j - 1 do
+                    table.insert(output, lines[k])
+                end
+            elseif trailing_comment ~= "" then
                 table.insert(output, ws .. "do (function() " .. clean_stmt .. " end)() end " .. trailing_comment)
             else
                 table.insert(output, ws .. "do (function() " .. clean_stmt .. " end)() end")

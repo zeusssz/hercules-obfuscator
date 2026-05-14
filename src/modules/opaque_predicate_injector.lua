@@ -234,18 +234,37 @@ function OpaquePredicateInjector.process(code)
             else
                 local block_lines = {line}
                 local j = i + 1
+                local brace_depth = 0
+                local bracket_depth = 0
+                local paren_depth = 0
+                for ch in line:gmatch(".") do
+                    if ch == "{" then brace_depth = brace_depth + 1
+                    elseif ch == "}" then brace_depth = brace_depth - 1
+                    elseif ch == "[" then bracket_depth = bracket_depth + 1
+                    elseif ch == "]" then bracket_depth = bracket_depth - 1
+                    elseif ch == "(" then paren_depth = paren_depth + 1
+                    elseif ch == ")" then paren_depth = paren_depth - 1 end
+                end
                 while j <= #lines do
                     local next_line = lines[j]
                     local next_trimmed = next_line:gsub("^%s*", ""):gsub("%s+$", "")
                     if next_trimmed == "" then break end
-                    if next_trimmed == "end" or next_trimmed == "else" or next_trimmed:match("^then") or next_trimmed:match("^elseif") then break end
-                    if next_trimmed:match("^local%s") then break end
+                    if (next_trimmed == "end" or next_trimmed == "else" or next_trimmed:match("^then") or next_trimmed:match("^elseif")) and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
+                    if next_trimmed:match("^local%s") and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
                     local last = block_lines[#block_lines]:gsub("^%s*", ""):gsub("%s+$", "")
                     local needs_continuation = next_trimmed:match("^:") or last:match("=%s*$") or last:match("{%s*$") or last:match(",%s*$")
                     local combined = table.concat(block_lines, " ") .. " " .. next_trimmed
                     table.insert(block_lines, next_line)
+                    for ch in next_line:gmatch(".") do
+                        if ch == "{" then brace_depth = brace_depth + 1
+                        elseif ch == "}" then brace_depth = brace_depth - 1
+                        elseif ch == "[" then bracket_depth = bracket_depth + 1
+                        elseif ch == "]" then bracket_depth = bracket_depth - 1
+                        elseif ch == "(" then paren_depth = paren_depth + 1
+                        elseif ch == ")" then paren_depth = paren_depth - 1 end
+                    end
                     j = j + 1
-                    if isBalanced(combined) and not needs_continuation then break end
+                    if isBalanced(combined) and not needs_continuation and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
                 end
 
                 inject_count = inject_count + 1
