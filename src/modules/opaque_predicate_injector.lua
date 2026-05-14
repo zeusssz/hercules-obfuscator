@@ -101,8 +101,10 @@ local SKIP_PATTERNS = {
     "^%s*%-%-",
     "^%s*if%s",
     "^%s*then%s*$",
+    "^%s*else[^%w_]",
     "^%s*else%s*$",
     "^%s*elseif%s",
+    "^%s*end[^%w_]",
     "^%s*end%s*$",
     "^%s*for%s",
     "^%s*while%s",
@@ -113,6 +115,8 @@ local SKIP_PATTERNS = {
     "^%s*local%s+function%s",
     "^%s*local%s+.-%s*=%s*function%s",
     "^%s*module%s",
+    "^%s*break[^%w_]",
+    "^%s*break%s*$",
     "^%s*return%s",
 }
 

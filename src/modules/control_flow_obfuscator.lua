@@ -53,12 +53,12 @@ local function controlFlow(code, n, a, depth, depth_values)
 
     if depth == (#code - 1) then
         src = src .. string.format("        %s\n", generateSpoof())
-        src = src .. string.format("    else\n        %s\n        break\n", code[1])
+        src = src .. string.format("    else\n        do\n            %s\n        end\n        break\n", code[1])
         table.remove(code, 1)
     else
         local sub_src, new_n, new_a = controlFlow(code, n, a, depth + 1, depth_values)
         src = src .. string.format("        %s\n", generateSpoof())
-        src = src .. string.format("    else\n        %s\n        break\n", sub_src)
+        src = src .. string.format("    else\n        do\n            %s\n        end\n        break\n", sub_src)
         n = new_n
         a = new_a
     end
