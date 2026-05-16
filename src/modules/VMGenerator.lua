@@ -232,7 +232,10 @@ function VM.process(source)
     _G.UsedOps = _G.UsedOps or {}
     _G.UsedOps[0] = 0;
     _G.UsedOps[4] = 4;
-    source = generate(compile(source), _G.UsedOps)
+    local ok, compiled = pcall(compile, source)
+    if ok then
+        source = generate(compiled, _G.UsedOps)
+    end
     return source
 end;
 return VM
