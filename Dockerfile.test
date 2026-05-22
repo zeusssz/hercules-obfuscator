@@ -1,0 +1,13 @@
+FROM hercules-api:gmod_base
+
+WORKDIR /repo
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libtcmalloc-minimal4:i386 && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY . /repo
+RUN mkdir -p /opt/gmod/garrysmod/lua/autorun && \
+    cp /repo/tests/gmod_test_runner.lua /opt/gmod/garrysmod/lua/autorun/hercules_test_runner.lua
+
+CMD ["python3", "tests/comprehensive_runner.py"]

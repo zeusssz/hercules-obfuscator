@@ -46,12 +46,37 @@ local NATIVE_FUNCS_LUAU = {
     "os.clock", "os.date", "os.difftime", "os.time",
 }
 
+local NATIVE_FUNCS_GLUA = {
+    -- GMod runs a sandboxed Lua 5.1 environment and does not expose every
+    -- standard Lua function available while Hercules itself is running.
+    "assert", "error", "pcall", "xpcall", "type", "tostring", "tonumber",
+    "select", "next", "rawget", "rawset", "rawequal", "setmetatable", "getmetatable",
+    "loadstring",
+    "string.byte", "string.char", "string.find", "string.format",
+    "string.gmatch", "string.gsub", "string.len", "string.lower", "string.match",
+    "string.rep", "string.reverse", "string.sub", "string.upper",
+    "table.insert", "table.remove", "table.sort", "table.concat",
+    "math.abs", "math.acos", "math.asin", "math.atan", "math.ceil", "math.cos",
+    "math.deg", "math.exp", "math.floor", "math.fmod", "math.max", "math.min",
+    "math.modf", "math.rad", "math.sin", "math.sqrt", "math.tan",
+    "os.clock", "os.date", "os.difftime", "os.time",
+    "debug.getinfo", "debug.traceback",
+}
+
 -- Check if a metamethod is set (potential tampering via __index/__newindex)
 local META_METHODS = {"__index", "__newindex", "__metatable", "__call"}
 local META_TABLES = {"string", "table", "math", "os"}
 
 function AntiTamper.process(code)
-    local NATIVE_FUNCS = config.target == "luau" and NATIVE_FUNCS_LUAU or NATIVE_FUNCS_LUA
+    local NATIVE_FUNCS = NATIVE_FUNCS_LUA
+    local debug_keys = '{"getinfo","getlocal","getupvalue","traceback","sethook","setupvalue"}'
+    if config.target == "luau" then
+        NATIVE_FUNCS = NATIVE_FUNCS_LUAU
+        debug_keys = '{"info","traceback"}'
+    elseif config.target == "glua" then
+        NATIVE_FUNCS = NATIVE_FUNCS_GLUA
+        debug_keys = '{"getinfo","traceback"}'
+    end
 
     -- Capture the current state of critical functions as the baseline
     local func_refs = {}
@@ -145,7 +170,7 @@ do
                     local mf=RG(mt,parts[2])
                     if mf then
                         local expected=_MFR[tname]
-                        if T(mf)~=T(expected) then
+                        if T(mf)~=expected then
                             E("Tamper Detected! Reason: Metamethod tampered: "..tname)
                             return
                         end
@@ -166,7 +191,7 @@ do
     end
     check()
 end
-]=], func_refs_str, meta_refs_str, config.target == "luau" and '{"info","traceback"}' or '{"getinfo","getlocal","getupvalue","traceback","sethook","setupvalue"}')
+]=], func_refs_str, meta_refs_str, debug_keys)
 
     return anti_tamper_code .. "\n" .. code
 end
