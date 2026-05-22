@@ -1,4 +1,85 @@
-FROM hercules-api:gmod_base
+FROM debian:trixie AS builder
+
+WORKDIR /app
+
+# Enable 32-bit architecture for SteamCMD
+RUN dpkg --add-architecture i386 && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential python3-dev \
+        git lua5.1 lua5.4 liblua5.4-dev luarocks \
+        wget curl ca-certificates \
+        xz-utils \
+        lib32gcc-s1 \
+        lib32stdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install luacheck
+RUN luarocks install luacheck
+
+# Install Luau interpreter for Luau syntax validation
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends cmake ninja-build && \
+    git clone https://github.com/Roblox/luau.git /tmp/luau && \
+    cd /tmp/luau && \
+    sed -i '1i #include <algorithm>' CodeGen/src/OptimizeDeadStore.cpp && \
+    cmake -DCMAKE_BUILD_TYPE=Release -G Ninja -B build && \
+    cmake --build build && \
+    cp build/luau /usr/local/bin/luau && \
+    cp build/luau-analyze /usr/local/bin/luau-analyze && \
+    rm -rf /tmp/luau && \
+    apt-get remove -y cmake ninja-build && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install glualint for GLua syntax validation
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends unzip && \
+    wget -O /tmp/glualint.zip https://github.com/FPtje/GLuaFixer/releases/download/1.29.0/glualint-1.29.0-x86_64-linux.zip && \
+    unzip -o /tmp/glualint.zip -d /usr/local/bin && \
+    chmod +x /usr/local/bin/glualint && \
+    rm /tmp/glualint.zip && \
+    apt-get remove -y unzip && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
+
+# Fix luacheck wrapper to not depend on luarocks
+RUN LUACHECK_MODULES=$(find /usr/local/share/lua/5.1 -name "luacheck" -type d 2>/dev/null | head -1) && \
+    if [ -n "$LUACHECK_MODULES" ]; then \
+        printf '#!/usr/bin/lua5.1\npackage.path="/usr/local/share/lua/5.1/?.lua;/usr/local/share/lua/5.1/?/init.lua;"..package.path\nrequire("luacheck.main")\n' > /usr/local/bin/luacheck && \
+        chmod +x /usr/local/bin/luacheck; \
+    fi
+
+# Install SteamCMD
+RUN mkdir -p /opt/steamcmd && \
+    curl -sL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | \
+    tar -xz -C /opt/steamcmd
+
+# Download GMod dedicated server (app 4020) with retry logic
+# The "Missing configuration" error is a transient Steam CDN issue
+RUN for i in 1 2 3; do \
+        /opt/steamcmd/steamcmd.sh \
+            +force_install_dir /opt/gmod \
+            +login anonymous \
+            +app_update 4020 validate \
+            +quit 2>&1 && break; \
+        echo "GMod download attempt $i failed, retrying in 10s..."; \
+        sleep 10; \
+    done; \
+    if [ ! -f /opt/gmod/srcds_run ]; then \
+        echo "GMod download failed after 3 attempts"; \
+        exit 1; \
+    fi
+
+RUN rm -rf /opt/steamcmd
+
+# Create helper script for running GLua code via GMod server
+RUN echo '#!/bin/sh' > /usr/local/bin/lua_openscript && \
+    echo '# Run a Lua file using Garry Mods GLua runtime' >> /usr/local/bin/lua_openscript && \
+    echo 'exec /opt/gmod/srcds_run -console -game garrysmod +lua_openscript "$@" +quit' >> /usr/local/bin/lua_openscript && \
+    chmod +x /usr/local/bin/lua_openscript
+
+FROM builder AS test
 
 WORKDIR /repo
 
