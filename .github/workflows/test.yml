@@ -9,10 +9,15 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DOCKER_DEFAULT_PLATFORM: linux/amd64
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Require amd64 runner
+        run: test "$(uname -m)" = "x86_64"
 
       - name: Run test suite
         run: make test
