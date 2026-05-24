@@ -15,6 +15,7 @@ end
 
 local Pipeline = require("pipeline")
 local config = require("config")
+local manifest = require("manifest")
 -- utils
 
 local function filesize(file)
@@ -48,6 +49,66 @@ local colors = {
 }
 
 local obfuscated_list = {}
+
+local function json_escape(value)
+    return tostring(value)
+        :gsub('\\', '\\\\')
+        :gsub('"', '\\"')
+        :gsub('\n', '\\n')
+        :gsub('\r', '\\r')
+        :gsub('\t', '\\t')
+end
+
+local function json_value(value)
+    local value_type = type(value)
+    if value_type == "string" then
+        return '"' .. json_escape(value) .. '"'
+    elseif value_type == "number" or value_type == "boolean" then
+        return tostring(value)
+    elseif value_type == "table" then
+        local parts = {}
+        for k, v in pairs(value) do
+            if type(v) ~= "function" then
+                parts[#parts + 1] = '"' .. json_escape(k) .. '":' .. json_value(v)
+            end
+        end
+        return "{" .. table.concat(parts, ",") .. "}"
+    end
+    return "null"
+end
+
+local function json_array(values)
+    local parts = {}
+    for _, value in ipairs(values or {}) do
+        parts[#parts + 1] = json_value(value)
+    end
+    return "[" .. table.concat(parts, ",") .. "]"
+end
+
+local function printManifestJson()
+    local methods = {}
+    for _, method in ipairs(manifest.modules_by_bit_position()) do
+        methods[#methods + 1] = "{" .. table.concat({
+            '"key":' .. json_value(method.key),
+            '"config_key":' .. json_value(method.config_key),
+            '"name":' .. json_value(method.name),
+            '"module":' .. json_value(method.module),
+            '"enabled":' .. json_value(method.enabled),
+            '"bit_position":' .. json_value(method.bit_position),
+            '"pipeline_order":' .. json_value(method.pipeline_order),
+            '"cli":' .. json_value(method.cli or {}),
+            '"incompatible_with":' .. json_array(method.incompatible_with),
+            '"settings":' .. json_value(method.settings or {}),
+            '"description":' .. json_value(method.description or ""),
+        }, ",") .. "}"
+    end
+
+    print("{" .. table.concat({
+        '"version":' .. json_value(manifest.version),
+        '"output":' .. json_value(manifest.output),
+        '"modules":[' .. table.concat(methods, ",") .. "]",
+    }, ",") .. "}")
+end
 
 local BANNER = colors.blue .. [[
                                 _                      _        __   
@@ -152,20 +213,13 @@ local function printCliResult(input, output, time, options)
 
     local settings = {
         { "Watermark", config.get("settings.watermark_enabled") },
-        { "String To Expressions", config.get("settings.StringToExpressions.enabled") },
-        { "Control Flow", config.get("settings.control_flow.enabled") },
-        { "String Encoding", config.get("settings.string_encoding.enabled") },
-        { "Variable Renaming", config.get("settings.variable_renaming.enabled") },
-        { "Garbage Code", config.get("settings.garbage_code.enabled") },
-        { "Opaque Predicates", config.get("settings.opaque_predicates.enabled") },
-        { "Function Inlining", config.get("settings.function_inlining.enabled") },
-        { "Dynamic Code", config.get("settings.dynamic_code.enabled") },
-        { "Bytecode Encoding", config.get("settings.bytecode_encoding.enabled") },
-        { "Compressor", config.get("settings.compressor.enabled") },
-        { "Function Wrapping", config.get("settings.WrapInFunction.enabled") },
-        { "Virtual Machine", config.get("settings.VirtualMachine.enabled") },
-        { "Anti Tamper", config.get("settings.antitamper.enabled") },
     }
+    for _, method in ipairs(manifest.modules_by_bit_position()) do
+        settings[#settings + 1] = {
+            method.name,
+            config.get("settings." .. method.config_key .. ".enabled"),
+        }
+    end
 
     local max_length = 0
     for _, setting in ipairs(settings) do
@@ -219,7 +273,11 @@ local function printUsage()
         { flags = {"--overwrite", ""}, description = "Overwrites the original file with obfuscated code" },
         { flags = {"--folder", ""}, description = "Process all Lua files in the given folder" },
         { flags = {"--sanity", ""}, description = "Check if obfuscated code output matches original" },
-        { flags = {"--target <t>", ""}, description = "Target runtime: 'lua', 'luau' (Roblox), or 'glua' (Garry's Mod)" }
+        { flags = {"--target <t>", ""}, description = "Target runtime: 'lua', 'luau' (Roblox), or 'glua' (Garry's Mod)" },
+        { flags = {"--watermark <text>", ""}, description = "Use custom watermark text for this run" },
+        { flags = {"--watermark-file <path>", ""}, description = "Use a custom watermark module file for this run" },
+        { flags = {"--no-watermark", ""}, description = "Disable watermark output for this run" },
+        { flags = {"--manifest-json", ""}, description = "Print API manifest JSON and exit" }
     }
     for _, flag in ipairs(general_flags) do
         print(colors.cyan .. flag.flags[1] .. flag.flags[2] .. colors.green .. string.rep(" ", 20 - #flag.flags[1] - #flag.flags[2]) .. flag.description .. colors.reset)
@@ -227,21 +285,13 @@ local function printUsage()
 
     print(colors.white .. "\nObfuscation Flags:" .. colors.reset)
 
-local obfuscation_flags = {
-    { flags = {"-cf", "--control_flow"}, description = "Enable control flow obfuscation" },
-    { flags = {"-se", "--string_encoding"}, description = "Enable string encoding" },
-    { flags = {"-vr", "--variable_renaming"}, description = "Enable variable renaming" },
-    { flags = {"-gci", "--garbage_code"}, description = "Enable garbage code injection" },
-    { flags = {"-opi", "--opaque_predicates"}, description = "Enable opaque predicates injection" },
-    { flags = {"-be", "--bytecode_encoding"}, description = "Enable bytecode encoding" },
-    { flags = {"-st", "--string_to_expressions"}, description = "Enable string to expression conversion" },
-    { flags = {"-vm", "--virtual_machine"}, description = "Enable virtual machine transformation" },
-    { flags = {"-wif", "--wrap_in_function"}, description = "Enable function wrapping" },
-    { flags = {"-fi", "--function_inlining"}, description = "Enable function inlining" },
-    { flags = {"-dc", "--dynamic_code"}, description = "Enable dynamic code generation" },
-    { flags = {"-c", "--compressor"}, description = "Enable compressor" },
-    { flags = {"-at", "--antitamper"}, description = "Enable antitamper" }
-}
+local obfuscation_flags = {}
+for _, method in ipairs(manifest.modules_by_bit_position()) do
+    obfuscation_flags[#obfuscation_flags + 1] = {
+        flags = { method.cli.short, method.cli.long },
+        description = method.description,
+    }
+end
 
 local max_flag_length = 0
 for _, flag in ipairs(obfuscation_flags) do
@@ -326,6 +376,11 @@ local function detect_target(code)
 end
 
 local function main()
+    if #arg == 1 and arg[1] == "--manifest-json" then
+        printManifestJson()
+        return
+    end
+
     if #arg < 1 then
         print(colors.red .. "Error: No input file specified" .. colors.reset)
         printUsage()
@@ -346,23 +401,15 @@ local function main()
         sanity_check = false,
         target = nil,
         target_override = false,
+        watermark = nil,
+        watermark_file = nil,
+        no_watermark = false,
     }
 
-    local features = {
-        control_flow = false,
-        string_encoding = false,
-        variable_renaming = false,
-        garbage_code = false,
-        opaque_predicates = false,
-        bytecode_encoding = false,
-        compressor = false,
-        StringToExpressions = false,
-        VirtualMachine = false,
-        WrapInFunction = false,
-        function_inlining = false,
-        dynamic_code = false,
-        antitamper = false,
-    }
+    local features = {}
+    for _, method in ipairs(manifest.modules) do
+        features[method.config_key] = false
+    end
 
     local i = 2
     while i <= #arg do
@@ -372,32 +419,31 @@ local function main()
             options.folder_mode = true
         elseif arg[i] == "--sanity" then
             options.sanity_check = true
-        elseif arg[i] == "-cf" or arg[i] == "--control_flow" then
-            features.control_flow = true
-        elseif arg[i] == "-c" or arg[i] == "--compressor" then
-            features.compressor = true
-        elseif arg[i] == "-se" or arg[i] == "--string_encoding" then
-            features.string_encoding = true
-        elseif arg[i] == "-vr" or arg[i] == "--variable_renaming" then
-            features.variable_renaming = true
-        elseif arg[i] == "-gci" or arg[i] == "--garbage_code" then
-            features.garbage_code = true
-        elseif arg[i] == "-opi" or arg[i] == "--opaque_predicates" then
-            features.opaque_predicates = true
-        elseif arg[i] == "-be" or arg[i] == "--bytecode_encoding" then
-            features.bytecode_encoding = true
-        elseif arg[i] == "-st" or arg[i] == "--string_to_expressions" then
-            features.StringToExpressions = true
-        elseif arg[i] == "-vm" or arg[i] == "--virtual_machine" then
-            features.VirtualMachine = true
-        elseif arg[i] == "-wif" or arg[i] == "--wrap_in_function" then
-            features.WrapInFunction = true
-        elseif arg[i] == "-fi" or arg[i] == "--function_inlining" then
-            features.function_inlining = true
-        elseif arg[i] == "-dc" or arg[i] == "--dynamic_code" then
-            features.dynamic_code = true
-        elseif arg[i] == "-at" or arg[i] == "--antitamper" then
-            features.antitamper = true
+        elseif arg[i] == "--no-watermark" then
+            options.no_watermark = true
+        elseif arg[i] == "--watermark" then
+            local next_arg = arg[i + 1]
+            if next_arg and next_arg ~= "" then
+                options.watermark = next_arg
+                i = i + 1
+            else
+                print(colors.red .. "Error: --watermark requires text" .. colors.reset)
+                printUsage()
+                os.exit(1)
+            end
+        elseif arg[i] == "--watermark-file" then
+            local next_arg = arg[i + 1]
+            if next_arg and next_arg ~= "" then
+                options.watermark_file = next_arg
+                i = i + 1
+            else
+                print(colors.red .. "Error: --watermark-file requires a path" .. colors.reset)
+                printUsage()
+                os.exit(1)
+            end
+        elseif manifest.find_by_flag(arg[i]) then
+            local method = manifest.find_by_flag(arg[i])
+            features[method.config_key] = true
         elseif arg[i] == "--min" then
             options.preset_level = "min"
         elseif arg[i] == "--mid" then
@@ -457,11 +503,14 @@ local function main()
         end
     end
 
-    -- Set target and disable VM/bytecode modules for Luau/GLua (incompatible bytecode)
-    config.target = options.target
-    if options.target == "luau" or options.target == "glua" then
-        config.settings.VirtualMachine.enabled = false
-        config.settings.bytecode_encoding.enabled = false
+    if options.no_watermark then
+        config.set("settings.watermark_text", "")
+        config.set("settings.watermark_module_file", nil)
+    elseif options.watermark_file ~= nil then
+        config.set("settings.watermark_module_file", options.watermark_file)
+    elseif options.watermark ~= nil then
+        config.set("settings.watermark_text", options.watermark)
+        config.set("settings.watermark_module_file", nil)
     end
 
     local files = {}
@@ -507,6 +556,13 @@ local function main()
         end
         if not options.target then
             options.target = "lua"
+        end
+
+        config.target = options.target
+        for _, method in ipairs(manifest.modules) do
+            if manifest.is_incompatible(method, options.target) then
+                config.settings[method.config_key].enabled = false
+            end
         end
 
         -- Luau/GLua compatibility: replace load() with loadstring()

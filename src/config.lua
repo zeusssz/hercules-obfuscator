@@ -1,61 +1,25 @@
 -- config.lua
 
+local manifest = require("manifest")
+
 local config = {}
 
-config.target = "lua"  -- "lua" or "luau"
+config.target = "lua"  -- "lua", "luau", or "glua"
 
 config.settings = {
-    output_suffix = "_obfuscated.lua",
-    watermark_enabled = true,
-    final_print = true,
-    VirtualMachine = {
-        enabled = true,
-        incompatible_with = {"luau", "glua"},
-    },
-    antitamper = {
-        enabled = true,
-    },
-    control_flow = {
-        enabled = true,
-        max_fake_blocks = 6,
-    },
-    StringToExpressions = {
-        enabled = true,
-        min_number_length = 100,
-        max_number_length = 999,
-    },
-    string_encoding = {
-        enabled = true,
-    },
-    WrapInFunction = {
-        enabled = true,
-    },
-    variable_renaming = {
-        enabled = true,
-        min_name_length = 8,
-        max_name_length = 12,
-    },
-    garbage_code = {
-        enabled = true,
-        garbage_blocks = 20,
-    },
-    opaque_predicates = {
-        enabled = true,
-    },
-    function_inlining = {
-        enabled = true,
-    },
-    dynamic_code = {
-        enabled = true,
-    },
-    bytecode_encoding = {
-        enabled = true,
-        incompatible_with = {"luau", "glua"},
-    },
-    compressor = {
-        enabled = true,
-    }
+    output_suffix = manifest.output.suffix,
+    watermark_enabled = manifest.output.watermark_enabled,
+    watermark_text = manifest.output.watermark_text,
+    watermark_module_file = nil,
+    final_print = manifest.output.final_print,
 }
+
+for _, method in ipairs(manifest.modules) do
+    local settings = manifest.copy(method.settings or {})
+    settings.enabled = method.enabled
+    settings.incompatible_with = manifest.copy(method.incompatible_with or {})
+    config.settings[method.config_key] = settings
+end
 
 function config.get(key)
     local keys = {}
@@ -84,7 +48,7 @@ function config.set(key, new_value)
     end
 
     local last_key = keys[#keys]
-    if value[last_key] ~= nil then
+    if value[last_key] ~= nil or last_key == "watermark_module_file" then
         value[last_key] = new_value
         return true
     else

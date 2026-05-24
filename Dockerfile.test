@@ -91,4 +91,4 @@ COPY . /repo
 RUN mkdir -p /opt/gmod/garrysmod/lua/autorun && \
     cp /repo/tests/gmod_test_runner.lua /opt/gmod/garrysmod/lua/autorun/hercules_test_runner.lua
 
-CMD ["python3", "tests/comprehensive_runner.py"]
+CMD ["sh", "-c", "lua5.4 tests/test_manifest.lua && lua5.4 tests/test.lua --verbose && python3 tests/comprehensive_runner.py"]

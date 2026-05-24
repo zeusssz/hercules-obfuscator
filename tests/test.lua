@@ -5,6 +5,8 @@
 -- Run from src/:  lua test.lua
 
 -- ─── Polyfills for Lua 5.4 (math.ldexp/frexp removed in 5.3+) ─────────────────
+package.path = "./src/?.lua;./src/?/init.lua;./tests/?.lua;./tests/?/init.lua;" .. package.path
+
 if not math.ldexp then
     math.ldexp = function(x, n) return x * 2 ^ n end
 end

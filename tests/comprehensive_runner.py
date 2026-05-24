@@ -279,7 +279,11 @@ def validate_glua(code, expected, combo_id):
 
     lua_file = GMOD_DIR / f"c{combo_id}.lua"
     result_file = GMOD_DIR / f"c{combo_id}.lua.result.txt"
-    lua_file.write_text(code, encoding="utf-8")
+    staging_file = GMOD_DIR / f"c{combo_id}.staging.txt"
+    lua_file.unlink(missing_ok=True)
+    result_file.unlink(missing_ok=True)
+    staging_file.write_text(code, encoding="utf-8")
+    staging_file.replace(lua_file)
 
     start = time.time()
     while time.time() - start < GMOD_FILE_TIMEOUT:
