@@ -396,34 +396,27 @@ for m = 1, NUM_MODULES do
     end)
 end
 
--- Phase 4: Fixture-specific full combination sweep (--fixture <name>)
-local function register_fixture_sweep(fixture_name, fixture)
-    register("fixture_sweep_" .. fixture_name, function()
-        local pass, fail = 0, 0
-        for mask = 1, NUM_COMBOS - 1 do
-            local mods = mask_to_modules(mask)
-            set_all_modules(mask)
+local function shell_quote(value)
+    return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
 
-            local ok, result = pcall(function() return Pipeline.process(fixture.code) end)
-            if not ok or type(result) ~= "string" then
-                fail = fail + 1
-            else
-                local load_ok = load(result, "=test", "t") ~= nil
-                if not load_ok then
-                    fail = fail + 1
-                else
-                    local out, err = capture_output(result)
-                    if err or out ~= fixture.expected then
-                        fail = fail + 1
-                    else
-                        pass = pass + 1
-                    end
-                end
-            end
-        end
-        io.write(string.format("  %s: %d/%d combos pass\n", fixture_name, pass, NUM_COMBOS - 1))
-        if fail > 0 then
-            error(string.format("%d combinations failed for fixture %s", fail, fixture_name))
+-- Phase 4: Fixture-specific full combination sweep (--fixture <name>)
+local function register_fixture_sweep(fixture_name, _fixture)
+    register("fixture_sweep_" .. fixture_name, function()
+        local python = os.getenv("PYTHON_BIN") or "python3"
+        local command = string.format(
+            "%s tests/fixture_sweep_parallel.py %s",
+            shell_quote(python),
+            shell_quote(fixture_name)
+        )
+        local ok, exit_type, code = os.execute(command)
+        if ok ~= true then
+            error(string.format(
+                "fixture sweep failed for %s (%s %s)",
+                fixture_name,
+                tostring(exit_type),
+                tostring(code)
+            ))
         end
     end)
 end
