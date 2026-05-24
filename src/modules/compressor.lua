@@ -84,12 +84,12 @@ function Compressor.process(code)
     code = code:gsub("--%[%[.-%]%]", "")
     code = code:gsub("%-%-[^\n]*", "")
 
-    code = code:gsub("[\n\r]+", " ")
-    code = code:gsub("%s+", " ")
+    code = code:gsub("[ \t]+", " ")
+    code = code:gsub("[ \t]*[\n\r]+[ \t]*", "\n")
 
-    code = code:gsub("%s*%.%.%s*", "..")
-    code = code:gsub("%s*([%+%-%*/%%\\^#%<%>%~%=%,%;:%(%){}%[%]])%s*", "%1")
-    code = code:gsub("%s*%.%s*", ".")
+    code = code:gsub("[ \t]*%.%.[ \t]*", "..")
+    code = code:gsub("[ \t]*([%+%-%*/%%\\^#%<%>%~%=%,%;:%(%){}%[%]])[ \t]*", "%1")
+    code = code:gsub("[ \t]*%.[ \t]*", ".")
     code = code:gsub("%.%.", "..")
 
     code = code:match("^%s*(.-)%s*$") or ""

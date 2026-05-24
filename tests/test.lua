@@ -443,6 +443,96 @@ register("config_get_set", function()
     assert(config.set("settings.nonexistent.key", true) == false)
 end)
 
+register("compressor_statement_boundaries", function()
+    local Compressor = require("modules/compressor")
+    local source = [[
+local a = 1
+local b = 2
+print(a + b)
+]]
+    local compressed = Compressor.process(source)
+    local fn, load_err = load(compressed, "=compressor_statement_boundaries", "t")
+    assert(fn, tostring(load_err) .. "\n" .. compressed)
+    local out, exec_err = capture_output(compressed)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "3", string.format("expected 3, got %q", tostring(out)))
+end)
+
+register("compressor_realistic_glua_syntax", function()
+    local Compressor = require("modules/compressor")
+    local source = [[
+hook.Add("PlayerSpawn", "DetectionTestHook", function(ply)
+    if not IsValid(ply) then return end
+    local t = CurTime()
+    ply:SetNWFloat("spawn_time", t)
+    print("[GLuaTest] Player spawned at:", t)
+end)
+
+ENT = ENT or {}
+ENT.Type = "anim"
+ENT.Base = "base_gmodentity"
+
+function ENT:Initialize()
+    self:SetModel("models/props_c17/oildrum001.mdl")
+    self:PhysicsInit(SOLID_VPHYSICS)
+    self:SetMoveType(MOVETYPE_VPHYSICS)
+    self:SetSolid(SOLID_VPHYSICS)
+end
+
+function ENT:Use(activator, caller)
+    if IsValid(activator) then
+        activator:ChatPrint("Entity used!")
+    end
+end
+
+if SERVER then
+    util.AddNetworkString("DetectionTestNet")
+    net.Receive("DetectionTestNet", function(len, ply)
+        print("[GLuaTest] Received net message from:", ply:Nick())
+    end)
+else
+    net.Start("DetectionTestNet")
+    net.SendToServer()
+end
+
+if CLIENT then
+    hook.Add("HUDPaint", "DetectionHUDTest", function()
+        draw.SimpleText(
+            "GLua Detection Test",
+            "DermaDefault",
+            100,
+            100,
+            Color(255, 255, 255, 255)
+        )
+    end)
+end
+
+local crc = util.CRC("glua_detection_test")
+print("[GLuaTest] CRC:", crc)
+print("[GLuaTest] CurTime:", CurTime())
+]]
+    local compressed = Compressor.process(source)
+    local fn, load_err = load(compressed, "=compressor_realistic_glua_syntax", "t")
+    assert(fn, tostring(load_err) .. "\n" .. compressed)
+end)
+
+register("opaque_predicates_realistic_glua_syntax", function()
+    local OpaquePredicateInjector = require("modules/opaque_predicate_injector")
+    local source = [[
+hook.Add("PlayerSpawn", "DetectionTestHook", function(ply)
+    if not IsValid(ply) then return end
+
+    local t = CurTime()
+    ply:SetNWFloat("spawn_time", t)
+
+    print("[GLuaTest] Player spawned at:", t)
+end)
+]]
+    local output = OpaquePredicateInjector.process(source)
+    local fn, load_err = load(output, "=opaque_predicates_realistic_glua_syntax", "t")
+    assert(fn, tostring(load_err) .. "\n" .. output)
+end)
+
 -- ─── Main ──────────────────────────────────────────────────────────────────────
 local function main()
     local filters, group, list_only, verbose, quick, fixture_filter = parse_args()

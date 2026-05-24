@@ -216,7 +216,7 @@ function OpaquePredicateInjector.process(code)
                 end
                 while i <= #lines and (brace_depth > 0 or bracket_depth > 0 or paren_depth > 0) do
                     local next_trimmed = lines[i]:gsub("^%s*", ""):gsub("%s+$", "")
-                    if next_trimmed == "" then break end
+                    if next_trimmed == "" and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
                     table.insert(skip_block, lines[i])
                     for ch in lines[i]:gmatch(".") do
                         if ch == "{" then brace_depth = brace_depth + 1
@@ -248,7 +248,7 @@ function OpaquePredicateInjector.process(code)
                 while j <= #lines do
                     local next_line = lines[j]
                     local next_trimmed = next_line:gsub("^%s*", ""):gsub("%s+$", "")
-                    if next_trimmed == "" then break end
+                    if next_trimmed == "" and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
                     if (next_trimmed == "end" or next_trimmed == "else" or next_trimmed:match("^then") or next_trimmed:match("^elseif")) and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
                     if next_trimmed:match("^local%s") and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
                     local last = block_lines[#block_lines]:gsub("^%s*", ""):gsub("%s+$", "")
