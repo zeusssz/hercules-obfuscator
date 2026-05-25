@@ -67,6 +67,21 @@ local function json_value(value)
         return tostring(value)
     elseif value_type == "table" then
         local parts = {}
+        local is_array = #value > 0
+        local count = 0
+        for k in pairs(value) do
+            if type(k) ~= "number" then
+                is_array = false
+                break
+            end
+            count = math.max(count, k)
+        end
+        if is_array then
+            for i = 1, count do
+                parts[#parts + 1] = json_value(value[i])
+            end
+            return "[" .. table.concat(parts, ",") .. "]"
+        end
         for k, v in pairs(value) do
             if type(v) ~= "function" then
                 parts[#parts + 1] = '"' .. json_escape(k) .. '":' .. json_value(v)
@@ -106,6 +121,8 @@ local function printManifestJson()
     print("{" .. table.concat({
         '"version":' .. json_value(manifest.version),
         '"output":' .. json_value(manifest.output),
+        '"presets":' .. json_value(manifest.presets),
+        '"language_detection":' .. json_value(manifest.language_detection),
         '"modules":[' .. table.concat(methods, ",") .. "]",
     }, ",") .. "}")
 end
@@ -309,66 +326,33 @@ os.exit(1)
 end
 
 -- ─── Target Auto-Detection ─────────────────────────────────────────────────────
--- Detects whether source code is written for Lua, Luau, or GLua (Garry's Mod)
--- by scanning for dialect-specific syntax patterns.
-
-local LUAU_PATTERNS = {
-    -- Type annotations: local x: string, function foo(x: number)
-    ":%s*string%s*[=%)]", ":%s*number%s*[=%)]", ":%s*boolean%s*[=%)]",
-    ":%s*table%s*[=%)]", ":%s*any%s*[=%)]", ":%s*nil%s*[=%)]",
-    -- Return type annotations: ) -> string (escape ) for Lua pattern)
-    "%)%s*%->",
-    -- Type aliases: type Foo =
-    "type%s+%w+%s*=",
-    -- String interpolation: `hello {world}`
-    "`[^`]*{[^}]+}",
-    -- If-expressions: = if cond then
-    "=%s*if%s+.+%s+then%s+",
-    -- Generalized iteration: for k, v in t do
-    "for%s+.+%s+in%s+%w+%s+do",
-    -- Binary/hex literals with underscores
-    "0[bB][01_]+", "0[xX][%x_]+", "[%d]_[%d]",
-}
-
-local GLUA_PATTERNS = {
-    -- GLua constructors
-    "Vector%s*%(", "Angle%s*%(", "Color%s*%(",
-    -- GLua globals
-    "IsValid%s*%(", "IsValidAndEnt%s*%(",
-    -- GLua libraries
-    "hook%.%w+", "timer%.%w+", "util%.%w+",
-    "player%.%w+", "game%.%w+", "ents%.%w+",
-    "umsg%.%w+", "usermessage%.%w+", "net%.%w+",
-    -- GLua callbacks
-    "GM:%w+", "GAMEMODE:%w+",
-    -- GLua environment globals
-    "SERVER%s*[=%)]", "CLIENT%s*[=%)]",
-}
-
-local function detect_target(code)
-    local luau_score = 0
-    local glua_score = 0
-
-    for _, pattern in ipairs(LUAU_PATTERNS) do
-        if code:match(pattern) then
-            luau_score = luau_score + 1
+-- The manifest owns target detection metadata so API and CLI stay in sync.
+local function score_language(code, language)
+    local detection = manifest.language_detection or {}
+    local language_config = ((detection.languages or {})[language] or {})
+    local score = 0
+    for _, item in ipairs(language_config.patterns or {}) do
+        local matched = item.lua_pattern and code:match(item.lua_pattern)
+        for _, pattern in ipairs(item.lua_patterns or {}) do
+            matched = matched or code:match(pattern)
+        end
+        if matched then
+            score = score + (item.weight or 1)
         end
     end
+    return score
+end
 
-    for _, pattern in ipairs(GLUA_PATTERNS) do
-        if code:match(pattern) then
-            glua_score = glua_score + 1
-        end
-    end
+local function detect_target(code, file_path)
+    local threshold = (manifest.language_detection or {}).threshold or 2
+    local luau_score = score_language(code, "luau")
+    local glua_score = score_language(code, "glua")
 
-    -- Also check for file extension hint
-    -- (this is checked separately in main())
-
-    if glua_score >= 2 then
+    if glua_score > luau_score and glua_score >= threshold then
         return "glua"
-    elseif luau_score >= 2 then
+    elseif luau_score > glua_score and luau_score >= threshold then
         return "luau"
-    elseif input and input:match("%.luau$") then
+    elseif file_path and file_path:match("%.luau$") then
         return "luau"
     end
 
@@ -552,7 +536,7 @@ local function main()
 
         -- Auto-detect target from source code (can be overridden with --target)
         if not options.target_override then
-            options.target = detect_target(code)
+            options.target = detect_target(code, file_path)
         end
         if not options.target then
             options.target = "lua"

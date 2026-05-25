@@ -43,6 +43,11 @@ local function validate_manifest_shape()
     assert_type(manifest.output.final_print, "boolean", "manifest.output.final_print")
     assert_type(manifest.modules, "table", "manifest.modules")
     assert(#manifest.modules > 0, "manifest.modules must not be empty")
+    assert_type(manifest.presets, "table", "manifest.presets")
+    assert(#manifest.presets > 0, "manifest.presets must not be empty")
+    assert_type(manifest.language_detection, "table", "manifest.language_detection")
+    assert_type(manifest.language_detection.threshold, "number", "manifest.language_detection.threshold")
+    assert_type(manifest.language_detection.languages, "table", "manifest.language_detection.languages")
 
     local seen = {
         key = {}, config_key = {}, module = {}, bit_position = {},
@@ -83,6 +88,41 @@ local function validate_manifest_shape()
         local ok, loaded = pcall(require, method.module)
         assert(ok, prefix .. ".module must be require-able: " .. tostring(loaded))
         assert_type(loaded.process, "function", prefix .. ".module.process")
+    end
+
+    local method_keys = seen.key
+    local preset_keys = {}
+    for index, preset in ipairs(manifest.presets) do
+        local prefix = "manifest.presets[" .. index .. "]"
+        assert_type(preset.key, "string", prefix .. ".key")
+        assert_type(preset.description, "string", prefix .. ".description")
+        assert_type(preset.methods, "table", prefix .. ".methods")
+        assert_snake_case(preset.key, prefix .. ".key")
+        assert_unique(preset_keys, preset.key, "preset key")
+        assert(#preset.methods > 0, prefix .. ".methods must not be empty")
+        for _, method_key in ipairs(preset.methods) do
+            assert(method_keys[method_key], prefix .. " references unknown method: " .. tostring(method_key))
+        end
+    end
+
+    for _, language in ipairs({ "luau", "glua" }) do
+        local language_config = manifest.language_detection.languages[language]
+        assert_type(language_config, "table", "manifest.language_detection.languages." .. language)
+        assert_type(language_config.patterns, "table", "manifest.language_detection.languages." .. language .. ".patterns")
+        assert(#language_config.patterns > 0, language .. " detection patterns must not be empty")
+        for index, item in ipairs(language_config.patterns) do
+            local prefix = "manifest.language_detection.languages." .. language .. ".patterns[" .. index .. "]"
+            assert_type(item.pattern, "string", prefix .. ".pattern")
+            assert(item.lua_pattern or item.lua_patterns, prefix .. " must define lua_pattern or lua_patterns")
+            assert_type(item.weight, "number", prefix .. ".weight")
+            assert_type(item.description, "string", prefix .. ".description")
+            assert(item.weight > 0, prefix .. ".weight must be positive")
+            local patterns = item.lua_patterns or { item.lua_pattern }
+            for _, pattern in ipairs(patterns) do
+                local ok, err = pcall(function() return (""):find(pattern) end)
+                assert(ok, prefix .. ".lua_pattern is invalid: " .. tostring(err))
+            end
+        end
     end
 end
 
@@ -125,6 +165,8 @@ local function test_dummy_module_cli_export()
     assert(ok, "manifest export command failed")
     assert(output:find('"key":"dummy_test_module"', 1, true), "dummy key missing from manifest JSON")
     assert(output:find('"long":"--dummy_test_module"', 1, true), "dummy CLI flag missing from manifest JSON")
+    assert(output:find('"presets"', 1, true), "presets missing from manifest JSON")
+    assert(output:find('"language_detection"', 1, true), "language detection missing from manifest JSON")
 end
 
 validate_manifest_shape()

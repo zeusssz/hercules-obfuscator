@@ -10,6 +10,10 @@ Top-level keys:
 - output: Global output defaults.
 - modules: Ordered module metadata. The table order is not semantically
   important; use bit_position for API bitkeys and pipeline_order for execution.
+- presets: Named method sets exposed by the API and CLI consumers.
+- language_detection: Weighted Lua/Luau/GLua detection patterns. `pattern` is a
+  Python-compatible regex for API consumers; `lua_pattern` or `lua_patterns` are
+  Lua patterns used by this CLI.
 
 output keys:
 - suffix: Default suffix for generated files when not overwriting.
@@ -49,6 +53,108 @@ manifest.output = {
     watermark_enabled = true,
     watermark_text = "--[Obfuscated by Hercules v2.0.0 | hercules-obfuscator.xyz/discord | hercules-obfuscator.xyz/source]\n",
     final_print = true,
+}
+
+manifest.presets = {
+    {
+        key = "light",
+        description = "Renames symbols + compresses output - minimal overhead",
+        methods = {
+            "variable_renaming",
+            "compressor",
+        },
+    },
+    {
+        key = "balanced",
+        description = "Control-flow, string encoding, opaque predicates - everyday protection",
+        methods = {
+            "variable_renaming",
+            "control_flow",
+            "string_encoding",
+            "opaque_predicates",
+            "compressor",
+        },
+    },
+    {
+        key = "heavy",
+        description = "Expression obfuscation, garbage code, inlining - strong protection",
+        methods = {
+            "variable_renaming",
+            "control_flow",
+            "string_encoding",
+            "string_to_expressions",
+            "opaque_predicates",
+            "garbage_code",
+            "function_inlining",
+            "wrap_in_function",
+            "antitamper",
+            "dynamic_code",
+            "compressor",
+        },
+    },
+    {
+        key = "maximum",
+        description = "All methods - maximum obfuscation (incompatible per language filtered)",
+        methods = {
+            "virtual_machine",
+            "antitamper",
+            "control_flow",
+            "string_to_expressions",
+            "string_encoding",
+            "wrap_in_function",
+            "variable_renaming",
+            "garbage_code",
+            "opaque_predicates",
+            "function_inlining",
+            "dynamic_code",
+            "bytecode_encoding",
+            "compressor",
+        },
+    },
+}
+
+manifest.language_detection = {
+    threshold = 2,
+    confidence_divisor = 10,
+    languages = {
+        luau = {
+            patterns = {
+                { pattern = "^#!.*\\bluau\\b", lua_pattern = "^#!.*luau", weight = 3, description = "luau shebang" },
+                { pattern = "^--!", lua_pattern = "^%-%-!", weight = 3, description = "luau type comment" },
+                { pattern = "\\bexport\\s+type\\s+\\w+", lua_pattern = "export%s+type%s+%w+", weight = 3, description = "export type" },
+                { pattern = "\\btype\\s+\\w+\\s*=\\s*.+", lua_pattern = "type%s+%w+%s*=.+", weight = 2, description = "type alias" },
+                { pattern = "\\blocal\\s+\\w+\\s*:\\s*\\w+", lua_pattern = "local%s+%w+%s*:%s*%w+", weight = 2, description = "variable type annotation" },
+                { pattern = "\\bfunction\\s+\\w+\\s*\\([^)]*\\)\\s*:\\s*\\w+", lua_pattern = "function%s+%w+%s*%([^)]*%)%s*:%s*%w+", weight = 2, description = "function return type" },
+                { pattern = "[+\\-*/%^..]=", lua_pattern = "[%+%-%*/%^]%=", weight = 2, description = "compound assignment" },
+                { pattern = "\\bcontinue\\b", lua_pattern = "continue", weight = 1, description = "continue statement" },
+                { pattern = "\\bifelse\\b", lua_pattern = "ifelse", weight = 2, description = "ifelse expression" },
+                { pattern = "\\btypeset\\b", lua_pattern = "typeset", weight = 2, description = "typeset keyword" },
+                { pattern = "\\)\\s*->", lua_pattern = "%)%s*%-%>", weight = 2, description = "arrow return type" },
+                { pattern = "`[^`]*\\{[^}]+\\}", lua_pattern = "`[^`]*%{[^}]+%}", weight = 2, description = "string interpolation" },
+                { pattern = "=\\s*if\\s+.+\\s+then\\s+", lua_pattern = "=%s*if%s+.+%s+then%s+", weight = 2, description = "if expression" },
+                { pattern = "for\\s+.+\\s+in\\s+\\w+\\s+do", lua_pattern = "for%s+.+%s+in%s+%w+%s+do", weight = 1, description = "generalized iteration" },
+                { pattern = "0[bB][01_]+|0[xX][0-9A-Fa-f_]+|\\d_\\d", lua_pattern = "[%d]_[%d]", weight = 1, description = "numeric separators" },
+            },
+        },
+        glua = {
+            patterns = {
+                { pattern = "--@\\w+", lua_pattern = "%-%-@%w+", weight = 3, description = "glua luadoc annotation" },
+                { pattern = "\\bhook\\.(Add|Remove|Run)\\s*\\(", lua_pattern = "hook%.%w+", weight = 3, description = "hook library" },
+                { pattern = "\\binclude\\s*\\(", lua_pattern = "include%s*%(", weight = 3, description = "include function" },
+                { pattern = "\\bAddCSLuaFile\\b", lua_pattern = "AddCSLuaFile", weight = 3, description = "AddCSLuaFile" },
+                { pattern = "\\bSERVER\\b|\\bCLIENT\\b", lua_patterns = { "SERVER", "CLIENT" }, weight = 2, description = "glua constants" },
+                { pattern = "\\bsurface\\.\\w+|\\bdraw\\.\\w+|\\bvgui\\.\\w+", lua_pattern = "surface%.%w+", weight = 2, description = "gmod client libraries" },
+                { pattern = "\\bconcommand\\.Add\\b|\\bCreateConVar\\b", lua_pattern = "concommand%.Add", weight = 2, description = "gmod console" },
+                { pattern = "\\bMsgN\\b|\\bMsg\\b", lua_pattern = "MsgN", weight = 1, description = "gmod print functions" },
+                { pattern = "\\bents\\.\\w+|\\bweapon\\.\\w+", lua_pattern = "ents%.%w+", weight = 2, description = "gmod game libraries" },
+                { pattern = "\\bplayer:GetByID\\b|\\bplayer:GetAll\\b|\\bplayer:GetCount\\b", lua_pattern = "player:Get", weight = 3, description = "gmod player library" },
+                { pattern = "\\bVector\\s*\\(|\\bAngle\\s*\\(|\\bColor\\s*\\(", lua_patterns = { "Vector%s*%(", "Angle%s*%(", "Color%s*%(" }, weight = 2, description = "glua constructors" },
+                { pattern = "\\bIsValid\\s*\\(|\\bIsValidAndEnt\\s*\\(", lua_pattern = "IsValid%s*%(", weight = 2, description = "glua validity helpers" },
+                { pattern = "\\btimer\\.\\w+|\\butil\\.\\w+|\\bgame\\.\\w+|\\bnet\\.\\w+|\\bumsg\\.\\w+|\\busermessage\\.\\w+", lua_pattern = "util%.%w+", weight = 2, description = "gmod libraries" },
+                { pattern = "\\bGM:\\w+|\\bGAMEMODE:\\w+", lua_pattern = "GM:%w+", weight = 2, description = "glua callbacks" },
+            },
+        },
+    },
 }
 
 manifest.modules = {
@@ -301,6 +407,12 @@ local function load_extra_manifest()
     end
     for _, method in ipairs(extra.modules or {}) do
         manifest.modules[#manifest.modules + 1] = method
+    end
+    for _, preset in ipairs(extra.presets or {}) do
+        manifest.presets[#manifest.presets + 1] = preset
+    end
+    if extra.language_detection then
+        manifest.language_detection = extra.language_detection
     end
 end
 
