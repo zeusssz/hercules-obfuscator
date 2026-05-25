@@ -35,8 +35,11 @@ local RESERVED = {
 
 local DEFAULT_MIN_LEN, DEFAULT_MAX_LEN = 8, 12
 
-local function make_name_generator(min_len, max_len)
+local function make_name_generator(min_len, max_len, reserved_names)
     local used = {}
+    for name in pairs(reserved_names or {}) do
+        used[name] = true
+    end
     return function()
         local len = math.random(min_len or DEFAULT_MIN_LEN, max_len or DEFAULT_MAX_LEN)
         local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -223,10 +226,18 @@ function VariableRenamer.process(code, options)
     options = options or {}
     local min_len = options.min_length or DEFAULT_MIN_LEN
     local max_len = options.max_length or DEFAULT_MAX_LEN
-    local gen_name = make_name_generator(min_len, max_len)
 
     -- Step 1: Find all local variable names
     local local_vars = parse_local_vars(code)
+    local reserved_names = {}
+    for name in pairs(local_vars) do
+        reserved_names[name] = true
+    end
+    for _, builtin in ipairs(BUILTINS) do
+        local simple_name = builtin:match("([^.]+)$")
+        reserved_names[simple_name or builtin] = true
+    end
+    local gen_name = make_name_generator(min_len, max_len, reserved_names)
 
     -- Step 2: Create rename map for local variables
     local rename_map = {}
