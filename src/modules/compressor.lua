@@ -119,11 +119,17 @@ function Compressor.process(code)
         return line:sub(-#token) == token
     end
 
+    local function startsWithLastStatement(line)
+        return startsWithKeyword(line, "return") or startsWithKeyword(line, "break") or
+            line:match("^continue[^%w_]") or line == "continue"
+    end
+
     local function joinSeparator(prev, next_line)
         if prev:match("[%(%{%[,]$") or prev:match(",$") then return "" end
         if prev:match("[%+%-%*/%%%^#<>=~%.:]$") then return "" end
         if next_line:match("^[%)%}%]%],%.:]") then return "" end
         if next_line:match("^[%+%-%*/%%%^#<>=~]") then return "" end
+        if startsWithLastStatement(prev) then return " " end
         if startsWithKeyword(next_line, "end") or startsWithKeyword(next_line, "else") or
             startsWithKeyword(next_line, "elseif") or startsWithKeyword(next_line, "until") then
             return " "

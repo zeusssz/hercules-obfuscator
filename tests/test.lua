@@ -452,6 +452,27 @@ print(a + b)
     assert(out == "3", string.format("expected 3, got %q", tostring(out)))
 end)
 
+register("compressor_return_boundary", function()
+    local Compressor = require("modules/compressor")
+    local source = [[
+local function value()
+    return
+    (function()
+        return "ok"
+    end)()
+end
+
+print(value())
+]]
+    local compressed = Compressor.process(source)
+    assert(not compressed:find("return;", 1, true), compressed)
+    local fn, load_err = load(compressed, "=compressor_return_boundary", "t")
+    assert(fn, tostring(load_err) .. "\n" .. compressed)
+    local out, exec_err = capture_output(compressed)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "ok", string.format("expected ok, got %q", tostring(out)))
+end)
+
 register("compressor_realistic_glua_syntax", function()
     local Compressor = require("modules/compressor")
     local source = [[
