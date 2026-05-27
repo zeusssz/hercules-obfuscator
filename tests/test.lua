@@ -473,6 +473,48 @@ print(value())
     assert(out == "ok", string.format("expected ok, got %q", tostring(out)))
 end)
 
+register("compressor_multiline_call_boundary", function()
+    local Compressor = require("modules/compressor")
+    local source = [[
+local function call(...)
+    print(select("#", ...))
+end
+
+call(
+    "a",
+    "b",
+    "c"
+)
+]]
+    local compressed = Compressor.process(source)
+    assert(not compressed:find("call%(;", 1, false), compressed)
+    local fn, load_err = load(compressed, "=compressor_multiline_call_boundary", "t")
+    assert(fn, tostring(load_err) .. "\n" .. compressed)
+    local out, exec_err = capture_output(compressed)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "3", string.format("expected 3, got %q", tostring(out)))
+end)
+
+register("compressor_multiline_table_boundary", function()
+    local Compressor = require("modules/compressor")
+    local source = [[
+local t = {
+    a = 1,
+    b = 2,
+    c = 3,
+}
+
+print(t.a + t.b + t.c)
+]]
+    local compressed = Compressor.process(source)
+    assert(not compressed:find("{%s*;", 1, false), compressed)
+    local fn, load_err = load(compressed, "=compressor_multiline_table_boundary", "t")
+    assert(fn, tostring(load_err) .. "\n" .. compressed)
+    local out, exec_err = capture_output(compressed)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "6", string.format("expected 6, got %q", tostring(out)))
+end)
+
 register("compressor_realistic_glua_syntax", function()
     local Compressor = require("modules/compressor")
     local source = [[
@@ -529,7 +571,7 @@ print("[GLuaTest] CurTime:", CurTime())
     local compressed = Compressor.process(source)
     local fn, load_err = load(compressed, "=compressor_realistic_glua_syntax", "t")
     assert(fn, tostring(load_err) .. "\n" .. compressed)
-    assert(compressed:find(";local t=CurTime();", 1, true), compressed)
+    assert(compressed:find("local t=CurTime();", 1, true), compressed)
     assert(not compressed:find("\n%s*local t = CurTime", 1, false), compressed)
 end)
 
@@ -548,6 +590,25 @@ end)
     local output = OpaquePredicateInjector.process(source)
     local fn, load_err = load(output, "=opaque_predicates_realistic_glua_syntax", "t")
     assert(fn, tostring(load_err) .. "\n" .. output)
+end)
+
+register("opaque_predicates_if_else_boundary", function()
+    local OpaquePredicateInjector = require("modules/opaque_predicate_injector")
+    local source = [[
+local value = 2
+if value > 1 then
+    print("then")
+else
+    print("else")
+end
+print("done")
+]]
+    local output = OpaquePredicateInjector.process(source)
+    local fn, load_err = load(output, "=opaque_predicates_if_else_boundary", "t")
+    assert(fn, tostring(load_err) .. "\n" .. output)
+    local out, exec_err = capture_output(output)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "then\ndone", string.format("expected then/done, got %q", tostring(out)))
 end)
 
 -- ─── Main ──────────────────────────────────────────────────────────────────────

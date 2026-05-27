@@ -124,12 +124,26 @@ function Compressor.process(code)
             line:match("^continue[^%w_]") or line == "continue"
     end
 
-    local function joinSeparator(prev, next_line)
+    local function lineDepthDelta(line)
+        local delta = 0
+        for i = 1, #line do
+            local ch = line:sub(i, i)
+            if ch == "(" or ch == "{" or ch == "[" then
+                delta = delta + 1
+            elseif ch == ")" or ch == "}" or ch == "]" then
+                delta = delta - 1
+            end
+        end
+        return delta
+    end
+
+    local function joinSeparator(prev, next_line, depth_after_prev)
         if prev:match("[%(%{%[,]$") or prev:match(",$") then return "" end
         if prev:match("[%+%-%*/%%%^#<>=~%.:]$") then return "" end
         if next_line:match("^[%)%}%]%],%.:]") then return "" end
         if next_line:match("^[%+%-%*/%%%^#<>=~]") then return "" end
         if startsWithLastStatement(prev) then return " " end
+        if endsWithKeyword(prev, "end") or endsWithKeyword(prev, "until") then return " " end
         if startsWithKeyword(next_line, "end") or startsWithKeyword(next_line, "else") or
             startsWithKeyword(next_line, "elseif") or startsWithKeyword(next_line, "until") then
             return " "
@@ -152,8 +166,10 @@ function Compressor.process(code)
         end
 
         local out = lines[1] or ""
+        local depth = math.max(0, lineDepthDelta(out))
         for i = 2, #lines do
-            out = out .. joinSeparator(lines[i - 1], lines[i]) .. lines[i]
+            out = out .. joinSeparator(lines[i - 1], lines[i], depth) .. lines[i]
+            depth = math.max(0, depth + lineDepthDelta(lines[i]))
         end
         return out
     end
@@ -172,6 +188,11 @@ function Compressor.process(code)
     code = code:gsub("[ \t]*%.[ \t]*", ".")
     code = code:gsub("%.%.", "..")
     code = joinLines(code)
+    code = code:gsub(keywordToken("end") .. ";", keywordToken("end") .. " ")
+    code = code:gsub(keywordToken("until") .. ";", keywordToken("until") .. " ")
+    code = code:gsub("end;", "end ")
+    code = code:gsub("until;", "until ")
+    code = code:gsub(";+", ";")
 
     code = code:match("^%s*(.-)%s*$") or ""
 

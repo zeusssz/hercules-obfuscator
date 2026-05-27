@@ -167,6 +167,39 @@ local function is_local_declaration(line)
     return line:match("^%s*local%s+%w") ~= nil
 end
 
+local function block_delta(line)
+    local stripped = line:gsub('"[^"\\]*(\\.[^"\\]*)*"', "")
+                         :gsub("'[^'\\]*(\\.[^'\\]*)*'", "")
+                         :gsub("%-%-[^\n]*", "")
+    local delta = 0
+    if stripped:match("^%s*if%s") and stripped:match("%sthen%s*$") then delta = delta + 1 end
+    if stripped:match("^%s*for%s") and stripped:match("%sdo%s*$") then delta = delta + 1 end
+    if stripped:match("^%s*while%s") and stripped:match("%sdo%s*$") then delta = delta + 1 end
+    if stripped:match("^%s*function%s") or stripped:match("^%s*local%s+function%s") or
+        stripped:match("^%s*local%s+.-%s*=%s*function%s") then delta = delta + 1 end
+    if stripped:match("^%s*do%s*$") then delta = delta + 1 end
+    if stripped:match("^%s*repeat%s*$") then delta = delta + 1 end
+    if stripped:match("^%s*end[^%w_]") or stripped:match("^%s*end%s*$") then delta = delta - 1 end
+    if stripped:match("^%s*until%s") then delta = delta - 1 end
+    return delta
+end
+
+local function starts_control_block(line)
+    return block_delta(line) > 0
+end
+
+local function copy_control_block(lines, start_index, output)
+    local depth = 0
+    local i = start_index
+    while i <= #lines do
+        table.insert(output, lines[i])
+        depth = depth + block_delta(lines[i])
+        i = i + 1
+        if depth <= 0 then break end
+    end
+    return i
+end
+
 function OpaquePredicateInjector.process(code)
     local lines = {}
     for line in code:gmatch("[^\n]*") do
@@ -181,7 +214,9 @@ function OpaquePredicateInjector.process(code)
         local line = lines[i]
         local trimmed = line:gsub("^%s*", ""):gsub("%s+$", "")
 
-        if should_skip(line) or not line:match("%S") then
+        if starts_control_block(line) then
+            i = copy_control_block(lines, i, output)
+        elseif should_skip(line) or not line:match("%S") then
             table.insert(output, line)
             i = i + 1
             while i <= #lines do
