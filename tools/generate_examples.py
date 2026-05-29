@@ -8,7 +8,9 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -29,6 +31,15 @@ SITE_DATA_DIR = SITE_OUTPUT_DIR / "assets" / "data"
 LUA_BIN = os.getenv("LUA_BIN", "lua")
 
 
+def format_eta(seconds: float) -> str:
+    secs = int(seconds)
+    if secs < 60:
+        return f"{secs}s"
+    elif secs < 3600:
+        return f"{secs // 60}m {secs % 60}s"
+    return f"{secs // 3600}h {(secs % 3600) // 60}m"
+
+
 def main() -> int:
     manifest = load_manifest()
     methods = sorted(manifest["modules"], key=lambda item: item["bit_position"])
@@ -43,6 +54,7 @@ def main() -> int:
         "languages": list(SOURCES),
     }
 
+    target_configs = []
     for target, source_path in SOURCES.items():
         source = source_path.read_text(encoding="utf-8")
         target_methods = [
@@ -51,23 +63,52 @@ def main() -> int:
             if target not in method.get("incompatible_with", [])
             and method.get("enabled", False)
         ]
-
-        target_examples = {
+        combos = list(iter_combinations([method["key"] for method in target_methods]))
+        target_configs.append({
+            "target": target,
             "source": source,
             "source_file": str(source_path.relative_to(ROOT)),
+            "combos": combos,
+        })
+
+    total_combos = sum(len(tc["combos"]) for tc in target_configs)
+    done = 0
+    start_time = time.time()
+
+    for tc in target_configs:
+        target_examples = {
+            "source": tc["source"],
+            "source_file": tc["source_file"],
             "items": {},
         }
 
-        combos = iter_combinations([method["key"] for method in target_methods])
+        for combo in tc["combos"]:
+            elapsed = time.time() - start_time
+            rate = done / elapsed if elapsed > 0 else 0
+            remaining = total_combos - done
+            eta = remaining / rate if rate > 0 else 0
+            pct = (done / total_combos * 100) if total_combos > 0 else 0
+            sys.stdout.write(
+                f"\r  [{tc['target']:<5}] [{pct:5.1f}%] "
+                f"{done}/{total_combos}  "
+                f"({rate:.0f}/s, ETA: {format_eta(eta)})  "
+            )
+            sys.stdout.flush()
 
-        for combo in combos:
-            item = generate_example(target, source, combo, method_by_key)
+            item = generate_example(tc["target"], tc["source"], combo, method_by_key)
             target_examples["items"][combo_key(combo)] = item
+            done += 1
 
-        examples[target] = target_examples
+        examples[tc["target"]] = target_examples
+
+    sys.stdout.write("\r" + " " * 80 + "\r")
+    sys.stdout.flush()
 
     output = write_site(meta, examples)
     print(f"Wrote {output}")
+
+    elapsed = time.time() - start_time
+    print(f"Generated {done} combos in {format_eta(elapsed)}")
     return 0
 
 
