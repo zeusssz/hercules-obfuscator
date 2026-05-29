@@ -136,20 +136,22 @@ function AntiTamper.process(code)
 
     local anti_tamper_code = string.format([=[
 do
-    local _BFR,_MFR,T,E,G,Pa,GM,RG=%s,%s,type,error,_G,pairs,getmetatable,rawget
+    local _BFR,_MFR,T,E,G,Pa,GM,RG,DG=%s,%s,type,error,_G,pairs,getmetatable,rawget,{table=table,string=string,math=math,os=os,debug=debug}
     local function check()
         for n,expectedType in Pa(_BFR) do
             local parts={}
             for p in n:gmatch("[^.]+") do parts[#parts+1]=p end
-            local obj=G
-            for i=1,#parts-1 do
-                obj=obj[(parts[i])]
-                if not obj then
+            local cur
+            if #parts==1 then
+                cur=G[(parts[1])]
+            else
+                local parent=DG[(parts[1])] or G[(parts[1])]
+                if not parent then
                     E("Tamper Detected! Reason: Critical function removed: "..n)
                     return
                 end
+                cur=parent[(parts[2])]
             end
-            local cur=obj[(parts[#parts])]
             if cur==nil then
                 E("Tamper Detected! Reason: Critical function removed: "..n)
                 return
@@ -163,7 +165,7 @@ do
         for tname in Pa(_MFR) do
             local parts={}
             for p in tname:gmatch("[^.]+") do parts[#parts+1]=p end
-            local t=G[(parts[1])]
+            local t=DG[(parts[1])] or G[(parts[1])]
             if t then
                 local mt=GM(t)
                 if mt then
@@ -178,7 +180,7 @@ do
                 end
             end
         end
-        local d=G.debug
+        local d=DG.debug
         if T(d)=="table" then
             local _DK=%s
             for _,k in Pa(_DK) do
