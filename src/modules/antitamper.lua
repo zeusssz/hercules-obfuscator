@@ -93,7 +93,7 @@ function AntiTamper.process(code)
         end
         local val = obj and obj[parts[#parts]]
         if val then
-            func_refs[name] = type(val)
+            func_refs[name] = true
         end
     end
 
@@ -117,9 +117,9 @@ function AntiTamper.process(code)
     -- Serialize func_refs into the generated code
     local func_refs_str = "{"
     local count = 0
-    for name, val_type in pairs(func_refs) do
+    for name in pairs(func_refs) do
         if count > 0 then func_refs_str = func_refs_str .. "," end
-        func_refs_str = func_refs_str .. string.format("[%q]=%q", name, val_type)
+        func_refs_str = func_refs_str .. string.format("[%q]=%s", name, name)
         count = count + 1
     end
     func_refs_str = func_refs_str .. "}"
@@ -136,36 +136,23 @@ function AntiTamper.process(code)
 
     local anti_tamper_code = string.format([=[
 do
-    local _BFR,_MFR,T,E,G,Pa,GM,RG,DG=%s,%s,type,error,_G,pairs,getmetatable,rawget,{table=table,string=string,math=math,os=os,debug=debug}
+    local _BFR,_MFR,T,E,Pa,GM,RG=%s,%s,type,error,pairs,getmetatable,rawget
+    local DG={table=table,string=string,math=math,os=os}
     local function check()
-        for n,expectedType in Pa(_BFR) do
-            local parts={}
-            for p in n:gmatch("[^.]+") do parts[#parts+1]=p end
-            local cur
-            if #parts==1 then
-                cur=G[(parts[1])]
-            else
-                local parent=DG[(parts[1])] or G[(parts[1])]
-                if not parent then
-                    E("Tamper Detected! Reason: Critical function removed: "..n)
-                    return
-                end
-                cur=parent[(parts[2])]
-            end
-            if cur==nil then
+        for n,ref in Pa(_BFR) do
+            if ref==nil then
                 E("Tamper Detected! Reason: Critical function removed: "..n)
                 return
             end
-            local curType=T(cur)
-            if curType~=expectedType then
-                E("Tamper Detected! Reason: Critical function type changed: "..n.." (was "..expectedType..", now "..curType..")")
+            if T(ref)~="function" then
+                E("Tamper Detected! Reason: Critical function type changed: "..n.." (was function, now "..T(ref)..")")
                 return
             end
         end
         for tname in Pa(_MFR) do
             local parts={}
             for p in tname:gmatch("[^.]+") do parts[#parts+1]=p end
-            local t=DG[(parts[1])] or G[(parts[1])]
+            local t=DG[(parts[1])]
             if t then
                 local mt=GM(t)
                 if mt then
@@ -180,7 +167,7 @@ do
                 end
             end
         end
-        local d=DG.debug
+        local d=debug
         if T(d)=="table" then
             local _DK=%s
             for _,k in Pa(_DK) do
