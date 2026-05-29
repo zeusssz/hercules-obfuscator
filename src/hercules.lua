@@ -113,6 +113,7 @@ local function printManifestJson()
             '"pipeline_order":' .. json_value(method.pipeline_order),
             '"cli":' .. json_value(method.cli or {}),
             '"incompatible_with":' .. json_array(method.incompatible_with),
+            '"representative_only":' .. json_value(method.representative_only or false),
             '"settings":' .. json_value(method.settings or {}),
             '"description":' .. json_value(method.description or ""),
         }, ",") .. "}"

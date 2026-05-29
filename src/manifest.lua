@@ -323,6 +323,7 @@ manifest.modules = {
         pipeline_order = 130,
         cli = { short = "-be", long = "--bytecode_encoding" },
         incompatible_with = { "luau", "glua" },
+        representative_only = true,
         description = "Enable bytecode encoding",
     },
     {

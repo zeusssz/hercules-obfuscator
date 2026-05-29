@@ -63,8 +63,8 @@ def main() -> int:
             if target not in method.get("incompatible_with", [])
             and method.get("enabled", False)
         ]
-        normal_methods = [m for m in target_methods if m["key"] != "bytecode_encoding"]
-        special_methods = [m for m in target_methods if m["key"] == "bytecode_encoding"]
+        normal_methods = [m for m in target_methods if not m.get("representative_only")]
+        special_methods = [m for m in target_methods if m.get("representative_only")]
         normal_combos = list(iter_combinations([m["key"] for m in normal_methods]))
         target_configs.append({
             "target": target,
@@ -300,7 +300,7 @@ def render_html() -> str:
 <body>
   <header>
     <h1>Hercules Obfuscation Showcase</h1>
-    <div class="sub">Toggle modules to instantly compare generated examples. Bytecode Encoding is shown as a representative sample because it dominates the final output structure.</div>
+    <div class="sub">Toggle modules to instantly compare generated examples.</div>
   </header>
   <main>
     <aside>
@@ -336,6 +336,7 @@ def render_html() -> str:
     const loadedLangs = new Set();
 
     const methods = [...META.manifest.modules].sort((a,b)=>a.bit_position-b.bit_position);
+    const repModuleKeys = methods.filter(m => m.representative_only).map(m => m.key);
     const methodByKey = Object.fromEntries(methods.map(m=>[m.key,m]));
     const presets = META.manifest.presets || [];
     const languages = META.languages || ['lua','luau','glua'];
@@ -364,7 +365,9 @@ def render_html() -> str:
       const key = comboKey(selected);
       if (!key) return null;
       return (window.HERCULES_COMBO[lang] || {{}})[key]
-        || (selected.has('bytecode_encoding') ? (window.HERCULES_COMBO[lang] || {{}})['bytecode_encoding'] : null)
+        || (repModuleKeys.find(k => selected.has(k))
+          ? (window.HERCULES_COMBO[lang] || {{}})[repModuleKeys.find(k => selected.has(k))]
+          : null)
         || null;
     }}
     function loadLanguageData(nextLang) {{
@@ -429,11 +432,12 @@ def render_html() -> str:
       if (!data) return;
       const source = data.source;
       const key = comboKey(selected);
-      const lookupKey = (selected.has('bytecode_encoding')) ? 'bytecode_encoding' : key;
+      const repKey = repModuleKeys.find(k => selected.has(k));
+      const lookupKey = repKey || key;
       renderCode($('source'), source);
       $('selection').innerHTML = [...selected].sort((a,b)=>methodByKey[a].bit_position-methodByKey[b].bit_position).map(k => `<span class="badge">${{displayName(k)}}</span>`).join('') || '<span class="badge">No modules selected</span>';
-      $('notice').textContent = selected.has('bytecode_encoding') && [...selected].some(k => k !== 'bytecode_encoding')
-        ? 'Bytecode Encoding sample shown. Other selected modules are not reflected in the preview because Bytecode Encoding dominates the final output shape.'
+      $('notice').textContent = repKey && [...selected].some(k => k !== repKey)
+        ? `${{displayName(repKey)}} sample shown. Other selected modules are not reflected in the preview because ${{displayName(repKey)}} dominates the final output shape.`
         : '';
       if (!selected.size) {{
         renderCode($('output'), source);
