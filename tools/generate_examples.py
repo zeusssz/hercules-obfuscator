@@ -63,18 +63,15 @@ def main() -> int:
             if target not in method.get("incompatible_with", [])
             and method.get("enabled", False)
         ]
-        normal_methods = [m for m in target_methods if not m.get("representative_only")]
-        special_methods = [m for m in target_methods if m.get("representative_only")]
-        normal_combos = list(iter_combinations([m["key"] for m in normal_methods]))
+        combos = list(iter_combinations([method["key"] for method in target_methods]))
         target_configs.append({
             "target": target,
             "source": source,
             "source_file": str(source_path.relative_to(ROOT)),
-            "normal_combos": normal_combos,
-            "special_methods": special_methods,
+            "combos": combos,
         })
 
-    total_combos = sum(len(tc["normal_combos"]) + (1 if tc["special_methods"] else 0) for tc in target_configs)
+    total_combos = sum(len(tc["combos"]) for tc in target_configs)
     done = 0
     start_time = time.time()
 
@@ -85,7 +82,7 @@ def main() -> int:
             "items": {},
         }
 
-        for combo in tc["normal_combos"]:
+        for combo in tc["combos"]:
             elapsed = time.time() - start_time
             rate = done / elapsed if elapsed > 0 else 0
             remaining = total_combos - done
@@ -100,24 +97,6 @@ def main() -> int:
 
             item = generate_example(tc["target"], tc["source"], combo, method_by_key)
             target_examples["items"][combo_key(combo)] = item
-            done += 1
-
-        if tc["special_methods"]:
-            elapsed = time.time() - start_time
-            rate = done / elapsed if elapsed > 0 else 0
-            remaining = total_combos - done
-            eta = remaining / rate if rate > 0 else 0
-            pct = (done / total_combos * 100) if total_combos > 0 else 0
-            sys.stdout.write(
-                f"\r  [{tc['target']:<5}] [{pct:5.1f}%] "
-                f"{done}/{total_combos}  "
-                f"({rate:.0f}/s, ETA: {format_eta(eta)})  "
-            )
-            sys.stdout.flush()
-
-            special_combo = [tc["special_methods"][0]["key"]]
-            item = generate_example(tc["target"], tc["source"], special_combo, method_by_key)
-            target_examples["items"][combo_key(special_combo)] = item
             done += 1
 
         examples[tc["target"]] = target_examples
@@ -336,7 +315,6 @@ def render_html() -> str:
     const loadedLangs = new Set();
 
     const methods = [...META.manifest.modules].sort((a,b)=>a.bit_position-b.bit_position);
-    const repModuleKeys = methods.filter(m => m.representative_only).map(m => m.key);
     const methodByKey = Object.fromEntries(methods.map(m=>[m.key,m]));
     const presets = META.manifest.presets || [];
     const languages = META.languages || ['lua','luau','glua'];
@@ -364,11 +342,7 @@ def render_html() -> str:
       if (!data) return null;
       const key = comboKey(selected);
       if (!key) return null;
-      return (window.HERCULES_COMBO[lang] || {{}})[key]
-        || (repModuleKeys.find(k => selected.has(k))
-          ? (window.HERCULES_COMBO[lang] || {{}})[repModuleKeys.find(k => selected.has(k))]
-          : null)
-        || null;
+      return (window.HERCULES_COMBO[lang] || {{}})[key] || null;
     }}
     function loadLanguageData(nextLang) {{
       if (loadedLangs.has(nextLang)) return Promise.resolve();
@@ -432,23 +406,19 @@ def render_html() -> str:
       if (!data) return;
       const source = data.source;
       const key = comboKey(selected);
-      const repKey = repModuleKeys.find(k => selected.has(k));
-      const lookupKey = repKey || key;
       renderCode($('source'), source);
       $('selection').innerHTML = [...selected].sort((a,b)=>methodByKey[a].bit_position-methodByKey[b].bit_position).map(k => `<span class="badge">${{displayName(k)}}</span>`).join('') || '<span class="badge">No modules selected</span>';
-      $('notice').textContent = repKey && [...selected].some(k => k !== repKey)
-        ? `${{displayName(repKey)}} sample shown. Other selected modules are not reflected in the preview because ${{displayName(repKey)}} dominates the final output shape.`
-        : '';
+      $('notice').textContent = '';
       if (!selected.size) {{
         renderCode($('output'), source);
         renderStats(source.length, source.length, false);
         return;
       }}
       const item = currentItem();
-      if (!item && lookupKey && !(lookupKey in (window.HERCULES_COMBO[lang] || {{}}))) {{
+      if (!item && key && !(key in (window.HERCULES_COMBO[lang] || {{}}))) {{
         $('output').className = 'code-view loading';
         renderCode($('output'), 'Loading...');
-        loadComboData(lookupKey).then(renderContent).catch(err => {{ renderCode($('output'), String(err)); $('output').className = 'code-view error'; }});
+        loadComboData(key).then(renderContent).catch(err => {{ renderCode($('output'), String(err)); $('output').className = 'code-view error'; }});
         return;
       }}
       if (!item) {{
