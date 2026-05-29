@@ -611,6 +611,101 @@ print("done")
     assert(out == "then\ndone", string.format("expected then/done, got %q", tostring(out)))
 end)
 
+register("variable_renaming_luau_types", function()
+    local VariableRenamer = require("modules/variable_renamer")
+    local source = [[
+-- Type alias (Luau)
+type PlayerData = {
+    name: string,
+    score: number
+}
+
+-- Local with type annotation
+local data: PlayerData = {
+    name = "TestUser",
+    score = 0
+}
+
+-- Using type() function should be a valid expression
+local t = type(data)
+print(t)
+]]
+    local result = VariableRenamer.process(source, {target = "luau", min_length = 8, max_length = 12})
+
+    -- 'type' keyword in type alias must be preserved (not renamed)
+    assert(result:match("type%s+%w+%s*="),
+        string.format("type alias should preserve 'type' keyword, got:\n%s", result:sub(1, 200)))
+
+    -- Type annotation with colon and custom type name must be preserved
+    assert(result:match("local%s+%w+%s*:%s*%w+%s*="),
+        string.format("type annotation should be preserved, got:\n%s", result:sub(1, 200)))
+
+    -- type() function call should still exist (not renamed)
+    assert(result:match("type%("),
+        string.format("type() function call should exist, got:\n%s", result:sub(1, 300)))
+end)
+
+register("variable_renaming_luau_type_annotation_names", function()
+    local VariableRenamer = require("modules/variable_renamer")
+    -- When variable has a type annotation like `: string`, the type name
+    -- must NOT be extracted as a local variable and renamed
+    local source = [[
+local x: string = "hello"
+local y: number = 42
+print(x, y)
+]]
+    local result = VariableRenamer.process(source, {target = "luau", min_length = 8, max_length = 12})
+
+    -- Type names string/number must NOT be renamed
+    -- They should appear as-is after the colon
+    assert(result:match(":%s*string%s*="),
+        string.format("'string' type should be preserved after colon, got:\n%s", result))
+    assert(result:match(":%s*number%s*="),
+        string.format("'number' type should be preserved after colon, got:\n%s", result))
+end)
+
+register("variable_renaming_luau_pipeline", function()
+    -- End-to-end: run Pipeline.process() with target=luau on Luau source
+    -- The pipeline disables VM + bytecode_encoding for luau
+    local orig_target = config.target
+    config.target = "luau"
+
+    local source = [[
+-- Type alias (Luau)
+type PlayerData = {
+    name: string,
+    score: number
+}
+
+local data: PlayerData = {
+    name = "TestUser",
+    score = 0
+}
+
+-- Simulate print-based equivalence
+data.score = data.score + 10
+print("[LuauTest] Score:", data.score)
+]]
+    local expected = normalize_output("[LuauTest] Score:\t10")
+
+    -- Enable all modules except VM + bytecode_encoding (auto-disabled for luau)
+    -- But enable variable_renaming explicitly
+    for _, key in ipairs(ALL_MODULES) do
+        config.set(MODULE_PATHS[key], false)
+    end
+    config.set(MODULE_PATHS.variable_renaming, true)
+
+    local ok, result = pcall(function() return Pipeline.process(source) end)
+    assert(ok, string.format("pipeline error: %s", tostring(result):sub(1, 150)))
+
+    -- The result must retain 'type' keyword in the type alias
+    assert(result:match("type%s+%w+%s*="),
+        string.format("type alias must be preserved in pipeline output, got:\n%s", result:sub(1, 200)))
+
+    -- Restore config
+    config.target = orig_target
+end)
+
 -- ─── Main ──────────────────────────────────────────────────────────────────────
 local function main()
     local filters, group, list_only, verbose, quick, fixture_filter = parse_args()

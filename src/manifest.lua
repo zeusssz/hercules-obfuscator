@@ -258,6 +258,7 @@ manifest.modules = {
             return processor.process(code, {
                 min_length = config.get("settings.variable_renaming.min_name_length"),
                 max_length = config.get("settings.variable_renaming.max_name_length"),
+                target = config.target,
             })
         end,
     },

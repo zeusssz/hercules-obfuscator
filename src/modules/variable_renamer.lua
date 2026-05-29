@@ -167,8 +167,9 @@ local function replace_keyword(code, keyword, replacement)
 end
 
 -- Parse local variable declarations from code
--- Returns a map of var_name -> {line_start, line_end}
-local function parse_local_vars(code)
+-- Returns a map of var_name -> true
+-- @param target optional target language ("lua", "luau", "glua")
+local function parse_local_vars(code, target)
     local vars = {}
     local pos = 1
     while pos <= #code do
@@ -186,7 +187,6 @@ local function parse_local_vars(code)
         local m_start, m_end = remaining:find("^local%s+")
         if m_start then
             -- Parse variable names
-            local var_start = m_end + 1
             local var_str = ""
             local vpos = pos + m_end  -- convert from remaining-relative to code-absolute
             local paren_depth = 0
@@ -204,8 +204,27 @@ local function parse_local_vars(code)
                 elseif vc == "\n" and paren_depth == 0 then
                     break
                 end
-                var_str = var_str .. vc
-                vpos = vpos + 1
+                if target == "luau" and vc == ":" and paren_depth == 0 and bracket_depth == 0 then
+                    -- Luau type annotation: skip type tokens (e.g. `: string`, `: PlayerData`, `: {x: number}`)
+                    vpos = vpos + 1
+                    local type_depth = 0
+                    while vpos <= #code do
+                        local tc = code:sub(vpos, vpos)
+                        if tc == "{" or tc == "[" or tc == "(" then
+                            type_depth = type_depth + 1
+                        elseif tc == "}" or tc == "]" or tc == ")" then
+                            if type_depth == 0 then break end
+                            type_depth = type_depth - 1
+                        elseif (tc == "=" or tc == "\n") and type_depth == 0 then
+                            break
+                        end
+                        vpos = vpos + 1
+                    end
+                    -- Don't add colon or type tokens to var_str
+                else
+                    var_str = var_str .. vc
+                    vpos = vpos + 1
+                end
             end
             -- Extract individual variable names
             for var in var_str:gmatch("[%a_][%w_]*") do
@@ -226,14 +245,28 @@ function VariableRenamer.process(code, options)
     options = options or {}
     local min_len = options.min_length or DEFAULT_MIN_LEN
     local max_len = options.max_length or DEFAULT_MAX_LEN
+    local target = options.target
+
+    -- Filter BUILTINS for target language
+    local builtins = BUILTINS
+    if target == "luau" then
+        -- In Luau, `type` is a keyword for type aliases and must not be renamed
+        local filtered = {}
+        for _, b in ipairs(BUILTINS) do
+            if b ~= "type" then
+                table.insert(filtered, b)
+            end
+        end
+        builtins = filtered
+    end
 
     -- Step 1: Find all local variable names
-    local local_vars = parse_local_vars(code)
+    local local_vars = parse_local_vars(code, target)
     local reserved_names = {}
     for name in pairs(local_vars) do
         reserved_names[name] = true
     end
-    for _, builtin in ipairs(BUILTINS) do
+    for _, builtin in ipairs(builtins) do
         local simple_name = builtin:match("([^.]+)$")
         reserved_names[simple_name or builtin] = true
     end
@@ -248,7 +281,7 @@ function VariableRenamer.process(code, options)
     -- Step 3: Find builtins used in code and create rename map
     local builtin_map = {}
     local used_builtins = {}
-    for _, builtin in ipairs(BUILTINS) do
+    for _, builtin in ipairs(builtins) do
         if code:find(builtin, 1, true) then
             local new_name = gen_name()
             builtin_map[builtin] = new_name
