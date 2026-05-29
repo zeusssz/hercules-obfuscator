@@ -63,15 +63,18 @@ def main() -> int:
             if target not in method.get("incompatible_with", [])
             and method.get("enabled", False)
         ]
-        combos = list(iter_combinations([method["key"] for method in target_methods]))
+        normal_methods = [m for m in target_methods if m["key"] != "bytecode_encoding"]
+        special_methods = [m for m in target_methods if m["key"] == "bytecode_encoding"]
+        normal_combos = list(iter_combinations([m["key"] for m in normal_methods]))
         target_configs.append({
             "target": target,
             "source": source,
             "source_file": str(source_path.relative_to(ROOT)),
-            "combos": combos,
+            "normal_combos": normal_combos,
+            "special_methods": special_methods,
         })
 
-    total_combos = sum(len(tc["combos"]) for tc in target_configs)
+    total_combos = sum(len(tc["normal_combos"]) + (1 if tc["special_methods"] else 0) for tc in target_configs)
     done = 0
     start_time = time.time()
 
@@ -82,7 +85,7 @@ def main() -> int:
             "items": {},
         }
 
-        for combo in tc["combos"]:
+        for combo in tc["normal_combos"]:
             elapsed = time.time() - start_time
             rate = done / elapsed if elapsed > 0 else 0
             remaining = total_combos - done
@@ -97,6 +100,24 @@ def main() -> int:
 
             item = generate_example(tc["target"], tc["source"], combo, method_by_key)
             target_examples["items"][combo_key(combo)] = item
+            done += 1
+
+        if tc["special_methods"]:
+            elapsed = time.time() - start_time
+            rate = done / elapsed if elapsed > 0 else 0
+            remaining = total_combos - done
+            eta = remaining / rate if rate > 0 else 0
+            pct = (done / total_combos * 100) if total_combos > 0 else 0
+            sys.stdout.write(
+                f"\r  [{tc['target']:<5}] [{pct:5.1f}%] "
+                f"{done}/{total_combos}  "
+                f"({rate:.0f}/s, ETA: {format_eta(eta)})  "
+            )
+            sys.stdout.flush()
+
+            special_combo = [tc["special_methods"][0]["key"]]
+            item = generate_example(tc["target"], tc["source"], special_combo, method_by_key)
+            target_examples["items"][combo_key(special_combo)] = item
             done += 1
 
         examples[tc["target"]] = target_examples
@@ -279,7 +300,7 @@ def render_html() -> str:
 <body>
   <header>
     <h1>Hercules Obfuscation Showcase</h1>
-    <div class="sub">Toggle modules to instantly compare generated examples.</div>
+    <div class="sub">Toggle modules to instantly compare generated examples. Bytecode Encoding is shown as a representative sample because it dominates the final output structure.</div>
   </header>
   <main>
     <aside>
@@ -342,7 +363,9 @@ def render_html() -> str:
       if (!data) return null;
       const key = comboKey(selected);
       if (!key) return null;
-      return (window.HERCULES_COMBO[lang] || {{}})[key] || null;
+      return (window.HERCULES_COMBO[lang] || {{}})[key]
+        || (selected.has('bytecode_encoding') ? (window.HERCULES_COMBO[lang] || {{}})['bytecode_encoding'] : null)
+        || null;
     }}
     function loadLanguageData(nextLang) {{
       if (loadedLangs.has(nextLang)) return Promise.resolve();
@@ -354,17 +377,17 @@ def render_html() -> str:
         document.head.appendChild(script);
       }});
     }}
-    function loadComboData(comboKey) {{
+    function loadComboData(lookupKey) {{
       const data = window.HERCULES_SHOWCASE_DATA[lang];
       if (!data) return Promise.reject(new Error('Language data not loaded'));
-      if (!comboKey || comboKey in (window.HERCULES_COMBO[lang] || {{}})) return Promise.resolve();
-      const fileId = data.items[comboKey];
+      if (!lookupKey || lookupKey in (window.HERCULES_COMBO[lang] || {{}})) return Promise.resolve();
+      const fileId = data.items[lookupKey];
       if (fileId == null) return Promise.resolve();
       return new Promise((resolve, reject) => {{
         const script = document.createElement('script');
         script.src = `assets/data/${{lang}}/${{fileId}}.js`;
         script.onload = () => {{ resolve(); }};
-        script.onerror = () => reject(new Error(`Failed to load combo data for ${{comboKey}}`));
+        script.onerror = () => reject(new Error(`Failed to load combo data for ${{lookupKey}}`));
         document.head.appendChild(script);
       }});
     }}
@@ -406,19 +429,22 @@ def render_html() -> str:
       if (!data) return;
       const source = data.source;
       const key = comboKey(selected);
+      const lookupKey = (selected.has('bytecode_encoding')) ? 'bytecode_encoding' : key;
       renderCode($('source'), source);
       $('selection').innerHTML = [...selected].sort((a,b)=>methodByKey[a].bit_position-methodByKey[b].bit_position).map(k => `<span class="badge">${{displayName(k)}}</span>`).join('') || '<span class="badge">No modules selected</span>';
-      $('notice').textContent = '';
+      $('notice').textContent = selected.has('bytecode_encoding') && [...selected].some(k => k !== 'bytecode_encoding')
+        ? 'Bytecode Encoding sample shown. Other selected modules are not reflected in the preview because Bytecode Encoding dominates the final output shape.'
+        : '';
       if (!selected.size) {{
         renderCode($('output'), source);
         renderStats(source.length, source.length, false);
         return;
       }}
       const item = currentItem();
-      if (!item && key && !(key in (window.HERCULES_COMBO[lang] || {{}}))) {{
+      if (!item && lookupKey && !(lookupKey in (window.HERCULES_COMBO[lang] || {{}}))) {{
         $('output').className = 'code-view loading';
         renderCode($('output'), 'Loading...');
-        loadComboData(key).then(renderContent).catch(err => {{ renderCode($('output'), String(err)); $('output').className = 'code-view error'; }});
+        loadComboData(lookupKey).then(renderContent).catch(err => {{ renderCode($('output'), String(err)); $('output').className = 'code-view error'; }});
         return;
       }}
       if (!item) {{
