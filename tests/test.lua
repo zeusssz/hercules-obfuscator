@@ -706,6 +706,24 @@ print("[LuauTest] Score:", data.score)
     config.target = orig_target
 end)
 
+register("wrap_in_function_no_top_level_vararg", function()
+    local Wrapper = require("modules/WrapInFunction")
+    local source = [[print("hello")]]
+    local result = Wrapper.process(source)
+
+    -- Must use () call, not (...) call, to avoid "Cannot use '...' outside of vararg function" in Luau
+    assert(result:match("end%)%(%)$") or result:match("end%)%(%)%s*$"),
+        string.format("must end with 'end)()' not 'end)(...)', got:\n%s", result))
+
+    -- Must still be loadable and runnable in Lua 5.4
+    local fn, err = load(result, "=test_wrap", "t")
+    assert(fn, string.format("wrap result should be loadable: %s\n%s", tostring(err), result))
+
+    local out, exec_err = capture_output(result)
+    assert(exec_err == nil, string.format("exec error: %s", tostring(exec_err)))
+    assert(out == "hello", string.format("expected hello, got %q", tostring(out)))
+end)
+
 -- ─── Main ──────────────────────────────────────────────────────────────────────
 local function main()
     local filters, group, list_only, verbose, quick, fixture_filter = parse_args()
