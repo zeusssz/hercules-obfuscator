@@ -126,6 +126,75 @@ local function validate_manifest_shape()
     end
 end
 
+local function score_language(code, language)
+    local language_config = manifest.language_detection.languages[language]
+    local score = 0
+    for _, item in ipairs(language_config.patterns or {}) do
+        local matched = item.lua_pattern and code:match(item.lua_pattern)
+        for _, pattern in ipairs(item.lua_patterns or {}) do
+            matched = matched or code:match(pattern)
+        end
+        if matched then
+            score = score + item.weight
+        end
+    end
+    return score
+end
+
+local function detect_target(code, file_path)
+    local threshold = manifest.language_detection.threshold
+    local luau_score = score_language(code, "luau")
+    local glua_score = score_language(code, "glua")
+
+    if glua_score > luau_score and glua_score >= threshold then
+        return "glua"
+    elseif luau_score > glua_score and luau_score >= threshold then
+        return "luau"
+    elseif file_path and file_path:match("%.luau$") then
+        return "luau"
+    end
+
+    return "lua"
+end
+
+local function test_language_detection()
+    local roblox_code = [[
+local WindUI = loadstring(game:HttpGet("https://example.com/main.lua"))()
+local Window = WindUI:CreateWindow({
+    Size = UDim2.fromOffset(480, 360),
+    Theme = "Red",
+})
+task.spawn(function()
+    local remote = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("BuyItemCash")
+    remote:FireServer("Green Dino")
+end)
+local localPlayer = game:GetService("Players").LocalPlayer
+local frame = Instance.new("Frame")
+frame.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+frame.Position = UDim2.new(0.55, 0, 0.25, 0)
+]]
+
+    local glua_code = [[
+hook.Add("PlayerSpawn", "DetectionTestHook", function(ply)
+    if not IsValid(ply) then return end
+    util.AddNetworkString("DetectionTestNet")
+    net.Receive("DetectionTestNet", function(len, sender) print(sender:Nick()) end)
+end)
+]]
+
+    local lua_code = [[
+local items = {"a", "b", "c"}
+for i, item in ipairs(items) do
+    print(i, item:upper())
+end
+]]
+
+    assert_eq(detect_target(roblox_code, "script.lua"), "luau", "Roblox API code should detect as luau")
+    assert_eq(detect_target(glua_code, "script.lua"), "glua", "Garry's Mod code should detect as glua")
+    assert_eq(detect_target(lua_code, "script.lua"), "lua", "plain Lua code should stay lua")
+    assert_eq(detect_target(lua_code, "script.luau"), "luau", ".luau files should default to luau")
+end
+
 local function test_dummy_module_internal_detection()
     local extra = dofile("tests/extra_manifest.lua")
     local dummy = extra.modules[1]
@@ -170,6 +239,7 @@ local function test_dummy_module_cli_export()
 end
 
 validate_manifest_shape()
+test_language_detection()
 test_dummy_module_internal_detection()
 test_dummy_module_cli_export()
 
