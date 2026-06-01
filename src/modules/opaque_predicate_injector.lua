@@ -118,6 +118,7 @@ local SKIP_PATTERNS = {
     "^%s*break[^%w_]",
     "^%s*break%s*$",
     "^%s*return%s",
+    "^%s*[%)}%]]",
 }
 
 local function should_skip(line)

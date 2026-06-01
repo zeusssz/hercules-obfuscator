@@ -24,6 +24,7 @@ local SKIP_PATTERNS = {
     "^%s*module%s",
     "^%s*require%s*%(",
     "^%s*:",
+    "^%s*[%)}%]]",
 }
 
 -- Characters/patterns that indicate Lua 5.3+ syntax the VM compiler can't handle

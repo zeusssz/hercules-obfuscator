@@ -142,6 +142,7 @@ function Compressor.process(code)
         if prev:match("[%+%-%*/%%%^#<>=~%.:]$") then return "" end
         if next_line:match("^[%)%}%]%],%.:]") then return "" end
         if next_line:match("^[%+%-%*/%%%^#<>=~]") then return "" end
+        if startsWithKeyword(next_line, "and") or startsWithKeyword(next_line, "or") then return " " end
         if startsWithLastStatement(prev) then return " " end
         if endsWithKeyword(prev, "end") or endsWithKeyword(prev, "until") then return " " end
         if startsWithKeyword(next_line, "end") or startsWithKeyword(next_line, "else") or

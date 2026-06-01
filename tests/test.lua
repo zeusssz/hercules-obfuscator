@@ -515,6 +515,93 @@ print(t.a + t.b + t.c)
     assert(out == "6", string.format("expected 6, got %q", tostring(out)))
 end)
 
+register("compressor_multiline_logical_operator", function()
+    local Compressor = require("modules/compressor")
+    local source = [[
+local a = nil
+local b = "ok"
+local value = a
+    or b
+print(value)
+]]
+    local compressed = Compressor.process(source)
+    assert(not compressed:find(";or", 1, true), compressed)
+    assert(not compressed:find(";and", 1, true), compressed)
+    local fn, load_err = load(compressed, "=compressor_multiline_logical_operator", "t")
+    assert(fn, tostring(load_err) .. "\n" .. compressed)
+    local out, exec_err = capture_output(compressed)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "ok", string.format("expected ok, got %q", tostring(out)))
+end)
+
+register("dynamic_code_closing_table_call_boundary", function()
+    local DynamicCodeGenerator = require("modules/dynamic_code_generator")
+    local source = [[
+local function Button(options)
+    options.Callback()
+end
+
+Button({
+    Title = "Run",
+    Callback = function()
+        print("ok")
+    end
+})
+]]
+    local output = DynamicCodeGenerator.process(source)
+    assert(not output:find("do %(function%(%) %}%)", 1, false), output)
+    local fn, load_err = load(output, "=dynamic_code_closing_table_call_boundary", "t")
+    assert(fn, tostring(load_err) .. "\n" .. output)
+    local out, exec_err = capture_output(output)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "ok", string.format("expected ok, got %q", tostring(out)))
+end)
+
+register("luau_api_method_combo_syntax", function()
+    local orig_target = config.target
+    config.target = "luau"
+
+    local source = [[
+local Section = {}
+function Section:Button(options) end
+
+Section:Button({
+    Title = "Purchase",
+    Callback = function()
+        local remote = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteEvents")
+            and game:GetService("ReplicatedStorage").RemoteEvents:FindFirstChild("BuyItemCash")
+        if remote then remote:FireServer("Green Dino") end
+    end
+})
+]]
+
+    for _, key in ipairs(ALL_MODULES) do
+        config.set(MODULE_PATHS[key], false)
+    end
+    for _, key in ipairs({
+        "antitamper",
+        "control_flow",
+        "StringToExpressions",
+        "string_encoding",
+        "WrapInFunction",
+        "variable_renaming",
+        "garbage_code",
+        "opaque_predicates",
+        "function_inlining",
+        "dynamic_code",
+        "compressor",
+    }) do
+        config.set(MODULE_PATHS[key], true)
+    end
+
+    local ok, result = pcall(function() return Pipeline.process(source) end)
+    assert(ok, string.format("pipeline error: %s", tostring(result):sub(1, 150)))
+    local fn, load_err = load(result, "=luau_api_method_combo_syntax", "t")
+    assert(fn, tostring(load_err) .. "\n" .. result)
+
+    config.target = orig_target
+end)
+
 register("compressor_realistic_glua_syntax", function()
     local Compressor = require("modules/compressor")
     local source = [[
