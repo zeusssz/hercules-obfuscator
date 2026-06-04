@@ -602,6 +602,36 @@ Section:Button({
     config.target = orig_target
 end)
 
+register("lua_comprehensive_combo_5894_syntax", function()
+    local orig_target = config.target
+    config.target = "lua"
+
+    local source = [[print("lua-ok")]]
+
+    for _, key in ipairs(ALL_MODULES) do
+        config.set(MODULE_PATHS[key], false)
+    end
+    for _, key in ipairs({
+        "antitamper",
+        "control_flow",
+        "StringToExpressions",
+        "string_encoding",
+        "variable_renaming",
+        "function_inlining",
+        "dynamic_code",
+        "VirtualMachine",
+    }) do
+        config.set(MODULE_PATHS[key], true)
+    end
+
+    local ok, result = pcall(function() return Pipeline.process(source) end)
+    assert(ok, string.format("pipeline error: %s", tostring(result):sub(1, 150)))
+    local fn, load_err = load(result, "=lua_comprehensive_combo_5894_syntax", "t")
+    assert(fn, tostring(load_err) .. "\n" .. result)
+
+    config.target = orig_target
+end)
+
 register("compressor_realistic_glua_syntax", function()
     local Compressor = require("modules/compressor")
     local source = [[
