@@ -27,7 +27,7 @@ local function filesize(file)
     end)
     f:close()
     if not success then return 0 end
-    return sz
+    return sz or 0
 end
 
 local function map(func, tbl)
@@ -255,35 +255,28 @@ local function printCliResult(input, output, time, options)
     print(line .. "\n")
 end
 
-local function applyPreset(level)
-    if level == "min" then
-        config.set("settings.variable_renaming.min_name_length", 10)
-        config.set("settings.variable_renaming.max_name_length", 20)
-        config.set("settings.garbage_code.garbage_blocks", 5)
-        config.set("settings.control_flow.max_fake_blocks", 2)
+local function find_preset(name)
+    for _, preset in ipairs(manifest.presets or {}) do
+        if preset.key == name then
+            return preset
+        end
+    end
+    return nil
+end
 
-    elseif level == "mid" then
-        config.set("settings.variable_renaming.min_name_length", 40)
-        config.set("settings.variable_renaming.max_name_length", 60)
-        config.set("settings.garbage_code.garbage_blocks", 25)
-        config.set("settings.control_flow.max_fake_blocks", 8)
-
-    elseif level == "max" then
-        config.set("settings.variable_renaming.min_name_length", 90)
-        config.set("settings.variable_renaming.max_name_length", 120)
-        config.set("settings.garbage_code.garbage_blocks", 50)
-        config.set("settings.control_flow.max_fake_blocks", 12)
-        config.set("settings.StringToExpressions.min_number_length", 800)
-        config.set("settings.StringToExpressions.max_number_length", 999)
+local function apply_method_selection(selected_methods)
+    for _, method in ipairs(manifest.modules) do
+        config.settings[method.config_key].enabled = selected_methods[method.key] == true
     end
 end
 
 local function printUsage()
     print(colors.white .. "Usage: " .. colors.reset .. colors.cyan .. "./hercules.lua *.lua (+ any options)" .. colors.reset)
     print(colors.white .. "\nOptional Presets:" .. colors.reset)
-    print(colors.cyan .. "--min" .. string.rep(" ", 17) .. colors.green .. "Minimal parameters for lighter obfuscation" .. colors.reset)
-    print(colors.cyan .. "--mid" .. string.rep(" ", 17) .. colors.green .. "Moderate parameters for balanced obfuscation" .. colors.reset)
-    print(colors.cyan .. "--max" .. string.rep(" ", 17) .. colors.green .. "Maximum parameters for heavy obfuscation" .. colors.reset)
+    for _, preset in ipairs(manifest.presets or {}) do
+        local flag = "--" .. preset.key
+        print(colors.cyan .. flag .. string.rep(" ", math.max(1, 22 - #flag)) .. colors.green .. preset.description .. colors.reset)
+    end
     
     print(colors.white .. "\nGeneral Flags:" .. colors.reset)
     local general_flags = {
@@ -428,12 +421,8 @@ local function main()
         elseif manifest.find_by_flag(arg[i]) then
             local method = manifest.find_by_flag(arg[i])
             features[method.config_key] = true
-        elseif arg[i] == "--min" then
-            options.preset_level = "min"
-        elseif arg[i] == "--mid" then
-            options.preset_level = "mid"
-        elseif arg[i] == "--max" then
-            options.preset_level = "max"
+        elseif arg[i]:match("^%-%-") and find_preset(arg[i]:sub(3)) then
+            options.preset_key = arg[i]:sub(3)
         elseif arg[i] == "--target" then
             local next_arg = arg[i + 1]
             if next_arg == "lua" or next_arg == "luau" or next_arg == "glua" then
@@ -473,6 +462,14 @@ local function main()
         fh:close()
     end
 
+    local selected_methods = {}
+    local preset = options.preset_key and find_preset(options.preset_key)
+    if preset then
+        for _, method_key in ipairs(preset.methods or {}) do
+            selected_methods[method_key] = true
+        end
+    end
+
     local single_enabled = false
     for feature in pairs(features) do
         if features[feature] then
@@ -482,9 +479,20 @@ local function main()
     end
 
     if single_enabled then
-        for feature, enabled in pairs(features) do
-            config.settings[feature].enabled = enabled
+        for _, method in ipairs(manifest.modules) do
+            if features[method.config_key] then
+                selected_methods[method.key] = true
+            end
         end
+    end
+
+    if preset or single_enabled then
+        apply_method_selection(selected_methods)
+    end
+
+    local base_module_enabled = {}
+    for _, method in ipairs(manifest.modules) do
+        base_module_enabled[method.config_key] = config.get("settings." .. method.config_key .. ".enabled")
     end
 
     if options.no_watermark then
@@ -544,9 +552,8 @@ local function main()
 
         config.target = options.target
         for _, method in ipairs(manifest.modules) do
-            if manifest.is_incompatible(method, options.target) then
-                config.settings[method.config_key].enabled = false
-            end
+            config.settings[method.config_key].enabled =
+                base_module_enabled[method.config_key] and not manifest.is_incompatible(method, options.target)
         end
 
         -- Luau/GLua compatibility: replace load() with loadstring()
@@ -604,6 +611,8 @@ if not loadstring then loadstring = function(s) return load(s) end end
         local output_file
         if options.overwrite then
             output_file = file_path
+        elseif file_path:match("%.luau$") then
+            output_file = file_path:gsub("%.luau$", "_obfuscated" .. output_ext)
         else
             output_file = file_path:gsub("%.lua$", "_obfuscated" .. output_ext)
         end

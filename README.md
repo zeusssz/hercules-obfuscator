@@ -128,10 +128,10 @@ Output:
 
 If you specify the overwrite option with the `--overwrite` flag, it will write over to the specified script, instead of creating a new file.
 <br>
-You may also specify a preset using `--min`, `--mid`, or `--max`.
+You may also specify a preset using `--light`, `--balanced`, `--heavy`, or `--maximum`.
 eg.
 ```sh
-lua hercules.lua my_script.lua --max
+lua hercules.lua my_script.lua --maximum
 ```
 
 You may also choose modules through the command line by using the flags, such as `--compressor`/`-c`.

@@ -16,8 +16,8 @@ lua hercules.lua path/to/script.lua --overwrite
 # Process all .lua files in a folder
 lua hercules.lua path/to/folder --folder
 
-# Apply preset intensity levels (adjusts variable name length, garbage blocks, fake control flow)
-lua hercules.lua script.lua --min | --mid | --max
+# Apply manifest presets
+lua hercules.lua script.lua --light | --balanced | --heavy | --maximum
 
 # Enable specific modules via flags (short and long forms)
 lua hercules.lua script.lua -c --antitamper          # compressor + antitamper
@@ -71,7 +71,7 @@ src/
 
 All 14 modules are **enabled** by default.
 
-Presets (`--min`/`--mid`/`--max`) override `variable_renaming` name lengths, `garbage_code.garbage_blocks`, `control_flow.max_fake_blocks`, and `--max` also increases `StringToExpressions` expression length.
+Presets (`--light`/`--balanced`/`--heavy`/`--maximum`) are defined in `manifest.lua` and select named method sets. They do not tune module parameters directly.
 
 ## Testing
 
