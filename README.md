@@ -238,17 +238,47 @@ You can modify or add new modules to the `modules/` directory to create addition
 
 A comprehensive end-to-end test suite verifies **all 2^14 − 1 = 16,383 module combinations** against a realistic Lua fixture (FNV-1a hashing, JSON builder, escape sequences, closures, method chains, and multi-line table constructors). Each test runs actual obfuscation via `Pipeline.process()` and verifies the output matches expected results.
 
+### Supported Targets
+
+| Target | Modules | Notes |
+|--------|---------|-------|
+| Lua 5.4 | 14/14 | Full support including VirtualMachine and bytecode_encoding |
+| Luau | 12/14 | VirtualMachine and bytecode_encoding disabled (incompatible bytecode) |
+
 ### Python Parallel Runner (recommended for full sweep)
 
 Fast parallel execution using multiple Lua worker processes:
 
 ```bash
-# Full combination sweep with auto-detected workers
+# Full combination sweep with auto-detected workers (Lua target)
 python3 test_py.py
 
 # Explicit worker count
 python3 test_py.py --jobs 8
+
+# Luau target (12 modules, validated with luau binary)
+python3 test_py.py --target luau
+
+# Run both Lua and Luau tests
+python3 test_py.py --target both
 ```
+
+### Luau Support
+
+The obfuscator supports generating code for [Luau](https://luau.org/) (Roblox's Lua dialect):
+
+```bash
+# Obfuscate for Luau target
+lua hercules.lua script.lua --target luau -cf -se -vr -gci -opi -st -wif -fi -dc -at
+
+# Output: script_obfuscated.luau
+```
+
+**Luau-specific adaptations:**
+- VirtualMachine and bytecode_encoding modules are automatically disabled
+- `load()` calls in source code are converted to `loadstring()`
+- Polyfills for `math.ldexp`/`math.frexp` are prepended to output
+- Antitamper checks only functions available in Luau (no `loadfile`, `dofile`, `debug.*`, `os.exit`)
 
 ### Lua Test Runner (recommended for quick checks)
 

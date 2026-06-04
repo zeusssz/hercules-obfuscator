@@ -2,28 +2,22 @@ name: Test Suite
 
 on:
   push:
-    #branches: [main, master]
-    branches-ignore: [main, master]
+    branches: [main, master]
   pull_request:
-    #branches: [main, master]
-    branches-ignore: [main, master]
+    branches: [main, master]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        lua-version: ["5.4"]
+    env:
+      DOCKER_DEFAULT_PLATFORM: linux/amd64
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Lua
-        uses: leafo/gh-actions-lua@v10
-        with:
-          luaVersion: ${{ matrix.lua-version }}
+      - name: Require amd64 runner
+        run: test "$(uname -m)" = "x86_64"
 
       - name: Run test suite
-        working-directory: src
-        run: lua test.lua --verbose
+        run: make test

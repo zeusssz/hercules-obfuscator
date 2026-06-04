@@ -101,8 +101,10 @@ local SKIP_PATTERNS = {
     "^%s*%-%-",
     "^%s*if%s",
     "^%s*then%s*$",
+    "^%s*else[^%w_]",
     "^%s*else%s*$",
     "^%s*elseif%s",
+    "^%s*end[^%w_]",
     "^%s*end%s*$",
     "^%s*for%s",
     "^%s*while%s",
@@ -113,7 +115,10 @@ local SKIP_PATTERNS = {
     "^%s*local%s+function%s",
     "^%s*local%s+.-%s*=%s*function%s",
     "^%s*module%s",
+    "^%s*break[^%w_]",
+    "^%s*break%s*$",
     "^%s*return%s",
+    "^%s*[%)}%]]",
 }
 
 local function should_skip(line)
@@ -163,6 +168,39 @@ local function is_local_declaration(line)
     return line:match("^%s*local%s+%w") ~= nil
 end
 
+local function block_delta(line)
+    local stripped = line:gsub('"[^"\\]*(\\.[^"\\]*)*"', "")
+                         :gsub("'[^'\\]*(\\.[^'\\]*)*'", "")
+                         :gsub("%-%-[^\n]*", "")
+    local delta = 0
+    if stripped:match("^%s*if%s") and stripped:match("%sthen%s*$") then delta = delta + 1 end
+    if stripped:match("^%s*for%s") and stripped:match("%sdo%s*$") then delta = delta + 1 end
+    if stripped:match("^%s*while%s") and stripped:match("%sdo%s*$") then delta = delta + 1 end
+    if stripped:match("^%s*function%s") or stripped:match("^%s*local%s+function%s") or
+        stripped:match("^%s*local%s+.-%s*=%s*function%s") then delta = delta + 1 end
+    if stripped:match("^%s*do%s*$") then delta = delta + 1 end
+    if stripped:match("^%s*repeat%s*$") then delta = delta + 1 end
+    if stripped:match("^%s*end[^%w_]") or stripped:match("^%s*end%s*$") then delta = delta - 1 end
+    if stripped:match("^%s*until%s") then delta = delta - 1 end
+    return delta
+end
+
+local function starts_control_block(line)
+    return block_delta(line) > 0
+end
+
+local function copy_control_block(lines, start_index, output)
+    local depth = 0
+    local i = start_index
+    while i <= #lines do
+        table.insert(output, lines[i])
+        depth = depth + block_delta(lines[i])
+        i = i + 1
+        if depth <= 0 then break end
+    end
+    return i
+end
+
 function OpaquePredicateInjector.process(code)
     local lines = {}
     for line in code:gmatch("[^\n]*") do
@@ -177,7 +215,9 @@ function OpaquePredicateInjector.process(code)
         local line = lines[i]
         local trimmed = line:gsub("^%s*", ""):gsub("%s+$", "")
 
-        if should_skip(line) or not line:match("%S") then
+        if starts_control_block(line) then
+            i = copy_control_block(lines, i, output)
+        elseif should_skip(line) or not line:match("%S") then
             table.insert(output, line)
             i = i + 1
             while i <= #lines do
@@ -212,7 +252,7 @@ function OpaquePredicateInjector.process(code)
                 end
                 while i <= #lines and (brace_depth > 0 or bracket_depth > 0 or paren_depth > 0) do
                     local next_trimmed = lines[i]:gsub("^%s*", ""):gsub("%s+$", "")
-                    if next_trimmed == "" then break end
+                    if next_trimmed == "" and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
                     table.insert(skip_block, lines[i])
                     for ch in lines[i]:gmatch(".") do
                         if ch == "{" then brace_depth = brace_depth + 1
@@ -230,18 +270,37 @@ function OpaquePredicateInjector.process(code)
             else
                 local block_lines = {line}
                 local j = i + 1
+                local brace_depth = 0
+                local bracket_depth = 0
+                local paren_depth = 0
+                for ch in line:gmatch(".") do
+                    if ch == "{" then brace_depth = brace_depth + 1
+                    elseif ch == "}" then brace_depth = brace_depth - 1
+                    elseif ch == "[" then bracket_depth = bracket_depth + 1
+                    elseif ch == "]" then bracket_depth = bracket_depth - 1
+                    elseif ch == "(" then paren_depth = paren_depth + 1
+                    elseif ch == ")" then paren_depth = paren_depth - 1 end
+                end
                 while j <= #lines do
                     local next_line = lines[j]
                     local next_trimmed = next_line:gsub("^%s*", ""):gsub("%s+$", "")
-                    if next_trimmed == "" then break end
-                    if next_trimmed == "end" or next_trimmed == "else" or next_trimmed:match("^then") or next_trimmed:match("^elseif") then break end
-                    if next_trimmed:match("^local%s") then break end
+                    if next_trimmed == "" and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
+                    if (next_trimmed == "end" or next_trimmed == "else" or next_trimmed:match("^then") or next_trimmed:match("^elseif")) and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
+                    if next_trimmed:match("^local%s") and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
                     local last = block_lines[#block_lines]:gsub("^%s*", ""):gsub("%s+$", "")
                     local needs_continuation = next_trimmed:match("^:") or last:match("=%s*$") or last:match("{%s*$") or last:match(",%s*$")
                     local combined = table.concat(block_lines, " ") .. " " .. next_trimmed
                     table.insert(block_lines, next_line)
+                    for ch in next_line:gmatch(".") do
+                        if ch == "{" then brace_depth = brace_depth + 1
+                        elseif ch == "}" then brace_depth = brace_depth - 1
+                        elseif ch == "[" then bracket_depth = bracket_depth + 1
+                        elseif ch == "]" then bracket_depth = bracket_depth - 1
+                        elseif ch == "(" then paren_depth = paren_depth + 1
+                        elseif ch == ")" then paren_depth = paren_depth - 1 end
+                    end
                     j = j + 1
-                    if isBalanced(combined) and not needs_continuation then break end
+                    if isBalanced(combined) and not needs_continuation and brace_depth <= 0 and bracket_depth <= 0 and paren_depth <= 0 then break end
                 end
 
                 inject_count = inject_count + 1

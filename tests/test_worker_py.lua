@@ -1,6 +1,9 @@
 -- test_worker_py.lua — Long-lived worker for Python parallel test runner
 -- Reads masks from stdin (one per line), outputs P:<mask> or F:<mask>:<fidx>:<reason>
 
+-- Polyfills for Lua 5.4 (math.ldexp/frexp removed in 5.3+)
+package.path = "./src/?.lua;./src/?/init.lua;./tests/?.lua;./tests/?/init.lua;" .. package.path
+
 if not math.ldexp then math.ldexp = function(x,n) return x*2^n end end
 if not math.frexp then math.frexp = function(x)
     if x==0 then return 0,0 end

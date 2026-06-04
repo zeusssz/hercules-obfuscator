@@ -15,6 +15,7 @@ end
 
 local Pipeline = require("pipeline")
 local config = require("config")
+local manifest = require("manifest")
 -- utils
 
 local function filesize(file)
@@ -48,6 +49,83 @@ local colors = {
 }
 
 local obfuscated_list = {}
+
+local function json_escape(value)
+    return tostring(value)
+        :gsub('\\', '\\\\')
+        :gsub('"', '\\"')
+        :gsub('\n', '\\n')
+        :gsub('\r', '\\r')
+        :gsub('\t', '\\t')
+end
+
+local function json_value(value)
+    local value_type = type(value)
+    if value_type == "string" then
+        return '"' .. json_escape(value) .. '"'
+    elseif value_type == "number" or value_type == "boolean" then
+        return tostring(value)
+    elseif value_type == "table" then
+        local parts = {}
+        local is_array = #value > 0
+        local count = 0
+        for k in pairs(value) do
+            if type(k) ~= "number" then
+                is_array = false
+                break
+            end
+            count = math.max(count, k)
+        end
+        if is_array then
+            for i = 1, count do
+                parts[#parts + 1] = json_value(value[i])
+            end
+            return "[" .. table.concat(parts, ",") .. "]"
+        end
+        for k, v in pairs(value) do
+            if type(v) ~= "function" then
+                parts[#parts + 1] = '"' .. json_escape(k) .. '":' .. json_value(v)
+            end
+        end
+        return "{" .. table.concat(parts, ",") .. "}"
+    end
+    return "null"
+end
+
+local function json_array(values)
+    local parts = {}
+    for _, value in ipairs(values or {}) do
+        parts[#parts + 1] = json_value(value)
+    end
+    return "[" .. table.concat(parts, ",") .. "]"
+end
+
+local function printManifestJson()
+    local methods = {}
+    for _, method in ipairs(manifest.modules_by_bit_position()) do
+        methods[#methods + 1] = "{" .. table.concat({
+            '"key":' .. json_value(method.key),
+            '"config_key":' .. json_value(method.config_key),
+            '"name":' .. json_value(method.name),
+            '"module":' .. json_value(method.module),
+            '"enabled":' .. json_value(method.enabled),
+            '"bit_position":' .. json_value(method.bit_position),
+            '"pipeline_order":' .. json_value(method.pipeline_order),
+            '"cli":' .. json_value(method.cli or {}),
+            '"incompatible_with":' .. json_array(method.incompatible_with),
+            '"settings":' .. json_value(method.settings or {}),
+            '"description":' .. json_value(method.description or ""),
+        }, ",") .. "}"
+    end
+
+    print("{" .. table.concat({
+        '"version":' .. json_value(manifest.version),
+        '"output":' .. json_value(manifest.output),
+        '"presets":' .. json_value(manifest.presets),
+        '"language_detection":' .. json_value(manifest.language_detection),
+        '"modules":[' .. table.concat(methods, ",") .. "]",
+    }, ",") .. "}")
+end
 
 local BANNER = colors.blue .. [[
                                 _                      _        __   
@@ -120,6 +198,11 @@ local function printCliResult(input, output, time, options)
 
     print(colors.cyan .. "Overwrite         : " .. formatBool(options.overwrite))
     print(colors.cyan .. "Folder Mode       : " .. formatBool(options.folder_mode))
+    local target_label = string.upper(options.target)
+    if not options.target_override then
+        target_label = target_label .. " (auto)"
+    end
+    print(colors.cyan .. "Target            : " .. target_label .. colors.reset)
     if options.folder_mode then
         if not output then
             print(colors.white .. "Output File       : " .. colors.reset
@@ -147,20 +230,13 @@ local function printCliResult(input, output, time, options)
 
     local settings = {
         { "Watermark", config.get("settings.watermark_enabled") },
-        { "String To Expressions", config.get("settings.StringToExpressions.enabled") },
-        { "Control Flow", config.get("settings.control_flow.enabled") },
-        { "String Encoding", config.get("settings.string_encoding.enabled") },
-        { "Variable Renaming", config.get("settings.variable_renaming.enabled") },
-        { "Garbage Code", config.get("settings.garbage_code.enabled") },
-        { "Opaque Predicates", config.get("settings.opaque_predicates.enabled") },
-        { "Function Inlining", config.get("settings.function_inlining.enabled") },
-        { "Dynamic Code", config.get("settings.dynamic_code.enabled") },
-        { "Bytecode Encoding", config.get("settings.bytecode_encoding.enabled") },
-        { "Compressor", config.get("settings.compressor.enabled") },
-        { "Function Wrapping", config.get("settings.WrapInFunction.enabled") },
-        { "Virtual Machine", config.get("settings.VirtualMachine.enabled") },
-        { "Anti Tamper", config.get("settings.antitamper.enabled") },
     }
+    for _, method in ipairs(manifest.modules_by_bit_position()) do
+        settings[#settings + 1] = {
+            method.name,
+            config.get("settings." .. method.config_key .. ".enabled"),
+        }
+    end
 
     local max_length = 0
     for _, setting in ipairs(settings) do
@@ -213,7 +289,12 @@ local function printUsage()
     local general_flags = {
         { flags = {"--overwrite", ""}, description = "Overwrites the original file with obfuscated code" },
         { flags = {"--folder", ""}, description = "Process all Lua files in the given folder" },
-        { flags = {"--sanity", ""}, description = "Check if obfuscated code output matches original" }
+        { flags = {"--sanity", ""}, description = "Check if obfuscated code output matches original" },
+        { flags = {"--target <t>", ""}, description = "Target runtime: 'lua', 'luau' (Roblox), or 'glua' (Garry's Mod)" },
+        { flags = {"--watermark <text>", ""}, description = "Use custom watermark text for this run" },
+        { flags = {"--watermark-file <path>", ""}, description = "Use a custom watermark module file for this run" },
+        { flags = {"--no-watermark", ""}, description = "Disable watermark output for this run" },
+        { flags = {"--manifest-json", ""}, description = "Print API manifest JSON and exit" }
     }
     for _, flag in ipairs(general_flags) do
         print(colors.cyan .. flag.flags[1] .. flag.flags[2] .. colors.green .. string.rep(" ", 20 - #flag.flags[1] - #flag.flags[2]) .. flag.description .. colors.reset)
@@ -221,21 +302,13 @@ local function printUsage()
 
     print(colors.white .. "\nObfuscation Flags:" .. colors.reset)
 
-local obfuscation_flags = {
-    { flags = {"-cf", "--control_flow"}, description = "Enable control flow obfuscation" },
-    { flags = {"-se", "--string_encoding"}, description = "Enable string encoding" },
-    { flags = {"-vr", "--variable_renaming"}, description = "Enable variable renaming" },
-    { flags = {"-gci", "--garbage_code"}, description = "Enable garbage code injection" },
-    { flags = {"-opi", "--opaque_preds"}, description = "Enable opaque predicates injection" },
-    { flags = {"-be", "--bytecode_encoder"}, description = "Enable bytecode encoding" },
-    { flags = {"-st", "--string_to_expr"}, description = "Enable string to expression conversion" },
-    { flags = {"-vm", "--virtual_machine"}, description = "Enable virtual machine transformation" },
-    { flags = {"-wif", "--wrap_in_func"}, description = "Enable function wrapping" },
-    { flags = {"-fi", "--func_inlining"}, description = "Enable function inlining" },
-    { flags = {"-dc", "--dynamic_code"}, description = "Enable dynamic code generation" },
-    { flags = {"-c", "--compressor"}, description = "Enable compressor" },
-    { flags = {"-at", "--antitamper"}, description = "Enable antitamper" }
-}
+local obfuscation_flags = {}
+for _, method in ipairs(manifest.modules_by_bit_position()) do
+    obfuscation_flags[#obfuscation_flags + 1] = {
+        flags = { method.cli.short, method.cli.long },
+        description = method.description,
+    }
+end
 
 local max_flag_length = 0
 for _, flag in ipairs(obfuscation_flags) do
@@ -252,7 +325,46 @@ end
 os.exit(1)
 end
 
+-- ─── Target Auto-Detection ─────────────────────────────────────────────────────
+-- The manifest owns target detection metadata so API and CLI stay in sync.
+local function score_language(code, language)
+    local detection = manifest.language_detection or {}
+    local language_config = ((detection.languages or {})[language] or {})
+    local score = 0
+    for _, item in ipairs(language_config.patterns or {}) do
+        local matched = item.lua_pattern and code:match(item.lua_pattern)
+        for _, pattern in ipairs(item.lua_patterns or {}) do
+            matched = matched or code:match(pattern)
+        end
+        if matched then
+            score = score + (item.weight or 1)
+        end
+    end
+    return score
+end
+
+local function detect_target(code, file_path)
+    local threshold = (manifest.language_detection or {}).threshold or 2
+    local luau_score = score_language(code, "luau")
+    local glua_score = score_language(code, "glua")
+
+    if glua_score > luau_score and glua_score >= threshold then
+        return "glua"
+    elseif luau_score > glua_score and luau_score >= threshold then
+        return "luau"
+    elseif file_path and file_path:match("%.luau$") then
+        return "luau"
+    end
+
+    return "lua"
+end
+
 local function main()
+    if #arg == 1 and arg[1] == "--manifest-json" then
+        printManifestJson()
+        return
+    end
+
     if #arg < 1 then
         print(colors.red .. "Error: No input file specified" .. colors.reset)
         printUsage()
@@ -270,71 +382,77 @@ local function main()
         overwrite = false,
         custom_file = nil,
         folder_mode = false,
-        sanity_check = false
+        sanity_check = false,
+        target = nil,
+        target_override = false,
+        watermark = nil,
+        watermark_file = nil,
+        no_watermark = false,
     }
 
-    local features = {
-        control_flow = false,
-        string_encoding = false,
-        variable_renaming = false,
-        garbage_code = false,
-        opaque_predicates = false,
-        bytecode_encoding = false,
-        compressor = false,
-        StringToExpressions = false,
-        VirtualMachine = false,
-        WrapInFunction = false,
-        function_inlining = false,
-        dynamic_code = false,
-        antitamper = false,
-    }
+    local features = {}
+    for _, method in ipairs(manifest.modules) do
+        features[method.config_key] = false
+    end
 
-    for i = 2, #arg do
+    local i = 2
+    while i <= #arg do
         if arg[i] == "--overwrite" then
             options.overwrite = true
         elseif arg[i] == "--folder" then
             options.folder_mode = true
         elseif arg[i] == "--sanity" then
             options.sanity_check = true
-        elseif arg[i] == "-cf" or arg[i] == "--control_flow" then
-            features.control_flow = true
-        elseif arg[i] == "-c" or arg[i] == "--compressor" then
-            features.compressor = true
-        elseif arg[i] == "-se" or arg[i] == "--string_encoding" then
-            features.string_encoding = true
-        elseif arg[i] == "-vr" or arg[i] == "--variable_renaming" then
-            features.variable_renaming = true
-        elseif arg[i] == "-gci" or arg[i] == "--garbage_code" then
-            features.garbage_code = true
-        elseif arg[i] == "-opi" or arg[i] == "--opaque_preds" then
-            features.opaque_predicates = true
-        elseif arg[i] == "-be" or arg[i] == "--bytecode_encoder" then
-            features.bytecode_encoding = true
-        elseif arg[i] == "-st" or arg[i] == "--string_to_expr" then
-            features.StringToExpressions = true
-        elseif arg[i] == "-vm" or arg[i] == "--virtual_machine" then
-            features.VirtualMachine = true
-        elseif arg[i] == "-wif" or arg[i] == "--wrap_in_func" then
-            features.WrapInFunction = true
-        elseif arg[i] == "-fi" or arg[i] == "--func_inlining" then
-            features.function_inlining = true
-        elseif arg[i] == "-dc" or arg[i] == "--dynamic_code" then
-            features.dynamic_code = true
-        elseif arg[i] == "-at" or arg[i] == "--antitamper" then
-            features.antitamper = true
+        elseif arg[i] == "--no-watermark" then
+            options.no_watermark = true
+        elseif arg[i] == "--watermark" then
+            local next_arg = arg[i + 1]
+            if next_arg and next_arg ~= "" then
+                options.watermark = next_arg
+                i = i + 1
+            else
+                print(colors.red .. "Error: --watermark requires text" .. colors.reset)
+                printUsage()
+                os.exit(1)
+            end
+        elseif arg[i] == "--watermark-file" then
+            local next_arg = arg[i + 1]
+            if next_arg and next_arg ~= "" then
+                options.watermark_file = next_arg
+                i = i + 1
+            else
+                print(colors.red .. "Error: --watermark-file requires a path" .. colors.reset)
+                printUsage()
+                os.exit(1)
+            end
+        elseif manifest.find_by_flag(arg[i]) then
+            local method = manifest.find_by_flag(arg[i])
+            features[method.config_key] = true
         elseif arg[i] == "--min" then
             options.preset_level = "min"
         elseif arg[i] == "--mid" then
             options.preset_level = "mid"
         elseif arg[i] == "--max" then
             options.preset_level = "max"
+        elseif arg[i] == "--target" then
+            local next_arg = arg[i + 1]
+            if next_arg == "lua" or next_arg == "luau" or next_arg == "glua" then
+                options.target = next_arg
+                options.target_override = true
+                i = i + 1
+            else
+                print(colors.red .. "Error: --target requires 'lua', 'luau', or 'glua'" .. colors.reset)
+                printUsage()
+                os.exit(1)
+            end
         else
             print(colors.red .. "Error: Unknown option '" .. arg[i] .. "'" .. colors.reset)
             printUsage()
             os.exit(1)
         end
+        i = i + 1
     end
-    if not options.folder_mode and not input:match("%.lua$") then
+    if not options.folder_mode and not input:match("%.lua$") and not input:match("%.luau$") then
         print(colors.red .. "Error: Invalid file extension for '" .. input .. "'" .. colors.reset)
         printUsage()
         os.exit(1)
@@ -369,16 +487,28 @@ local function main()
         end
     end
 
+    if options.no_watermark then
+        config.set("settings.watermark_text", "")
+        config.set("settings.watermark_module_file", nil)
+    elseif options.watermark_file ~= nil then
+        config.set("settings.watermark_module_file", options.watermark_file)
+    elseif options.watermark ~= nil then
+        config.set("settings.watermark_text", options.watermark)
+        config.set("settings.watermark_module_file", nil)
+    end
+
     local files = {}
     if options.folder_mode then
+        local ext_patterns = { lua = "*.lua", luau = "*.luau", glua = "*.lua" }
+        local ext = ext_patterns[options.target] or "*.lua"
         local find_command
         if package.config:sub(1,1) == "\\" then
             -- windows
-            local pattern = input .. "\\*.lua"
+            local pattern = input .. "\\" .. ext
             find_command = string.format('dir %q /b /s 2>nul', pattern)
         else
             -- mac/linux
-            find_command = string.format('find %q -type f -name "*.lua"', input)
+            find_command = string.format('find %q -type f -name "%s"', input, ext)
         end
         local p = io.popen(find_command)
         if not p then
@@ -404,12 +534,36 @@ local function main()
         local code = file:read("*all")
         file:close()
 
+        -- Auto-detect target from source code (can be overridden with --target)
+        if not options.target_override then
+            options.target = detect_target(code, file_path)
+        end
+        if not options.target then
+            options.target = "lua"
+        end
+
+        config.target = options.target
+        for _, method in ipairs(manifest.modules) do
+            if manifest.is_incompatible(method, options.target) then
+                config.settings[method.config_key].enabled = false
+            end
+        end
+
+        -- Luau/GLua compatibility: replace load() with loadstring()
+        -- Luau's load() only accepts functions, not strings
+        -- Only replace load( when preceded by whitespace, operators, or at line start
+        -- to avoid matching load( inside string literals
+        if options.target == "luau" then
+            code = code:gsub("([^%w_])load%(", "%1loadstring(")
+            code = code:gsub("^load(", "loadstring(")
+        end
+
         local start_time = os.clock()
         local obfuscated_code, sanity_failed, sanity_info
         local attempts, success = 0, false
 
-        -- Polyfills for Lua 5.3+ (math.ldexp/frexp removed but used by VM/bytecode modules)
-        local polyfills = [[-- Lua 5.3+ compatibility polyfills
+        -- Polyfills for Lua 5.3+ / Luau compatibility
+        local polyfills = [[-- Lua 5.3+ / Luau compatibility polyfills
 if not math.ldexp then math.ldexp = function(x, n) return x * 2 ^ n end end
 if not math.frexp then math.frexp = function(x)
     if x == 0 then return 0, 0 end
@@ -417,6 +571,8 @@ if not math.frexp then math.frexp = function(x)
     local mantissa = x / 2 ^ exp
     return mantissa, exp
 end end
+if not loadstring and load then loadstring = load end
+if not loadstring then loadstring = function(s) return load(s) end end
 
 ]]
 
@@ -444,7 +600,13 @@ end end
             end
         until success or attempts >= 3
 
-        local output_file = options.overwrite and file_path or file_path:gsub("%.lua$", "_obfuscated.lua")
+        local output_ext = options.target == "luau" and ".luau" or ".lua"
+        local output_file
+        if options.overwrite then
+            output_file = file_path
+        else
+            output_file = file_path:gsub("%.lua$", "_obfuscated" .. output_ext)
+        end
         local out_file_handle = assert(io.open(output_file, "w"))
         out_file_handle:write(polyfills .. obfuscated_code)
         out_file_handle:close()

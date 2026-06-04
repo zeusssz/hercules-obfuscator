@@ -1,98 +1,35 @@
 --pipeline.lua
 local config = require("config")
+local manifest = require("manifest")
 
-local StringEncoder = require("modules/string_encoder")
-local VariableRenamer = require("modules/variable_renamer")
-local ControlFlowObfuscator = require("modules/control_flow_obfuscator")
-local GarbageCodeInserter = require("modules/garbage_code_inserter")
-local OpaquePredicateInjector = require("modules/opaque_predicate_injector")
-local FunctionInliner = require("modules/function_inliner")
-local DynamicCodeGenerator = require("modules/dynamic_code_generator")
-local BytecodeEncoder = require("modules/bytecode_encoder")
 local Watermarker = require("modules/watermark")
-local Compressor = require("modules/compressor")
-local StringToExpressions = require("modules/StringToExpressions")
-local WrapInFunction = require("modules/WrapInFunction")
-local VirtualMachinery = require("modules/VMGenerator")
-local AntiTamper = require("modules/antitamper")
 
 local Pipeline = {}
 
+local function is_enabled(method)
+    return config.get("settings." .. method.config_key .. ".enabled")
+end
+
+local function apply_method(method, code)
+    local ok, processor = pcall(require, method.module)
+    if not ok then
+        error("Failed to load module " .. method.module .. ": " .. tostring(processor))
+    end
+
+    if method.process then
+        return method.process(processor, code, config)
+    end
+    return processor.process(code)
+end
+
 function Pipeline.process(code)
-    -- Phase 1: Simple pre-VM transformations (line-level, no multi-line output)
-    -- These MUST run before function_inlining which produces multi-line constructs
-    if config.get("settings.dynamic_code.enabled") then
-        code = DynamicCodeGenerator.process(code)
+    for _, method in ipairs(manifest.modules_by_pipeline()) do
+        if is_enabled(method) and not manifest.is_incompatible(method, config.target) then
+            code = apply_method(method, code)
+        end
     end
 
-    if config.get("settings.opaque_predicates.enabled") then
-        code = OpaquePredicateInjector.process(code)
-    end
-
-    -- Phase 2: String obfuscation
-    if config.get("settings.string_encoding.enabled") then
-        code = StringEncoder.process(code)
-    end
-
-    if config.get("settings.StringToExpressions.enabled") then
-        local min_length = config.get("settings.StringToExpressions.min_number_length")
-        local max_length = config.get("settings.StringToExpressions.max_number_length")
-        code = StringToExpressions.process(code, min_length, max_length)
-    end
-
-    -- Phase 3: Function inlining — produces multi-line constructs, must run
-    -- AFTER line-level transformers but BEFORE VM
-    if config.get("settings.function_inlining.enabled") then
-        code = FunctionInliner.process(code)
-    end
-
-    -- Phase 4: Variable renaming — MUST run BEFORE VirtualMachine so the
-    -- bytecode serializes the already-renamed variable names. Running it
-    -- after VM would rename locals in the VM runtime while the bytecode
-    -- still references the original names → nil at runtime.
-    if config.get("settings.variable_renaming.enabled") then
-        local min_length = config.get("settings.variable_renaming.min_name_length")
-        local max_length = config.get("settings.variable_renaming.max_name_length")
-        code = VariableRenamer.process(code, { min_length = min_length, max_length = max_length })
-    end
-
-    -- Phase 5: Virtual Machine — compiles all pre-transformed code into bytecode
-    if config.get("settings.VirtualMachine.enabled") then
-        code = VirtualMachinery.process(code)
-    end
-
-    -- Phase 6: Post-VM transformations (work on single-line VM output)
-    if config.get("settings.antitamper.enabled") then
-        code = AntiTamper.process(code)
-    end
-
-    if config.get("settings.control_flow.enabled") then
-        local max_fake_blocks = config.get("settings.control_flow.max_fake_blocks")
-        code = ControlFlowObfuscator.process(code, max_fake_blocks)
-    end
-
-    -- Phase 7: Garbage code
-    if config.get("settings.garbage_code.enabled") then
-        local garbage_blocks = config.get("settings.garbage_code.garbage_blocks")
-        code = GarbageCodeInserter.process(code, garbage_blocks)
-    end
-
-    -- Phase 8: Compression
-    if config.get("settings.compressor.enabled") then
-        code = Compressor.process(code)
-    end
-
-    -- Phase 9: Final wrappers
-    if config.get("settings.WrapInFunction.enabled") then
-        code = WrapInFunction.process(code)
-    end
-
-    -- Phase 10: Bytecode encoding (replaces entire code with decoder)
-    if config.get("settings.bytecode_encoding.enabled") then
-        code = BytecodeEncoder.process(code)
-    end
-
-    -- Phase 11: Watermark (MUST be last — added after all transformations)
+    -- Watermark is always last and intentionally not exposed as an API bitkey.
     if config.get("settings.watermark_enabled") then
         code = Watermarker.process(code)
     end

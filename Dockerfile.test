@@ -1,0 +1,50 @@
+ARG TEST_BASE_IMAGE=serpensin/hercules-obfuscator-test-base:latest
+FROM ${TEST_BASE_IMAGE} AS test
+
+WORKDIR /repo
+
+# Keep the final test image current without redownloading the heavy base from
+# scratch on every local test run.
+ARG TEST_UPDATE_CACHE_BUST=0
+RUN echo "update cache bust: ${TEST_UPDATE_CACHE_BUST}" && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        git lua5.1 lua5.4 liblua5.4-dev luarocks \
+        build-essential python3-dev cmake ninja-build \
+    && luarocks install luacheck && \
+    LUACHECK_MODULES=$(find /usr/local/share/lua/5.1 -name "luacheck" -type d 2>/dev/null | head -1) && \
+    if [ -n "$LUACHECK_MODULES" ]; then \
+        printf '#!/usr/bin/lua5.1\npackage.path="/usr/local/share/lua/5.1/?.lua;/usr/local/share/lua/5.1/?/init.lua;"..package.path\nrequire("luacheck.main")\n' > /usr/local/bin/luacheck && \
+        chmod +x /usr/local/bin/luacheck; \
+    fi && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN rm -rf /tmp/luau && \
+    git clone https://github.com/Roblox/luau.git /tmp/luau && \
+    cd /tmp/luau && \
+    sed -i '1i #include <algorithm>' CodeGen/src/OptimizeDeadStore.cpp && \
+    cmake -DCMAKE_BUILD_TYPE=Release -G Ninja -B build && \
+    cmake --build build && \
+    cp build/luau /usr/local/bin/luau && \
+    cp build/luau-analyze /usr/local/bin/luau-analyze && \
+    rm -rf /tmp/luau
+
+RUN for i in 1 2 3; do \
+        /opt/steamcmd/steamcmd.sh \
+            +force_install_dir /opt/gmod \
+            +login anonymous \
+            +app_update 4020 validate \
+            +quit 2>&1 && break; \
+        echo "GMod update attempt $i failed, retrying in 10s..."; \
+        sleep 10; \
+    done; \
+    if [ ! -f /opt/gmod/srcds_run ]; then \
+        echo "GMod update failed after 3 attempts"; \
+        exit 1; \
+    fi
+
+COPY . /repo
+RUN mkdir -p /opt/gmod/garrysmod/lua/autorun && \
+    cp /repo/tests/gmod_test_runner.lua /opt/gmod/garrysmod/lua/autorun/hercules_test_runner.lua
+
+CMD ["sh", "-c", "lua5.4 tests/test_manifest.lua && lua5.4 tests/test.lua --verbose && python3 tests/comprehensive_runner.py"]

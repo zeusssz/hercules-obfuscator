@@ -23,5 +23,5 @@ Temporary Items
 /.vs
 file_obfuscated.lua
 file.lua
-tests/
 __pycache__/
+/examples/generated/

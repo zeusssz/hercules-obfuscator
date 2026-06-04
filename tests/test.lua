@@ -5,6 +5,8 @@
 -- Run from src/:  lua test.lua
 
 -- ─── Polyfills for Lua 5.4 (math.ldexp/frexp removed in 5.3+) ─────────────────
+package.path = "./src/?.lua;./src/?/init.lua;./tests/?.lua;./tests/?/init.lua;" .. package.path
+
 if not math.ldexp then
     math.ldexp = function(x, n) return x * 2 ^ n end
 end
@@ -394,34 +396,27 @@ for m = 1, NUM_MODULES do
     end)
 end
 
--- Phase 4: Fixture-specific full combination sweep (--fixture <name>)
-local function register_fixture_sweep(fixture_name, fixture)
-    register("fixture_sweep_" .. fixture_name, function()
-        local pass, fail = 0, 0
-        for mask = 1, NUM_COMBOS - 1 do
-            local mods = mask_to_modules(mask)
-            set_all_modules(mask)
+local function shell_quote(value)
+    return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
 
-            local ok, result = pcall(function() return Pipeline.process(fixture.code) end)
-            if not ok or type(result) ~= "string" then
-                fail = fail + 1
-            else
-                local load_ok = load(result, "=test", "t") ~= nil
-                if not load_ok then
-                    fail = fail + 1
-                else
-                    local out, err = capture_output(result)
-                    if err or out ~= fixture.expected then
-                        fail = fail + 1
-                    else
-                        pass = pass + 1
-                    end
-                end
-            end
-        end
-        io.write(string.format("  %s: %d/%d combos pass\n", fixture_name, pass, NUM_COMBOS - 1))
-        if fail > 0 then
-            error(string.format("%d combinations failed for fixture %s", fail, fixture_name))
+-- Phase 4: Fixture-specific full combination sweep (--fixture <name>)
+local function register_fixture_sweep(fixture_name, _fixture)
+    register("fixture_sweep_" .. fixture_name, function()
+        local python = os.getenv("PYTHON_BIN") or "python3"
+        local command = string.format(
+            "%s tests/fixture_sweep_parallel.py %s",
+            shell_quote(python),
+            shell_quote(fixture_name)
+        )
+        local ok, exit_type, code = os.execute(command)
+        if ok ~= true then
+            error(string.format(
+                "fixture sweep failed for %s (%s %s)",
+                fixture_name,
+                tostring(exit_type),
+                tostring(code)
+            ))
         end
     end)
 end
@@ -439,6 +434,381 @@ register("config_get_set", function()
     assert(config.get("settings.compressor.enabled") == orig)
     assert(config.get("settings.nonexistent.key") == nil)
     assert(config.set("settings.nonexistent.key", true) == false)
+end)
+
+register("compressor_statement_boundaries", function()
+    local Compressor = require("modules/compressor")
+    local source = [[
+local a = 1
+local b = 2
+print(a + b)
+]]
+    local compressed = Compressor.process(source)
+    local fn, load_err = load(compressed, "=compressor_statement_boundaries", "t")
+    assert(fn, tostring(load_err) .. "\n" .. compressed)
+    assert(compressed:find("local a=1;local b=2;print", 1, true), compressed)
+    local out, exec_err = capture_output(compressed)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "3", string.format("expected 3, got %q", tostring(out)))
+end)
+
+register("compressor_return_boundary", function()
+    local Compressor = require("modules/compressor")
+    local source = [[
+local function value()
+    return
+    (function()
+        return "ok"
+    end)()
+end
+
+print(value())
+]]
+    local compressed = Compressor.process(source)
+    assert(not compressed:find("return;", 1, true), compressed)
+    local fn, load_err = load(compressed, "=compressor_return_boundary", "t")
+    assert(fn, tostring(load_err) .. "\n" .. compressed)
+    local out, exec_err = capture_output(compressed)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "ok", string.format("expected ok, got %q", tostring(out)))
+end)
+
+register("compressor_multiline_call_boundary", function()
+    local Compressor = require("modules/compressor")
+    local source = [[
+local function call(...)
+    print(select("#", ...))
+end
+
+call(
+    "a",
+    "b",
+    "c"
+)
+]]
+    local compressed = Compressor.process(source)
+    assert(not compressed:find("call%(;", 1, false), compressed)
+    local fn, load_err = load(compressed, "=compressor_multiline_call_boundary", "t")
+    assert(fn, tostring(load_err) .. "\n" .. compressed)
+    local out, exec_err = capture_output(compressed)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "3", string.format("expected 3, got %q", tostring(out)))
+end)
+
+register("compressor_multiline_table_boundary", function()
+    local Compressor = require("modules/compressor")
+    local source = [[
+local t = {
+    a = 1,
+    b = 2,
+    c = 3,
+}
+
+print(t.a + t.b + t.c)
+]]
+    local compressed = Compressor.process(source)
+    assert(not compressed:find("{%s*;", 1, false), compressed)
+    local fn, load_err = load(compressed, "=compressor_multiline_table_boundary", "t")
+    assert(fn, tostring(load_err) .. "\n" .. compressed)
+    local out, exec_err = capture_output(compressed)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "6", string.format("expected 6, got %q", tostring(out)))
+end)
+
+register("compressor_multiline_logical_operator", function()
+    local Compressor = require("modules/compressor")
+    local source = [[
+local a = nil
+local b = "ok"
+local value = a
+    or b
+print(value)
+]]
+    local compressed = Compressor.process(source)
+    assert(not compressed:find(";or", 1, true), compressed)
+    assert(not compressed:find(";and", 1, true), compressed)
+    local fn, load_err = load(compressed, "=compressor_multiline_logical_operator", "t")
+    assert(fn, tostring(load_err) .. "\n" .. compressed)
+    local out, exec_err = capture_output(compressed)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "ok", string.format("expected ok, got %q", tostring(out)))
+end)
+
+register("dynamic_code_closing_table_call_boundary", function()
+    local DynamicCodeGenerator = require("modules/dynamic_code_generator")
+    local source = [[
+local function Button(options)
+    options.Callback()
+end
+
+Button({
+    Title = "Run",
+    Callback = function()
+        print("ok")
+    end
+})
+]]
+    local output = DynamicCodeGenerator.process(source)
+    assert(not output:find("do %(function%(%) %}%)", 1, false), output)
+    local fn, load_err = load(output, "=dynamic_code_closing_table_call_boundary", "t")
+    assert(fn, tostring(load_err) .. "\n" .. output)
+    local out, exec_err = capture_output(output)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "ok", string.format("expected ok, got %q", tostring(out)))
+end)
+
+register("luau_api_method_combo_syntax", function()
+    local orig_target = config.target
+    config.target = "luau"
+
+    local source = [[
+local Section = {}
+function Section:Button(options) end
+
+Section:Button({
+    Title = "Purchase",
+    Callback = function()
+        local remote = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteEvents")
+            and game:GetService("ReplicatedStorage").RemoteEvents:FindFirstChild("BuyItemCash")
+        if remote then remote:FireServer("Green Dino") end
+    end
+})
+]]
+
+    for _, key in ipairs(ALL_MODULES) do
+        config.set(MODULE_PATHS[key], false)
+    end
+    for _, key in ipairs({
+        "antitamper",
+        "control_flow",
+        "StringToExpressions",
+        "string_encoding",
+        "WrapInFunction",
+        "variable_renaming",
+        "garbage_code",
+        "opaque_predicates",
+        "function_inlining",
+        "dynamic_code",
+        "compressor",
+    }) do
+        config.set(MODULE_PATHS[key], true)
+    end
+
+    local ok, result = pcall(function() return Pipeline.process(source) end)
+    assert(ok, string.format("pipeline error: %s", tostring(result):sub(1, 150)))
+    local fn, load_err = load(result, "=luau_api_method_combo_syntax", "t")
+    assert(fn, tostring(load_err) .. "\n" .. result)
+
+    config.target = orig_target
+end)
+
+register("compressor_realistic_glua_syntax", function()
+    local Compressor = require("modules/compressor")
+    local source = [[
+hook.Add("PlayerSpawn", "DetectionTestHook", function(ply)
+    if not IsValid(ply) then return end
+    local t = CurTime()
+    ply:SetNWFloat("spawn_time", t)
+    print("[GLuaTest] Player spawned at:", t)
+end)
+
+ENT = ENT or {}
+ENT.Type = "anim"
+ENT.Base = "base_gmodentity"
+
+function ENT:Initialize()
+    self:SetModel("models/props_c17/oildrum001.mdl")
+    self:PhysicsInit(SOLID_VPHYSICS)
+    self:SetMoveType(MOVETYPE_VPHYSICS)
+    self:SetSolid(SOLID_VPHYSICS)
+end
+
+function ENT:Use(activator, caller)
+    if IsValid(activator) then
+        activator:ChatPrint("Entity used!")
+    end
+end
+
+if SERVER then
+    util.AddNetworkString("DetectionTestNet")
+    net.Receive("DetectionTestNet", function(len, ply)
+        print("[GLuaTest] Received net message from:", ply:Nick())
+    end)
+else
+    net.Start("DetectionTestNet")
+    net.SendToServer()
+end
+
+if CLIENT then
+    hook.Add("HUDPaint", "DetectionHUDTest", function()
+        draw.SimpleText(
+            "GLua Detection Test",
+            "DermaDefault",
+            100,
+            100,
+            Color(255, 255, 255, 255)
+        )
+    end)
+end
+
+local crc = util.CRC("glua_detection_test")
+print("[GLuaTest] CRC:", crc)
+print("[GLuaTest] CurTime:", CurTime())
+]]
+    local compressed = Compressor.process(source)
+    local fn, load_err = load(compressed, "=compressor_realistic_glua_syntax", "t")
+    assert(fn, tostring(load_err) .. "\n" .. compressed)
+    assert(compressed:find("local t=CurTime();", 1, true), compressed)
+    assert(not compressed:find("\n%s*local t = CurTime", 1, false), compressed)
+end)
+
+register("opaque_predicates_realistic_glua_syntax", function()
+    local OpaquePredicateInjector = require("modules/opaque_predicate_injector")
+    local source = [[
+hook.Add("PlayerSpawn", "DetectionTestHook", function(ply)
+    if not IsValid(ply) then return end
+
+    local t = CurTime()
+    ply:SetNWFloat("spawn_time", t)
+
+    print("[GLuaTest] Player spawned at:", t)
+end)
+]]
+    local output = OpaquePredicateInjector.process(source)
+    local fn, load_err = load(output, "=opaque_predicates_realistic_glua_syntax", "t")
+    assert(fn, tostring(load_err) .. "\n" .. output)
+end)
+
+register("opaque_predicates_if_else_boundary", function()
+    local OpaquePredicateInjector = require("modules/opaque_predicate_injector")
+    local source = [[
+local value = 2
+if value > 1 then
+    print("then")
+else
+    print("else")
+end
+print("done")
+]]
+    local output = OpaquePredicateInjector.process(source)
+    local fn, load_err = load(output, "=opaque_predicates_if_else_boundary", "t")
+    assert(fn, tostring(load_err) .. "\n" .. output)
+    local out, exec_err = capture_output(output)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "then\ndone", string.format("expected then/done, got %q", tostring(out)))
+end)
+
+register("variable_renaming_luau_types", function()
+    local VariableRenamer = require("modules/variable_renamer")
+    local source = [[
+-- Type alias (Luau)
+type PlayerData = {
+    name: string,
+    score: number
+}
+
+-- Local with type annotation
+local data: PlayerData = {
+    name = "TestUser",
+    score = 0
+}
+
+-- Using type() function should be a valid expression
+local t = type(data)
+print(t)
+]]
+    local result = VariableRenamer.process(source, {target = "luau", min_length = 8, max_length = 12})
+
+    -- 'type' keyword in type alias must be preserved (not renamed)
+    assert(result:match("type%s+%w+%s*="),
+        string.format("type alias should preserve 'type' keyword, got:\n%s", result:sub(1, 200)))
+
+    -- Type annotation with colon and custom type name must be preserved
+    assert(result:match("local%s+%w+%s*:%s*%w+%s*="),
+        string.format("type annotation should be preserved, got:\n%s", result:sub(1, 200)))
+
+    -- type() function call should still exist (not renamed)
+    assert(result:match("type%("),
+        string.format("type() function call should exist, got:\n%s", result:sub(1, 300)))
+end)
+
+register("variable_renaming_luau_type_annotation_names", function()
+    local VariableRenamer = require("modules/variable_renamer")
+    -- When variable has a type annotation like `: string`, the type name
+    -- must NOT be extracted as a local variable and renamed
+    local source = [[
+local x: string = "hello"
+local y: number = 42
+print(x, y)
+]]
+    local result = VariableRenamer.process(source, {target = "luau", min_length = 8, max_length = 12})
+
+    -- Type names string/number must NOT be renamed
+    -- They should appear as-is after the colon
+    assert(result:match(":%s*string%s*="),
+        string.format("'string' type should be preserved after colon, got:\n%s", result))
+    assert(result:match(":%s*number%s*="),
+        string.format("'number' type should be preserved after colon, got:\n%s", result))
+end)
+
+register("variable_renaming_luau_pipeline", function()
+    -- End-to-end: run Pipeline.process() with target=luau on Luau source
+    -- The pipeline disables VM + bytecode_encoding for luau
+    local orig_target = config.target
+    config.target = "luau"
+
+    local source = [[
+-- Type alias (Luau)
+type PlayerData = {
+    name: string,
+    score: number
+}
+
+local data: PlayerData = {
+    name = "TestUser",
+    score = 0
+}
+
+-- Simulate print-based equivalence
+data.score = data.score + 10
+print("[LuauTest] Score:", data.score)
+]]
+    local expected = normalize_output("[LuauTest] Score:\t10")
+
+    -- Enable all modules except VM + bytecode_encoding (auto-disabled for luau)
+    -- But enable variable_renaming explicitly
+    for _, key in ipairs(ALL_MODULES) do
+        config.set(MODULE_PATHS[key], false)
+    end
+    config.set(MODULE_PATHS.variable_renaming, true)
+
+    local ok, result = pcall(function() return Pipeline.process(source) end)
+    assert(ok, string.format("pipeline error: %s", tostring(result):sub(1, 150)))
+
+    -- The result must retain 'type' keyword in the type alias
+    assert(result:match("type%s+%w+%s*="),
+        string.format("type alias must be preserved in pipeline output, got:\n%s", result:sub(1, 200)))
+
+    -- Restore config
+    config.target = orig_target
+end)
+
+register("wrap_in_function_no_top_level_vararg", function()
+    local Wrapper = require("modules/WrapInFunction")
+    local source = [[print("hello")]]
+    local result = Wrapper.process(source)
+
+    -- Must use () call, not (...) call, to avoid "Cannot use '...' outside of vararg function" in Luau
+    assert(result:match("end%)%(%)$") or result:match("end%)%(%)%s*$"),
+        string.format("must end with 'end)()' not 'end)(...)', got:\n%s", result))
+
+    -- Must still be loadable and runnable in Lua 5.4
+    local fn, err = load(result, "=test_wrap", "t")
+    assert(fn, string.format("wrap result should be loadable: %s\n%s", tostring(err), result))
+
+    local out, exec_err = capture_output(result)
+    assert(exec_err == nil, string.format("exec error: %s", tostring(exec_err)))
+    assert(out == "hello", string.format("expected hello, got %q", tostring(out)))
 end)
 
 -- ─── Main ──────────────────────────────────────────────────────────────────────
