@@ -11,14 +11,17 @@ local function encodeBytecode(bytecode, offset)
 end
 
 function BytecodeEncoder.process(code)
-    local bytecode = string.dump(assert(load(code)))
+    local ok, fn = pcall(load, code)
+    if not ok then return code end
+    local ok2, bytecode = pcall(string.dump, fn)
+    if not ok2 then return code end
     local offset = math.random(1, 255)
     local encoded_bytecode = encodeBytecode(bytecode, offset)
     local alpha = [[
         local e, o, d = "%s", %d, {}
         for i = 1, #e, 2 do
             local b = tonumber(e:sub(i, i + 1), 16)
-            b = (b - o + 256) % 256
+            b = (b - o + 256) %% 256
             d[#d + 1] = string.char(b)
         end
         local f = assert(load(table.concat(d)))

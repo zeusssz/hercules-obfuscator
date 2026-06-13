@@ -21,17 +21,10 @@ local function caesarCipher(data, offset)
     while i <= #data do
         local byte = data:byte(i)
         if byte == 92 and i < #data then
-            local next_char = data:sub(i + 1, i + 1)
-            if next_char == "2" and data:sub(i+2,i+2) == "7" then
-                table.insert(result, string.char(byte))
-                table.insert(result, next_char)
-                table.insert(result, data:sub(i+2,i+2))
-                i = i + 2
-            else
-                table.insert(result, string.char(byte))
-                table.insert(result, next_char)
-                i = i + 1
-            end
+            local next_byte = data:byte(i + 1)
+            table.insert(result, string.char(byte))
+            table.insert(result, string.char(next_byte))
+            i = i + 1
         elseif isValidChar(byte) then
             local new_byte
             if byte >= 48 and byte <= 57 then
@@ -45,10 +38,24 @@ local function caesarCipher(data, offset)
         else
             table.insert(result, string.char(byte))
         end
-
         i = i + 1
     end
     return table.concat(result)
+end
+
+local function findStringEnd(code, pos, quote)
+    pos = pos + 1
+    while pos <= #code do
+        local c = code:sub(pos, pos)
+        if c == "\\" then
+            pos = pos + 2
+        elseif c == quote then
+            return pos + 1
+        else
+            pos = pos + 1
+        end
+    end
+    return pos
 end
 
 function StringEncoder.process(code)
@@ -64,7 +71,7 @@ function StringEncoder.process(code)
 local function ]] .. random_isvalidchar_name .. [[(]] .. random_byte_name .. [[)
     return (]] .. random_byte_name .. [[ >= 48 and ]] .. random_byte_name .. [[ <= 57) or (]] .. random_byte_name .. [[ >= 65 and ]] .. random_byte_name .. [[ <= 90) or (]] .. random_byte_name .. [[ >= 97 and ]] .. random_byte_name .. [[ <= 122)
 end
-	
+
 local function ]] .. random_decrypt_name .. [[(]] .. random_code_name .. [[, ]] .. random_offset_name .. [[)
     local ]] .. random_result_name .. [[ = {}
     for i = 1, #]] .. random_code_name .. [[ do
@@ -85,29 +92,66 @@ local function ]] .. random_decrypt_name .. [[(]] .. random_code_name .. [[, ]] 
     end
     return table.concat(]] .. random_result_name .. [[)
 end
-
-local function ]] .. random_isvalidchar_name .. [[(]] .. random_byte_name .. [[)
-    return (]] .. random_byte_name .. [[ >= 48 and ]] .. random_byte_name .. [[ <= 57) or (]] .. random_byte_name .. [[ >= 65 and ]] .. random_byte_name .. [[ <= 90) or (]] .. random_byte_name .. [[ >= 97 and ]] .. random_byte_name .. [[ <= 122)
-end
 ]]
-    code = code:gsub('\\"', '!@!'):gsub("\\'", "@!@")
 
-    code = code:gsub("(['\"])(.-)%1", function(quote,str)
-        if type(str) == "string" then
-            str = str:gsub('!@!', '\\"'):gsub('@!@', "\\'")
+    local parts = {}
+    local pos = 1
 
-            local offset = math.random(1, 9)
-            if str:match("%a") then
-                offset = math.random(1, 25)
+    while pos <= #code do
+        local ch = code:sub(pos, pos)
+
+        if ch == "[" and code:sub(pos + 1, pos + 1) == "[" then
+            local _, end_pos = code:find("]]", pos + 2, true)
+            if end_pos then
+                table.insert(parts, code:sub(pos, end_pos))
+                pos = end_pos + 1
+            else
+                table.insert(parts, ch)
+                pos = pos + 1
             end
-            local encoded_str = caesarCipher(str, offset)
-            return string.format("%s(" .. quote .. "%s" .. quote .. ", %d)", random_decrypt_name, encoded_str, offset)
-        else
-            return str
+            goto continue
         end
-    end)
 
-    return decode_function .. "\n" .. code
+        if ch == "-" and code:sub(pos + 1, pos + 1) == "-" then
+            local nl = code:find("\n", pos)
+            if nl then
+                table.insert(parts, code:sub(pos, nl))
+                pos = nl + 1
+            else
+                table.insert(parts, code:sub(pos))
+                pos = #code + 1
+            end
+            goto continue
+        end
+
+        if ch == '"' or ch == "'" then
+            local quote = ch
+            local end_pos = findStringEnd(code, pos, quote)
+            local str_content = code:sub(pos + 1, end_pos - 2)
+            local offset = 0
+            for i = 1, #str_content do
+                local b = str_content:byte(i)
+                if isValidChar(b) then
+                    if b >= 48 and b <= 57 then
+                        offset = math.max(offset, 1)
+                    else
+                        offset = math.max(offset, math.random(1, 25))
+                    end
+                end
+            end
+            if offset == 0 then offset = 1 end
+            local encoded_str = caesarCipher(str_content, offset)
+            table.insert(parts, random_decrypt_name .. "(" .. quote .. encoded_str .. quote .. ", " .. offset .. ")")
+            pos = end_pos
+            goto continue
+        end
+
+        table.insert(parts, ch)
+        pos = pos + 1
+        ::continue::
+    end
+
+    return decode_function .. "\n" .. table.concat(parts)
 end
 
 return StringEncoder
