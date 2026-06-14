@@ -47,6 +47,45 @@ local function should_skip(line)
     return false
 end
 
+-- Count the net change in {} brace depth for a line, properly skipping
+-- strings, long brackets, and comments so braces inside them are ignored.
+local function get_brace_delta(line)
+    local delta = 0
+    local pos = 1
+    while pos <= #line do
+        local ch = line:sub(pos, pos)
+        if ch == '"' or ch == "'" then
+            local quote = ch
+            pos = pos + 1
+            while pos <= #line do
+                local c = line:sub(pos, pos)
+                if c == "\\" then
+                    pos = pos + 2
+                elseif c == quote then
+                    pos = pos + 1
+                    break
+                else
+                    pos = pos + 1
+                end
+            end
+        elseif ch == "[" and line:sub(pos, pos + 1) == "[[" then
+            local end_pos = line:find("]]", pos, true)
+            if end_pos then
+                pos = end_pos + 2
+            else
+                pos = pos + 2
+            end
+        elseif ch == "-" and line:sub(pos, pos + 1) == "--" then
+            break
+        else
+            if ch == "{" then delta = delta + 1
+            elseif ch == "}" then delta = delta - 1 end
+            pos = pos + 1
+        end
+    end
+    return delta
+end
+
 function DynamicCodeGenerator.process(code)
     local lines = {}
     for line in code:gmatch("[^\n]*") do
@@ -55,11 +94,13 @@ function DynamicCodeGenerator.process(code)
 
     local output = {}
     local i = 1
+    local global_brace_depth = 0
     while i <= #lines do
         local line = lines[i]
 
         if should_skip(line) or not line:match("%S") then
             table.insert(output, line)
+            local skip_brace_delta = get_brace_delta(line)
             i = i + 1
             local brace_depth = 0
             local bracket_depth = 0
@@ -76,6 +117,7 @@ function DynamicCodeGenerator.process(code)
                 local next_trimmed = lines[i]:gsub("^%s*", ""):gsub("%s+$", "")
                 if next_trimmed == "" then break end
                 table.insert(output, lines[i])
+                skip_brace_delta = skip_brace_delta + get_brace_delta(lines[i])
                 for ch in lines[i]:gmatch(".") do
                     if ch == "{" then brace_depth = brace_depth + 1
                     elseif ch == "}" then brace_depth = brace_depth - 1
@@ -86,6 +128,7 @@ function DynamicCodeGenerator.process(code)
                 end
                 i = i + 1
             end
+            global_brace_depth = global_brace_depth + skip_brace_delta
         else
             local ws = line:match("^(%s*)")
             local stmt = line:gsub("^%s*", ""):gsub("%s+$", "")
@@ -167,11 +210,17 @@ function DynamicCodeGenerator.process(code)
                 trailing_comment = full_stmt:sub(comment_start)
             end
 
+            local stmt_brace_delta = get_brace_delta(full_stmt)
+            local depth_before = global_brace_depth
+            global_brace_depth = depth_before + stmt_brace_delta
+
             -- Skip wrapping for statements containing function literals.
             -- The do(function() ... end)() end wrapper adds 2 end keywords;
             -- inner function(...) keyword consumes them and leaves do unclosed.
             -- Output original lines to preserve formatting.
-            if clean_stmt:match("%f[%a]function%f[%A]") then
+            -- Also skip wrapping when inside a table ({...}) expression context;
+            -- do-blocks are only valid at statement level.
+            if depth_before > 0 or clean_stmt:match("%f[%a]function%f[%A]") then
                 for k = i, j - 1 do
                     table.insert(output, lines[k])
                 end

@@ -557,6 +557,42 @@ Button({
     assert(out == "ok", string.format("expected ok, got %q", tostring(out)))
 end)
 
+register("dynamic_code_table_field_boundary", function()
+    local DynamicCodeGenerator = require("modules/dynamic_code_generator")
+    local source = [[
+local CONFIG = {
+    Title = "ALTER",
+    Instructions = "Get a key below",
+    JunkieService = "Alter",
+    JunkieIdentifier = "1127751",
+    JunkieProvider = "Linkvertise 12H",
+}
+
+print(CONFIG.Title)
+]]
+    local output = DynamicCodeGenerator.process(source)
+
+    -- Table field lines MUST NOT be wrapped (they are inside {})
+    for line in output:gmatch("[^\n]+") do
+        if line:match("Title%s*=") or line:match("Instructions%s*=") or
+           line:match("JunkieService%s*=") or line:match("JunkieIdentifier%s*=") or
+           line:match("JunkieProvider%s*=") then
+            assert(not line:match("do %(function%("),
+                "do-block in expression context (table field): " .. line)
+        end
+    end
+
+    -- Normal statement outside table should still be wrapped
+    assert(output:match("do %(function%(%) print%(CONFIG%.Title%) end%)%(%) end"),
+        "expected print(CONFIG.Title) to be wrapped, got:\n" .. output)
+
+    local fn, load_err = load(output, "=dynamic_code_table_field_boundary", "t")
+    assert(fn, tostring(load_err) .. "\n" .. output)
+    local out, exec_err = capture_output(output)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "ALTER", string.format("expected ALTER, got %q", tostring(out)))
+end)
+
 register("luau_api_method_combo_syntax", function()
     local orig_target = config.target
     config.target = "luau"
