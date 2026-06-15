@@ -227,9 +227,17 @@ local function parse_local_vars(code, target)
                 end
             end
             -- Extract individual variable names
-            for var in var_str:gmatch("[%a_][%w_]*") do
-                if not RESERVED[var] and not vars[var] then
-                    vars[var] = true
+            -- Handle `local function name(params)` — only name is a local var, not params
+            if var_str:match("^function%s+") then
+                local fname = var_str:match("^function%s+([%a_][%w_]*)")
+                if fname and not RESERVED[fname] and not vars[fname] then
+                    vars[fname] = true
+                end
+            else
+                for var in var_str:gmatch("[%a_][%w_]*") do
+                    if not RESERVED[var] and not vars[var] then
+                        vars[var] = true
+                    end
                 end
             end
             pos = vpos
@@ -369,6 +377,21 @@ function VariableRenamer.process(code, options)
 
         local result = table.concat(parts)
 
+        -- Protect dot-notation (.name) and colon-notation (:name) property names
+        -- from renaming. These are string keys, not variable references.
+        -- e.g. game.Players.LocalPlayer — Players and LocalPlayer after '.' are
+        -- property accesses (equivalent to ["Players"]["LocalPlayer"]), NOT variables.
+        -- IMPORTANT: use %f[%.%:] frontier to exclude '..name' (concatenation) and
+        -- '::name' where the separator is preceded by another . or :
+        local prop_ph = {}
+        local prop_n = 0
+        result = result:gsub("%f[%.%:]([%.%:])%s*([%a_][%w_]*)", function(sep, name)
+            prop_n = prop_n + 1
+            local ph = string.format("\001PROP%d\001", prop_n)
+            prop_ph[ph] = sep .. name
+            return ph
+        end)
+
         -- Sort renames by length (longest first) to avoid partial replacements
         local sorted = {}
         for k, v in pairs(renames) do
@@ -382,6 +405,12 @@ function VariableRenamer.process(code, options)
             result = result:gsub("(%f[%w_])" .. kw .. "(%f[^%w_])", function(before, after)
                 return before .. entry.val .. after
             end)
+        end
+
+        -- Restore property name placeholders (must be before string/comment restore
+        -- because property placeholders may precede string placeholders in the string)
+        for ph, original in pairs(prop_ph) do
+            result = result:gsub(ph, original, 1)
         end
 
         -- Restore protected content

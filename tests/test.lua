@@ -1022,6 +1022,107 @@ show()
     config.target = orig_target
 end)
 
+-- ─── Regression: dot-notation property names ────────────────────────────────
+-- Property names in dot-notation (.name) and colon-notation (:name) must NOT
+-- be renamed by variable_renamer — they are string keys, not variable refs.
+-- e.g. game:GetService("Players").LocalPlayer — LocalPlayer after '.' is a
+-- property access, not a variable reference.
+
+register("regression_dot_notation_property_names", function()
+    local Renamer = require("modules/variable_renamer")
+
+    local function assert_loadable(label, code)
+        local fn, err = load(code, "=t_" .. label, "t")
+        assert(fn, string.format("%s: invalid Lua: %s\n%s", label, err, code))
+    end
+
+    -- Test A: game.Players.LocalPlayer — property after dot must NOT be renamed
+    local source_a = [[
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+print(Player)
+]]
+    local result_a = Renamer.process(source_a)
+    -- Players (standalone var ref) should be renamed
+    -- But .LocalPlayer (property after dot) must NOT be renamed
+    assert(result_a:match("%.LocalPlayer"),
+        string.format("FAIL A1: .LocalPlayer property was renamed:\n%s", result_a))
+    assert(not result_a:match("local%s+Players%s*="),
+        string.format("FAIL A2: 'Players' local var should be renamed:\n%s", result_a))
+    assert_loadable("dot_a", result_a)
+
+    -- Test B: obj:Method() — colon method call must NOT rename the method name
+    local source_b = [[
+local obj = {}
+function obj:getValue()
+    return 42
+end
+print(obj:getValue())
+]]
+    local result_b = Renamer.process(source_b)
+    assert(result_b:match(":getValue%(%)"),
+        string.format("FAIL B1: :getValue method name was renamed:\n%s", result_b))
+    assert_loadable("dot_b", result_b)
+
+    -- Test C: .. operator must NOT trigger property protection
+    -- e.g. a .. b — the '..' concatenation operator should not protect 'b'
+    local source_c = [[
+local a = "hello"
+local b = " world"
+print(a .. b)
+]]
+    local result_c = Renamer.process(source_c)
+    -- Both 'a' and 'b' should be renamed (they are local variables)
+    -- The .. operator should be preserved
+    assert(not result_c:match("local%s+a%s*="),
+        string.format("FAIL C1: 'a' should be renamed:\n%s", result_c))
+    assert(not result_c:match("local%s+b%s*="),
+        string.format("FAIL C2: 'b' should be renamed:\n%s", result_c))
+    assert_loadable("dot_c", result_c)
+
+    -- Test D: table constructor keys must NOT be renamed (they are property names)
+    local source_d = [[
+local obj = {
+    value = 10,
+    name = "test",
+}
+local x = obj.value
+print(x)
+]]
+    local result_d = Renamer.process(source_d)
+    -- 'obj' (standalone) should be renamed
+    -- But 'value' in obj.value (property) must NOT be renamed
+    -- And 'value' in {value = 10} (table key) must NOT be renamed
+    assert(result_d:match("%.value"),
+        string.format("FAIL D1: .value property was renamed:\n%s", result_d))
+    assert(result_d:match("value%s*="),
+        string.format("FAIL D2: table key 'value' was renamed:\n%s", result_d))
+    -- 'x' (standalone var) should be renamed
+    assert(not result_d:match("local%s+x%s*="),
+        string.format("FAIL D3: 'x' should be renamed:\n%s", result_d))
+    assert_loadable("dot_d", result_d)
+
+    -- Test E: Full pipeline with variable_renaming must preserve dot-notation
+    local orig_target = config.target
+    config.target = "lua"
+    disable_all()
+    for _, key in ipairs({"variable_renaming"}) do
+        config.set(MODULE_PATHS[key], true)
+    end
+
+    local source_e = [[
+local Players = game:GetService("Players")
+print(Players.LocalPlayer)
+]]
+    local ok_e, result_e = pcall(function() return Pipeline.process(source_e) end)
+    assert(ok_e, string.format("FAIL E1: pipeline error: %s", tostring(result_e):sub(1, 150)))
+    assert(result_e:match("%.LocalPlayer"),
+        string.format("FAIL E2: .LocalPlayer was renamed by pipeline:\n%s", result_e))
+    assert_loadable("dot_e", result_e)
+
+    config.target = orig_target
+end)
+
 -- ─── Main ──────────────────────────────────────────────────────────────────────
 local function main()
     local filters, group, list_only, verbose, quick, fixture_filter = parse_args()
