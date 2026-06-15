@@ -150,7 +150,8 @@ function Compressor.process(code)
             return " "
         end
         if endsWithKeyword(prev, "then") or endsWithKeyword(prev, "do") or
-            endsWithKeyword(prev, "else") or endsWithKeyword(prev, "repeat") then
+            endsWithKeyword(prev, "else") or endsWithKeyword(prev, "repeat") or
+            endsWithKeyword(prev, "function") then
             return " "
         end
         if prev:find(keywordToken("function"), 1, true) and prev:match("%)$") then
