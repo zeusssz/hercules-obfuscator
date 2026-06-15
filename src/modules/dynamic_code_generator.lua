@@ -220,14 +220,22 @@ function DynamicCodeGenerator.process(code)
             -- Output original lines to preserve formatting.
             -- Also skip wrapping when inside a table ({...}) expression context;
             -- do-blocks are only valid at statement level.
+            -- Strip leading ; from the statement body before wrapping.
+            -- Luau rejects ; right after function() (e.g. function() ; ... end)
+            -- and after block-opening keywords (then ;, do ;, else ;).
+            local strip_leading_semi = function(s)
+                local r, _ = s:gsub("^;+%s*", "")
+                return r
+            end
+
             if depth_before > 0 or clean_stmt:match("%f[%a]function%f[%A]") then
                 for k = i, j - 1 do
                     table.insert(output, lines[k])
                 end
             elseif trailing_comment ~= "" then
-                table.insert(output, ws .. "do (function() " .. clean_stmt .. " end)() end " .. trailing_comment)
+                table.insert(output, ws .. "do (function() " .. strip_leading_semi(clean_stmt) .. " end)() end " .. trailing_comment)
             else
-                table.insert(output, ws .. "do (function() " .. clean_stmt .. " end)() end")
+                table.insert(output, ws .. "do (function() " .. strip_leading_semi(clean_stmt) .. " end)() end")
             end
 
             i = j
