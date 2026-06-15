@@ -1123,6 +1123,111 @@ print(Players.LocalPlayer)
     config.target = orig_target
 end)
 
+-- ─── Regression: table constructor keys ────────────────────────────────────
+-- Keys in {Key = value} form are literal identifiers (string keys), NOT
+-- variable references. They must not be renamed even if a local variable
+-- with the same name exists. e.g. TweenService:Create(obj, info, {Scale = 0.5})
+-- must keep 'Scale' as the key.
+
+register("regression_table_key_renaming", function()
+    local Renamer = require("modules/variable_renamer")
+
+    local function assert_loadable(label, code)
+        local fn, err = load(code, "=t_" .. label, "t")
+        assert(fn, string.format("%s: invalid Lua: %s\n%s", label, err, code))
+    end
+
+    -- Test A: {Scale = 0.5} — explicit key-value, key must NOT be renamed
+    local source_a = [[
+local UIScale = {}
+local target = 0.5
+TweenService:Create(UIScale, nil, {Scale = target})
+]]
+    local result_a = Renamer.process(source_a)
+    assert(result_a:match("{[%s]*Scale%s*=") or result_a:match(",%s*Scale%s*="),
+        string.format("FAIL A1: 'Scale' table key was renamed:\n%s", result_a))
+    -- 'target' (standalone var) should be renamed
+    assert(not result_a:match("local%s+target%s*="),
+        string.format("FAIL A2: 'target' variable should be renamed:\n%s", result_a))
+    assert_loadable("tblk_a", result_a)
+
+    -- Test B: {Scale} — shorthand, no =, must still be renamed (IS a variable ref)
+    local source_b = [[
+local Scale = 0.5
+local info = {Scale}
+]]
+    local result_b = Renamer.process(source_b)
+    -- 'Scale' in {Scale} should be renamed because it's shorthand for {Scale = Scale}
+    assert(not result_b:match("{[%s]*Scale[%s]*}"),
+        string.format("FAIL B1: 'Scale' in shorthand should be renamed:\n%s", result_b))
+    assert_loadable("tblk_b", result_b)
+
+    -- Test C: {[Scale] = value} — computed key with brackets, Scale IS a var ref
+    local source_c = [[
+local prop = "Size"
+local ui = {}
+local val = 100
+ui[prop] = val
+]]
+    local result_c = Renamer.process(source_c)
+    -- 'prop' and 'val' should be renamed
+    assert(not result_c:match("local%s+prop%s*="),
+        string.format("FAIL C1: 'prop' should be renamed:\n%s", result_c))
+    assert(not result_c:match("local%s+val%s*="),
+        string.format("FAIL C2: 'val' should be renamed:\n%s", result_c))
+    assert_loadable("tblk_c", result_c)
+
+    -- Test D: Nested tables — keys at all levels must be preserved
+    local source_d = [[
+local config = {
+    Display = {
+        Scale = 1.0,
+        Theme = "dark",
+    },
+    Audio = {
+        Volume = 0.8,
+    },
+}
+local x = config.Display.Scale
+print(x)
+]]
+    local result_d = Renamer.process(source_d)
+    assert(result_d:match("Display%s*="),
+        string.format("FAIL D1: 'Display' table key was renamed:\n%s", result_d))
+    assert(result_d:match("Scale%s*="),
+        string.format("FAIL D2: 'Scale' table key was renamed:\n%s", result_d))
+    assert(result_d:match("Theme%s*="),
+        string.format("FAIL D3: 'Theme' table key was renamed:\n%s", result_d))
+    assert(result_d:match("Volume%s*="),
+        string.format("FAIL D4: 'Volume' table key was renamed:\n%s", result_d))
+    -- Dot-notation property access should also be preserved
+    assert(result_d:match("%.Display%.Scale"),
+        string.format("FAIL D5: .Display.Scale property access was broken:\n%s", result_d))
+    assert_loadable("tblk_d", result_d)
+
+    -- Test E: Full pipeline with variable_renaming preserves table keys
+    local orig_target = config.target
+    config.target = "lua"
+    disable_all()
+    for _, key in ipairs({"variable_renaming"}) do
+        config.set(MODULE_PATHS[key], true)
+    end
+
+    local source_e = [[
+local TweenService = game:GetService("TweenService")
+local UIScale = script.Parent.UIScale
+TweenService:Create(UIScale, nil, {Scale = 0.5})
+]]
+    local ok_e, result_e = pcall(function() return Pipeline.process(source_e) end)
+    assert(ok_e, string.format("FAIL E1: pipeline error: %s", tostring(result_e):sub(1, 150)))
+    -- The table key 'Scale' must be preserved in the pipeline output
+    assert(result_e:match("Scale%s*="),
+        string.format("FAIL E2: 'Scale' table key was renamed by pipeline:\n%s", result_e))
+    assert_loadable("tblk_e", result_e)
+
+    config.target = orig_target
+end)
+
 -- ─── Main ──────────────────────────────────────────────────────────────────────
 local function main()
     local filters, group, list_only, verbose, quick, fixture_filter = parse_args()

@@ -392,6 +392,20 @@ function VariableRenamer.process(code, options)
             return ph
         end)
 
+        -- Protect table constructor keys from renaming.
+        -- In {Key = value}, 'Key' is a literal identifier (equivalent to ["Key"] = value),
+        -- NOT a variable reference. Only identifiers preceded by { , or ; and followed
+        -- by = (i.e. table field keys) are protected. Shorthand {Key} (no =) and
+        -- computed keys {[Key] = value} are NOT protected.
+        local tblk_ph = {}
+        local tblk_n = 0
+        result = result:gsub("([%{%},%;])%s*([%a_][%w_]*)%s*=", function(sep, key)
+            tblk_n = tblk_n + 1
+            local ph = string.format("\001TBLK%d\001", tblk_n)
+            tblk_ph[ph] = key
+            return sep .. ph .. "="
+        end)
+
         -- Sort renames by length (longest first) to avoid partial replacements
         local sorted = {}
         for k, v in pairs(renames) do
@@ -405,6 +419,11 @@ function VariableRenamer.process(code, options)
             result = result:gsub("(%f[%w_])" .. kw .. "(%f[^%w_])", function(before, after)
                 return before .. entry.val .. after
             end)
+        end
+
+        -- Restore table key placeholders first (they were protected last)
+        for ph, original in pairs(tblk_ph) do
+            result = result:gsub(ph, original, 1)
         end
 
         -- Restore property name placeholders (must be before string/comment restore
