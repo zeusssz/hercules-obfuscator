@@ -877,6 +877,151 @@ register("wrap_in_function_no_top_level_vararg", function()
     assert(out == "hello", string.format("expected hello, got %q", tostring(out)))
 end)
 
+-- ─── Regression: function() IIFE boundary ────────────────────────────────────
+-- After inlining, function() (empty param list) must NOT get ; inserted before
+-- (function(...) on the next line. This was a Luau SyntaxError: Expected
+-- identifier when parsing expression, got ';' at function();(function( sites.
+
+register("regression_function_iife_boundary", function()
+    local FunctionInliner = require("modules/function_inliner")
+    local Compressor = require("modules/compressor")
+
+    local function assert_loadable(label, code)
+        local fn, err = load(code, "=t_" .. label, "t")
+        assert(fn, string.format("%s: invalid Lua: %s\n%s", label, err, code))
+        return fn, code
+    end
+
+    -- Test A: function_inliner must NOT produce function()(function or function();(function
+    -- Source: a recursive no-param function (won't be inlined) whose definition
+    -- remains, creating a line ending with function() followed by an IIFE.
+    local source_a = [[
+local function counter()
+    local c = 0
+    return function()
+        c = c + 1
+        return c
+    end
+end
+
+local function show()
+    local c = counter()
+    (function()
+        print(c())
+    end)()
+end
+
+show()
+]]
+    local result_a = FunctionInliner.process(source_a)
+    assert_loadable("fi_a", result_a)
+    assert(not result_a:match("function%(%)%(function"),
+        string.format("FIX 1 FAIL: function_inliner produced 'function()(function' pattern:\n%s", result_a))
+    assert(not result_a:match("function%(%)%s*;"),
+        string.format("FIX 2 FAIL: function_inliner produced 'function();' pattern:\n%s", result_a))
+
+    -- Test B: function_inliner must handle )()(function adjacency correctly
+    -- Source: two no-param functions inlined, producing adjacent IIFEs with () calls
+    local source_b = [[
+local function get_a()
+    return "a"
+end
+
+local function get_b()
+    return "b"
+end
+
+local function show()
+    print(get_a() .. get_b())
+end
+
+show()
+]]
+    local result_b = FunctionInliner.process(source_b)
+    assert_loadable("fi_b", result_b)
+    -- The IIFE output should have end)()(function properly separated with ;
+    -- But NOT function()(function
+    assert(not result_b:match("function%(%)%(function"),
+        string.format("FIX 3 FAIL: function_inliner produced 'function()(function' in source_b:\n%s", result_b))
+
+    -- Test C: compressor must not insert ; after function keyword at end of line
+    -- Construct input where function keyword ends a line and ( starts the next
+    local source_c = [[
+local x = (function()
+    return 42
+end
+)(
+    2
+)
+print(x)
+]]
+    local result_c = Compressor.process(source_c)
+    assert_loadable("comp_c", result_c)
+    assert(not result_c:match("function;"),
+        string.format("FIX 4 FAIL: compressor produced 'function;' pattern:\n%s", result_c))
+
+    -- Test D: compressor on function_inliner output must not produce function;(function
+    local result_d = Compressor.process(result_a)
+    assert_loadable("comp_d", result_d)
+    assert(not result_d:match("function;"),
+        string.format("FIX 5 FAIL: compressor on FI output produced 'function;':\n%s", result_d))
+
+    -- Test E: Full pipeline with function_inlining + compressor + variable_renaming
+    local orig_target = config.target
+    config.target = "lua"
+    disable_all()
+    for _, key in ipairs({"function_inlining", "compressor", "variable_renaming"}) do
+        config.set(MODULE_PATHS[key], true)
+    end
+
+    local source_e = [[
+local function get_val()
+    return 42
+end
+
+local function show()
+    print(get_val())
+end
+
+show()
+]]
+    local ok_e, result_e = pcall(function() return Pipeline.process(source_e) end)
+    assert(ok_e, string.format("FIX 6 FAIL: pipeline error: %s", tostring(result_e):sub(1, 150)))
+    assert_loadable("pipeline_e", result_e)
+    assert(not result_e:match("function%(%)%(function") and not result_e:match("function;"),
+        string.format("FIX 7 FAIL: pipeline produced function()(function or function;:\n%s", result_e))
+
+    -- Test F: Pipeline with the pattern from the original bug report
+    -- (function_inlining + compressor + other common modules)
+    disable_all()
+    for _, key in ipairs({"function_inlining", "compressor", "variable_renaming",
+        "string_encoding", "StringToExpressions", "garbage_code", "opaque_predicates"}) do
+        config.set(MODULE_PATHS[key], true)
+    end
+
+    local source_f = [[
+local function process(x)
+    return x * 2
+end
+
+local function show()
+    local result = process(21)
+    (function()
+        print(result)
+    end)()
+end
+
+show()
+]]
+    local ok_f, result_f = pcall(function() return Pipeline.process(source_f) end)
+    assert(ok_f, string.format("FIX 8 FAIL: pipeline advanced error: %s", tostring(result_f):sub(1, 150)))
+    assert_loadable("pipeline_f", result_f)
+    assert(not result_f:match("function%(%)%(function") and not result_f:match("function;"),
+        string.format("FIX 9 FAIL: advanced pipeline produced function()(function or function;:\n%s", result_f))
+
+    config.target = orig_target
+end)
+
 -- ─── Main ──────────────────────────────────────────────────────────────────────
 local function main()
     local filters, group, list_only, verbose, quick, fixture_filter = parse_args()
