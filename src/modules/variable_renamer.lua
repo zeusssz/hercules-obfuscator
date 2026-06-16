@@ -394,17 +394,66 @@ function VariableRenamer.process(code, options)
 
         -- Protect table constructor keys from renaming.
         -- In {Key = value}, 'Key' is a literal identifier (equivalent to ["Key"] = value),
-        -- NOT a variable reference. Only identifiers preceded by { , or ; and followed
-        -- by = (i.e. table field keys) are protected. Shorthand {Key} (no =) and
-        -- computed keys {[Key] = value} are NOT protected.
+        -- NOT a variable reference. {Key = patterns (unambiguous table keys) and
+        -- ,Key = / ;Key = patterns inside table constructors only are protected.
+        -- Comma-separated variables in local declarations (e.g. local a, b = ...)
+        -- must NOT be treated as table keys, so brace-depth tracking is used.
+        -- Shorthand {Key} (no =) and computed keys {[Key] = value} are NOT protected.
         local tblk_ph = {}
         local tblk_n = 0
-        result = result:gsub("([%{%},%;])%s*([%a_][%w_]*)%s*=", function(sep, key)
+
+        -- Step 1: Protect {Key = (unambiguous table keys at any brace depth)
+        result = result:gsub("({)%s*([%a_][%w_]*)%s*=", function(sep, key)
             tblk_n = tblk_n + 1
             local ph = string.format("\001TBLK%d\001", tblk_n)
             tblk_ph[ph] = key
             return sep .. ph .. "="
         end)
+
+        -- Step 2: Protect ,Key = and ;Key = only inside table constructors (depth > 0)
+        -- Character-by-character scan with brace-depth tracking avoids false
+        -- positives in comma-separated local declarations (local a, b = ...).
+        local tbuf = {}
+        local tpos = 1
+        local depth = 0
+        while tpos <= #result do
+            local tc = result:sub(tpos, tpos)
+            if tc == "{" then
+                depth = depth + 1
+                table.insert(tbuf, tc)
+                tpos = tpos + 1
+            elseif tc == "}" then
+                depth = math.max(0, depth - 1)
+                table.insert(tbuf, tc)
+                tpos = tpos + 1
+            elseif depth > 0 and (tc == "," or tc == ";") then
+                local key = result:sub(tpos + 1):match("^%s*([%a_][%w_]*)%s*=")
+                if key then
+                    tblk_n = tblk_n + 1
+                    local ph = string.format("\001TBLK%d\001", tblk_n)
+                    tblk_ph[ph] = key
+                    table.insert(tbuf, tc)
+                    tpos = tpos + 1
+                    while tpos <= #result and result:sub(tpos, tpos):match("^%s$") do
+                        table.insert(tbuf, result:sub(tpos, tpos))
+                        tpos = tpos + 1
+                    end
+                    table.insert(tbuf, ph)
+                    tpos = tpos + #key
+                    while tpos <= #result and result:sub(tpos, tpos):match("^%s$") do
+                        table.insert(tbuf, result:sub(tpos, tpos))
+                        tpos = tpos + 1
+                    end
+                else
+                    table.insert(tbuf, tc)
+                    tpos = tpos + 1
+                end
+            else
+                table.insert(tbuf, tc)
+                tpos = tpos + 1
+            end
+        end
+        result = table.concat(tbuf)
 
         -- Sort renames by length (longest first) to avoid partial replacements
         local sorted = {}

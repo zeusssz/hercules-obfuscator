@@ -1228,6 +1228,83 @@ TweenService:Create(UIScale, nil, {Scale = 0.5})
     config.target = orig_target
 end)
 
+register("regression_comma_separated_locals", function()
+    local Renamer = require("modules/variable_renamer")
+
+    local function assert_loadable(label, code)
+        local fn, err = load(code, "=t_" .. label, "t")
+        assert(fn, string.format("%s: invalid Lua: %s\n%s", label, err, code))
+    end
+
+    -- Test A: Basic comma-separated local — both vars must be renamed
+    local source_a = [[
+local CheckStroke, Junkie = 1, 2
+print(CheckStroke + Junkie)
+]]
+    local result_a = Renamer.process(source_a)
+    assert(not result_a:match("local%s+[%a_][%w_]*%s*,%s*Junkie"),
+        string.format("FAIL A1: 'Junkie' (2nd in comma pair) not renamed:\n%s", result_a))
+    assert(not result_a:match("CheckStroke"),
+        string.format("FAIL A2: 'CheckStroke' should be renamed:\n%s", result_a))
+    assert_loadable("comma_a", result_a)
+
+    -- Test B: Comma-separated with table-key lookalike in same line
+    local source_b = [[
+local TweenService = game:GetService("TweenService")
+local UIScale = script.Parent
+local upTween, downTween = TweenService:Create(UIScale, nil, {Scale = 1.1}), nil
+]]
+    local result_b = Renamer.process(source_b)
+    -- downTween (2nd in comma pair) must be renamed
+    assert(not result_b:match("downTween"),
+        string.format("FAIL B1: 'downTween' should be renamed:\n%s", result_b))
+    -- Scale as table key {Scale = 1.1} must survive
+    assert(result_b:match("Scale%s*="),
+        string.format("FAIL B2: 'Scale' table key was renamed:\n%s", result_b))
+    assert_loadable("comma_b", result_b)
+
+    -- Test C: pcall() comma pattern
+    local source_c = [[
+local ok, err = pcall(function() return 1 end)
+print(ok, err)
+]]
+    local result_c = Renamer.process(source_c)
+    assert(not result_c:match("local%s+[%a_][%w_]*%s*,%s*err"),
+        string.format("FAIL C1: 'err' (2nd in comma pair) not renamed:\n%s", result_c))
+    assert_loadable("comma_c", result_c)
+
+    -- Test D: Three-variable comma chain
+    local source_d = [[
+local a, b, c = 1, 2, 3
+print(a, b, c)
+]]
+    local result_d = Renamer.process(source_d)
+    assert(not result_d:match("local%s+[%a_][%w_]*%s*,%s*b%s*,"),
+        string.format("FAIL D1: 'b' (2nd in triple comma) not renamed:\n%s", result_d))
+    assert(not result_d:match("local%s+[%a_][%w_]*%s*,%s*[%a_][%w_]*%s*,%s*c[^%w_]"),
+        string.format("FAIL D2: 'c' (3rd in triple comma) not renamed:\n%s", result_d))
+    assert_loadable("comma_d", result_d)
+
+    -- Test E: Full pipeline with all modules enabled
+    local orig_target = config.target
+    config.target = "lua"
+    disable_all()
+    for _, key in ipairs({"variable_renaming"}) do
+        config.set(MODULE_PATHS[key], true)
+    end
+    local source_e = [[
+local ok, err = pcall(function() return 1 end)
+print(ok, err)
+]]
+    local ok_e, result_e = pcall(function() return Pipeline.process(source_e) end)
+    assert(ok_e, string.format("FAIL E1: pipeline error: %s", tostring(result_e):sub(1, 150)))
+    assert(not result_e:match("%f[%w_]err%f[^%w_]"),
+        string.format("FAIL E2: 'err' survived full pipeline:\n%s", result_e))
+    assert_loadable("comma_e", result_e)
+
+    config.target = orig_target
+end)
+
 -- ─── Main ──────────────────────────────────────────────────────────────────────
 local function main()
     local filters, group, list_only, verbose, quick, fixture_filter = parse_args()
