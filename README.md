@@ -50,7 +50,7 @@ You may also use the [Website](https://hercules-obfuscator.xyz/) to obfuscate yo
 Obfuscation is not a foolproof method for protecting your code! Always consider additional security measures depending on your use case.
 
 >[!NOTE]
-Hercules is very much still in development and may not be the best yet, but we are committed to making it one of the best. Hercules is currently on version: `2.0.0`
+Hercules is very much still in development and may not be the best yet, but we are committed to making it one of the best. Hercules is currently on version: `2.0.1`
 ---
 
 ## Features
