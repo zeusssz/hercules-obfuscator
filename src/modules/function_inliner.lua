@@ -267,21 +267,23 @@ local function inline_calls(code, functions)
 
     -- Fix adjacent IIFEs: add semicolon between IIFE call and next IIFE
     -- Pattern: )(args)\n(function → )(args);\n(function
-    result = result:gsub("(%b())\n(%(function)", function(args, func_start)
-        return args .. ";\n" .. func_start
+    -- Note: ([^%w_]) before (%b()) ensures function() (empty param list) is NOT matched
+    result = result:gsub("([^%w_])(%b())\n(%(function)", function(sep, args, func_start)
+        return sep .. args .. ";\n" .. func_start
     end)
 
     -- Fix same-line IIFE calls with trailing comments followed by newline: )(args) -- comment\n(function
-    result = result:gsub("(%b())(%s*%-%-[^\n]*)(\n%s*)(%(function)", function(args, comment, ws, func_start)
-        return args .. ";" .. comment .. ws .. func_start
+    result = result:gsub("([^%w_])(%b())(%s*%-%-[^\n]*)(\n%s*)(%(function)", function(sep, args, comment, ws, func_start)
+        return sep .. args .. ";" .. comment .. ws .. func_start
     end)
     -- Fix same-line IIFE calls with trailing comments immediately followed by next IIFE: )(args) -- comment(function
-    result = result:gsub("(%b())(%s*%-%-[^\n]*)(%(function)", function(args, comment, func_start)
-        return args .. ";" .. comment .. "\n" .. func_start
+    result = result:gsub("([^%w_])(%b())(%s*%-%-[^\n]*)(%(function)", function(sep, args, comment, func_start)
+        return sep .. args .. ";" .. comment .. "\n" .. func_start
     end)
     -- Fix same-line IIFE calls without comments: )(args)(function → )(args);(function
-    result = result:gsub("(%b())(%s*)(%(function)", function(args, ws, func_start)
-        return args .. ";" .. ws .. func_start
+    -- Requires non-word char before ( to avoid matching function() (empty param list)
+    result = result:gsub("([^%w_])(%b())(%s*)(%(function)", function(sep, args, ws, func_start)
+        return sep .. args .. ";" .. ws .. func_start
     end)
 
     -- Fix any statement followed by an IIFE on the next line
@@ -292,9 +294,11 @@ local function inline_calls(code, functions)
     result = result:gsub("([^\n]+)%s*\n(%(function)", function(prev_line, func_start)
         local trimmed = prev_line:gsub("%s+$", "")
         -- Skip if line ends with control flow keywords, continuation chars, or already has semicolon
+        -- Also skip if line ends with function() (Luau rejects ; after function() empty param list)
         if trimmed:match("then$") or trimmed:match("else$") or trimmed:match("do$") or
            trimmed:match("repeat$") or trimmed:match("elseif%s+.*$") or
-           trimmed:match("[{%(+%-%*/%%^~=<>~:%[]%s*$") or trimmed:match(";%s*$") then
+           trimmed:match("[{%(+%-%*/%%^~=<>~:%[]%s*$") or trimmed:match(";%s*$") or
+           trimmed:match("function%s*%(%)%s*$") then
             return prev_line .. "\n" .. func_start
         end
         return prev_line .. ";\n" .. func_start

@@ -227,9 +227,17 @@ local function parse_local_vars(code, target)
                 end
             end
             -- Extract individual variable names
-            for var in var_str:gmatch("[%a_][%w_]*") do
-                if not RESERVED[var] and not vars[var] then
-                    vars[var] = true
+            -- Handle `local function name(params)` — only name is a local var, not params
+            if var_str:match("^function%s+") then
+                local fname = var_str:match("^function%s+([%a_][%w_]*)")
+                if fname and not RESERVED[fname] and not vars[fname] then
+                    vars[fname] = true
+                end
+            else
+                for var in var_str:gmatch("[%a_][%w_]*") do
+                    if not RESERVED[var] and not vars[var] then
+                        vars[var] = true
+                    end
                 end
             end
             pos = vpos
@@ -369,6 +377,84 @@ function VariableRenamer.process(code, options)
 
         local result = table.concat(parts)
 
+        -- Protect dot-notation (.name) and colon-notation (:name) property names
+        -- from renaming. These are string keys, not variable references.
+        -- e.g. game.Players.LocalPlayer — Players and LocalPlayer after '.' are
+        -- property accesses (equivalent to ["Players"]["LocalPlayer"]), NOT variables.
+        -- IMPORTANT: use %f[%.%:] frontier to exclude '..name' (concatenation) and
+        -- '::name' where the separator is preceded by another . or :
+        local prop_ph = {}
+        local prop_n = 0
+        result = result:gsub("%f[%.%:]([%.%:])%s*([%a_][%w_]*)", function(sep, name)
+            prop_n = prop_n + 1
+            local ph = string.format("\001PROP%d\001", prop_n)
+            prop_ph[ph] = sep .. name
+            return ph
+        end)
+
+        -- Protect table constructor keys from renaming.
+        -- In {Key = value}, 'Key' is a literal identifier (equivalent to ["Key"] = value),
+        -- NOT a variable reference. {Key = patterns (unambiguous table keys) and
+        -- ,Key = / ;Key = patterns inside table constructors only are protected.
+        -- Comma-separated variables in local declarations (e.g. local a, b = ...)
+        -- must NOT be treated as table keys, so brace-depth tracking is used.
+        -- Shorthand {Key} (no =) and computed keys {[Key] = value} are NOT protected.
+        local tblk_ph = {}
+        local tblk_n = 0
+
+        -- Step 1: Protect {Key = (unambiguous table keys at any brace depth)
+        result = result:gsub("({)%s*([%a_][%w_]*)%s*=", function(sep, key)
+            tblk_n = tblk_n + 1
+            local ph = string.format("\001TBLK%d\001", tblk_n)
+            tblk_ph[ph] = key
+            return sep .. ph .. "="
+        end)
+
+        -- Step 2: Protect ,Key = and ;Key = only inside table constructors (depth > 0)
+        -- Character-by-character scan with brace-depth tracking avoids false
+        -- positives in comma-separated local declarations (local a, b = ...).
+        local tbuf = {}
+        local tpos = 1
+        local depth = 0
+        while tpos <= #result do
+            local tc = result:sub(tpos, tpos)
+            if tc == "{" then
+                depth = depth + 1
+                table.insert(tbuf, tc)
+                tpos = tpos + 1
+            elseif tc == "}" then
+                depth = math.max(0, depth - 1)
+                table.insert(tbuf, tc)
+                tpos = tpos + 1
+            elseif depth > 0 and (tc == "," or tc == ";") then
+                local key = result:sub(tpos + 1):match("^%s*([%a_][%w_]*)%s*=")
+                if key then
+                    tblk_n = tblk_n + 1
+                    local ph = string.format("\001TBLK%d\001", tblk_n)
+                    tblk_ph[ph] = key
+                    table.insert(tbuf, tc)
+                    tpos = tpos + 1
+                    while tpos <= #result and result:sub(tpos, tpos):match("^%s$") do
+                        table.insert(tbuf, result:sub(tpos, tpos))
+                        tpos = tpos + 1
+                    end
+                    table.insert(tbuf, ph)
+                    tpos = tpos + #key
+                    while tpos <= #result and result:sub(tpos, tpos):match("^%s$") do
+                        table.insert(tbuf, result:sub(tpos, tpos))
+                        tpos = tpos + 1
+                    end
+                else
+                    table.insert(tbuf, tc)
+                    tpos = tpos + 1
+                end
+            else
+                table.insert(tbuf, tc)
+                tpos = tpos + 1
+            end
+        end
+        result = table.concat(tbuf)
+
         -- Sort renames by length (longest first) to avoid partial replacements
         local sorted = {}
         for k, v in pairs(renames) do
@@ -382,6 +468,17 @@ function VariableRenamer.process(code, options)
             result = result:gsub("(%f[%w_])" .. kw .. "(%f[^%w_])", function(before, after)
                 return before .. entry.val .. after
             end)
+        end
+
+        -- Restore table key placeholders first (they were protected last)
+        for ph, original in pairs(tblk_ph) do
+            result = result:gsub(ph, original, 1)
+        end
+
+        -- Restore property name placeholders (must be before string/comment restore
+        -- because property placeholders may precede string placeholders in the string)
+        for ph, original in pairs(prop_ph) do
+            result = result:gsub(ph, original, 1)
         end
 
         -- Restore protected content

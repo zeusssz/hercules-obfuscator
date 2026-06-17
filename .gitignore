@@ -25,3 +25,4 @@ file_obfuscated.lua
 file.lua
 __pycache__/
 /examples/generated/
+AGENTS.md

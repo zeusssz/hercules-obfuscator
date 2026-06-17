@@ -557,6 +557,42 @@ Button({
     assert(out == "ok", string.format("expected ok, got %q", tostring(out)))
 end)
 
+register("dynamic_code_table_field_boundary", function()
+    local DynamicCodeGenerator = require("modules/dynamic_code_generator")
+    local source = [[
+local CONFIG = {
+    Title = "ALTER",
+    Instructions = "Get a key below",
+    JunkieService = "Alter",
+    JunkieIdentifier = "1127751",
+    JunkieProvider = "Linkvertise 12H",
+}
+
+print(CONFIG.Title)
+]]
+    local output = DynamicCodeGenerator.process(source)
+
+    -- Table field lines MUST NOT be wrapped (they are inside {})
+    for line in output:gmatch("[^\n]+") do
+        if line:match("Title%s*=") or line:match("Instructions%s*=") or
+           line:match("JunkieService%s*=") or line:match("JunkieIdentifier%s*=") or
+           line:match("JunkieProvider%s*=") then
+            assert(not line:match("do %(function%("),
+                "do-block in expression context (table field): " .. line)
+        end
+    end
+
+    -- Normal statement outside table should still be wrapped
+    assert(output:match("do %(function%(%) print%(CONFIG%.Title%) end%)%(%) end"),
+        "expected print(CONFIG.Title) to be wrapped, got:\n" .. output)
+
+    local fn, load_err = load(output, "=dynamic_code_table_field_boundary", "t")
+    assert(fn, tostring(load_err) .. "\n" .. output)
+    local out, exec_err = capture_output(output)
+    assert(exec_err == nil, tostring(exec_err))
+    assert(out == "ALTER", string.format("expected ALTER, got %q", tostring(out)))
+end)
+
 register("luau_api_method_combo_syntax", function()
     local orig_target = config.target
     config.target = "luau"
@@ -839,6 +875,434 @@ register("wrap_in_function_no_top_level_vararg", function()
     local out, exec_err = capture_output(result)
     assert(exec_err == nil, string.format("exec error: %s", tostring(exec_err)))
     assert(out == "hello", string.format("expected hello, got %q", tostring(out)))
+end)
+
+-- ─── Regression: function() IIFE boundary ────────────────────────────────────
+-- After inlining, function() (empty param list) must NOT get ; inserted before
+-- (function(...) on the next line. This was a Luau SyntaxError: Expected
+-- identifier when parsing expression, got ';' at function();(function( sites.
+
+register("regression_function_iife_boundary", function()
+    local FunctionInliner = require("modules/function_inliner")
+    local Compressor = require("modules/compressor")
+
+    local function assert_loadable(label, code)
+        local fn, err = load(code, "=t_" .. label, "t")
+        assert(fn, string.format("%s: invalid Lua: %s\n%s", label, err, code))
+        return fn, code
+    end
+
+    -- Test A: function_inliner must NOT produce function()(function or function();(function
+    -- Source: a recursive no-param function (won't be inlined) whose definition
+    -- remains, creating a line ending with function() followed by an IIFE.
+    local source_a = [[
+local function counter()
+    local c = 0
+    return function()
+        c = c + 1
+        return c
+    end
+end
+
+local function show()
+    local c = counter()
+    (function()
+        print(c())
+    end)()
+end
+
+show()
+]]
+    local result_a = FunctionInliner.process(source_a)
+    assert_loadable("fi_a", result_a)
+    assert(not result_a:match("function%(%)%(function"),
+        string.format("FIX 1 FAIL: function_inliner produced 'function()(function' pattern:\n%s", result_a))
+    assert(not result_a:match("function%(%)%s*;"),
+        string.format("FIX 2 FAIL: function_inliner produced 'function();' pattern:\n%s", result_a))
+
+    -- Test B: function_inliner must handle )()(function adjacency correctly
+    -- Source: two no-param functions inlined, producing adjacent IIFEs with () calls
+    local source_b = [[
+local function get_a()
+    return "a"
+end
+
+local function get_b()
+    return "b"
+end
+
+local function show()
+    print(get_a() .. get_b())
+end
+
+show()
+]]
+    local result_b = FunctionInliner.process(source_b)
+    assert_loadable("fi_b", result_b)
+    -- The IIFE output should have end)()(function properly separated with ;
+    -- But NOT function()(function
+    assert(not result_b:match("function%(%)%(function"),
+        string.format("FIX 3 FAIL: function_inliner produced 'function()(function' in source_b:\n%s", result_b))
+
+    -- Test C: compressor must not insert ; after function keyword at end of line
+    -- Construct input where function keyword ends a line and ( starts the next
+    local source_c = [[
+local x = (function()
+    return 42
+end
+)(
+    2
+)
+print(x)
+]]
+    local result_c = Compressor.process(source_c)
+    assert_loadable("comp_c", result_c)
+    assert(not result_c:match("function;"),
+        string.format("FIX 4 FAIL: compressor produced 'function;' pattern:\n%s", result_c))
+
+    -- Test D: compressor on function_inliner output must not produce function;(function
+    local result_d = Compressor.process(result_a)
+    assert_loadable("comp_d", result_d)
+    assert(not result_d:match("function;"),
+        string.format("FIX 5 FAIL: compressor on FI output produced 'function;':\n%s", result_d))
+
+    -- Test E: Full pipeline with function_inlining + compressor + variable_renaming
+    local orig_target = config.target
+    config.target = "lua"
+    disable_all()
+    for _, key in ipairs({"function_inlining", "compressor", "variable_renaming"}) do
+        config.set(MODULE_PATHS[key], true)
+    end
+
+    local source_e = [[
+local function get_val()
+    return 42
+end
+
+local function show()
+    print(get_val())
+end
+
+show()
+]]
+    local ok_e, result_e = pcall(function() return Pipeline.process(source_e) end)
+    assert(ok_e, string.format("FIX 6 FAIL: pipeline error: %s", tostring(result_e):sub(1, 150)))
+    assert_loadable("pipeline_e", result_e)
+    assert(not result_e:match("function%(%)%(function") and not result_e:match("function;"),
+        string.format("FIX 7 FAIL: pipeline produced function()(function or function;:\n%s", result_e))
+
+    -- Test F: Pipeline with the pattern from the original bug report
+    -- (function_inlining + compressor + other common modules)
+    disable_all()
+    for _, key in ipairs({"function_inlining", "compressor", "variable_renaming",
+        "string_encoding", "StringToExpressions", "garbage_code", "opaque_predicates"}) do
+        config.set(MODULE_PATHS[key], true)
+    end
+
+    local source_f = [[
+local function process(x)
+    return x * 2
+end
+
+local function show()
+    local result = process(21)
+    (function()
+        print(result)
+    end)()
+end
+
+show()
+]]
+    local ok_f, result_f = pcall(function() return Pipeline.process(source_f) end)
+    assert(ok_f, string.format("FIX 8 FAIL: pipeline advanced error: %s", tostring(result_f):sub(1, 150)))
+    assert_loadable("pipeline_f", result_f)
+    assert(not result_f:match("function%(%)%(function") and not result_f:match("function;"),
+        string.format("FIX 9 FAIL: advanced pipeline produced function()(function or function;:\n%s", result_f))
+
+    config.target = orig_target
+end)
+
+-- ─── Regression: dot-notation property names ────────────────────────────────
+-- Property names in dot-notation (.name) and colon-notation (:name) must NOT
+-- be renamed by variable_renamer — they are string keys, not variable refs.
+-- e.g. game:GetService("Players").LocalPlayer — LocalPlayer after '.' is a
+-- property access, not a variable reference.
+
+register("regression_dot_notation_property_names", function()
+    local Renamer = require("modules/variable_renamer")
+
+    local function assert_loadable(label, code)
+        local fn, err = load(code, "=t_" .. label, "t")
+        assert(fn, string.format("%s: invalid Lua: %s\n%s", label, err, code))
+    end
+
+    -- Test A: game.Players.LocalPlayer — property after dot must NOT be renamed
+    local source_a = [[
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+print(Player)
+]]
+    local result_a = Renamer.process(source_a)
+    -- Players (standalone var ref) should be renamed
+    -- But .LocalPlayer (property after dot) must NOT be renamed
+    assert(result_a:match("%.LocalPlayer"),
+        string.format("FAIL A1: .LocalPlayer property was renamed:\n%s", result_a))
+    assert(not result_a:match("local%s+Players%s*="),
+        string.format("FAIL A2: 'Players' local var should be renamed:\n%s", result_a))
+    assert_loadable("dot_a", result_a)
+
+    -- Test B: obj:Method() — colon method call must NOT rename the method name
+    local source_b = [[
+local obj = {}
+function obj:getValue()
+    return 42
+end
+print(obj:getValue())
+]]
+    local result_b = Renamer.process(source_b)
+    assert(result_b:match(":getValue%(%)"),
+        string.format("FAIL B1: :getValue method name was renamed:\n%s", result_b))
+    assert_loadable("dot_b", result_b)
+
+    -- Test C: .. operator must NOT trigger property protection
+    -- e.g. a .. b — the '..' concatenation operator should not protect 'b'
+    local source_c = [[
+local a = "hello"
+local b = " world"
+print(a .. b)
+]]
+    local result_c = Renamer.process(source_c)
+    -- Both 'a' and 'b' should be renamed (they are local variables)
+    -- The .. operator should be preserved
+    assert(not result_c:match("local%s+a%s*="),
+        string.format("FAIL C1: 'a' should be renamed:\n%s", result_c))
+    assert(not result_c:match("local%s+b%s*="),
+        string.format("FAIL C2: 'b' should be renamed:\n%s", result_c))
+    assert_loadable("dot_c", result_c)
+
+    -- Test D: table constructor keys must NOT be renamed (they are property names)
+    local source_d = [[
+local obj = {
+    value = 10,
+    name = "test",
+}
+local x = obj.value
+print(x)
+]]
+    local result_d = Renamer.process(source_d)
+    -- 'obj' (standalone) should be renamed
+    -- But 'value' in obj.value (property) must NOT be renamed
+    -- And 'value' in {value = 10} (table key) must NOT be renamed
+    assert(result_d:match("%.value"),
+        string.format("FAIL D1: .value property was renamed:\n%s", result_d))
+    assert(result_d:match("value%s*="),
+        string.format("FAIL D2: table key 'value' was renamed:\n%s", result_d))
+    -- 'x' (standalone var) should be renamed
+    assert(not result_d:match("local%s+x%s*="),
+        string.format("FAIL D3: 'x' should be renamed:\n%s", result_d))
+    assert_loadable("dot_d", result_d)
+
+    -- Test E: Full pipeline with variable_renaming must preserve dot-notation
+    local orig_target = config.target
+    config.target = "lua"
+    disable_all()
+    for _, key in ipairs({"variable_renaming"}) do
+        config.set(MODULE_PATHS[key], true)
+    end
+
+    local source_e = [[
+local Players = game:GetService("Players")
+print(Players.LocalPlayer)
+]]
+    local ok_e, result_e = pcall(function() return Pipeline.process(source_e) end)
+    assert(ok_e, string.format("FAIL E1: pipeline error: %s", tostring(result_e):sub(1, 150)))
+    assert(result_e:match("%.LocalPlayer"),
+        string.format("FAIL E2: .LocalPlayer was renamed by pipeline:\n%s", result_e))
+    assert_loadable("dot_e", result_e)
+
+    config.target = orig_target
+end)
+
+-- ─── Regression: table constructor keys ────────────────────────────────────
+-- Keys in {Key = value} form are literal identifiers (string keys), NOT
+-- variable references. They must not be renamed even if a local variable
+-- with the same name exists. e.g. TweenService:Create(obj, info, {Scale = 0.5})
+-- must keep 'Scale' as the key.
+
+register("regression_table_key_renaming", function()
+    local Renamer = require("modules/variable_renamer")
+
+    local function assert_loadable(label, code)
+        local fn, err = load(code, "=t_" .. label, "t")
+        assert(fn, string.format("%s: invalid Lua: %s\n%s", label, err, code))
+    end
+
+    -- Test A: {Scale = 0.5} — explicit key-value, key must NOT be renamed
+    local source_a = [[
+local UIScale = {}
+local target = 0.5
+TweenService:Create(UIScale, nil, {Scale = target})
+]]
+    local result_a = Renamer.process(source_a)
+    assert(result_a:match("{[%s]*Scale%s*=") or result_a:match(",%s*Scale%s*="),
+        string.format("FAIL A1: 'Scale' table key was renamed:\n%s", result_a))
+    -- 'target' (standalone var) should be renamed
+    assert(not result_a:match("local%s+target%s*="),
+        string.format("FAIL A2: 'target' variable should be renamed:\n%s", result_a))
+    assert_loadable("tblk_a", result_a)
+
+    -- Test B: {Scale} — shorthand, no =, must still be renamed (IS a variable ref)
+    local source_b = [[
+local Scale = 0.5
+local info = {Scale}
+]]
+    local result_b = Renamer.process(source_b)
+    -- 'Scale' in {Scale} should be renamed because it's shorthand for {Scale = Scale}
+    assert(not result_b:match("{[%s]*Scale[%s]*}"),
+        string.format("FAIL B1: 'Scale' in shorthand should be renamed:\n%s", result_b))
+    assert_loadable("tblk_b", result_b)
+
+    -- Test C: {[Scale] = value} — computed key with brackets, Scale IS a var ref
+    local source_c = [[
+local prop = "Size"
+local ui = {}
+local val = 100
+ui[prop] = val
+]]
+    local result_c = Renamer.process(source_c)
+    -- 'prop' and 'val' should be renamed
+    assert(not result_c:match("local%s+prop%s*="),
+        string.format("FAIL C1: 'prop' should be renamed:\n%s", result_c))
+    assert(not result_c:match("local%s+val%s*="),
+        string.format("FAIL C2: 'val' should be renamed:\n%s", result_c))
+    assert_loadable("tblk_c", result_c)
+
+    -- Test D: Nested tables — keys at all levels must be preserved
+    local source_d = [[
+local config = {
+    Display = {
+        Scale = 1.0,
+        Theme = "dark",
+    },
+    Audio = {
+        Volume = 0.8,
+    },
+}
+local x = config.Display.Scale
+print(x)
+]]
+    local result_d = Renamer.process(source_d)
+    assert(result_d:match("Display%s*="),
+        string.format("FAIL D1: 'Display' table key was renamed:\n%s", result_d))
+    assert(result_d:match("Scale%s*="),
+        string.format("FAIL D2: 'Scale' table key was renamed:\n%s", result_d))
+    assert(result_d:match("Theme%s*="),
+        string.format("FAIL D3: 'Theme' table key was renamed:\n%s", result_d))
+    assert(result_d:match("Volume%s*="),
+        string.format("FAIL D4: 'Volume' table key was renamed:\n%s", result_d))
+    -- Dot-notation property access should also be preserved
+    assert(result_d:match("%.Display%.Scale"),
+        string.format("FAIL D5: .Display.Scale property access was broken:\n%s", result_d))
+    assert_loadable("tblk_d", result_d)
+
+    -- Test E: Full pipeline with variable_renaming preserves table keys
+    local orig_target = config.target
+    config.target = "lua"
+    disable_all()
+    for _, key in ipairs({"variable_renaming"}) do
+        config.set(MODULE_PATHS[key], true)
+    end
+
+    local source_e = [[
+local TweenService = game:GetService("TweenService")
+local UIScale = script.Parent.UIScale
+TweenService:Create(UIScale, nil, {Scale = 0.5})
+]]
+    local ok_e, result_e = pcall(function() return Pipeline.process(source_e) end)
+    assert(ok_e, string.format("FAIL E1: pipeline error: %s", tostring(result_e):sub(1, 150)))
+    -- The table key 'Scale' must be preserved in the pipeline output
+    assert(result_e:match("Scale%s*="),
+        string.format("FAIL E2: 'Scale' table key was renamed by pipeline:\n%s", result_e))
+    assert_loadable("tblk_e", result_e)
+
+    config.target = orig_target
+end)
+
+register("regression_comma_separated_locals", function()
+    local Renamer = require("modules/variable_renamer")
+
+    local function assert_loadable(label, code)
+        local fn, err = load(code, "=t_" .. label, "t")
+        assert(fn, string.format("%s: invalid Lua: %s\n%s", label, err, code))
+    end
+
+    -- Test A: Basic comma-separated local — both vars must be renamed
+    local source_a = [[
+local CheckStroke, Junkie = 1, 2
+print(CheckStroke + Junkie)
+]]
+    local result_a = Renamer.process(source_a)
+    assert(not result_a:match("local%s+[%a_][%w_]*%s*,%s*Junkie"),
+        string.format("FAIL A1: 'Junkie' (2nd in comma pair) not renamed:\n%s", result_a))
+    assert(not result_a:match("CheckStroke"),
+        string.format("FAIL A2: 'CheckStroke' should be renamed:\n%s", result_a))
+    assert_loadable("comma_a", result_a)
+
+    -- Test B: Comma-separated with table-key lookalike in same line
+    local source_b = [[
+local TweenService = game:GetService("TweenService")
+local UIScale = script.Parent
+local upTween, downTween = TweenService:Create(UIScale, nil, {Scale = 1.1}), nil
+]]
+    local result_b = Renamer.process(source_b)
+    -- downTween (2nd in comma pair) must be renamed
+    assert(not result_b:match("downTween"),
+        string.format("FAIL B1: 'downTween' should be renamed:\n%s", result_b))
+    -- Scale as table key {Scale = 1.1} must survive
+    assert(result_b:match("Scale%s*="),
+        string.format("FAIL B2: 'Scale' table key was renamed:\n%s", result_b))
+    assert_loadable("comma_b", result_b)
+
+    -- Test C: pcall() comma pattern
+    local source_c = [[
+local ok, err = pcall(function() return 1 end)
+print(ok, err)
+]]
+    local result_c = Renamer.process(source_c)
+    assert(not result_c:match("local%s+[%a_][%w_]*%s*,%s*err"),
+        string.format("FAIL C1: 'err' (2nd in comma pair) not renamed:\n%s", result_c))
+    assert_loadable("comma_c", result_c)
+
+    -- Test D: Three-variable comma chain
+    local source_d = [[
+local a, b, c = 1, 2, 3
+print(a, b, c)
+]]
+    local result_d = Renamer.process(source_d)
+    assert(not result_d:match("local%s+[%a_][%w_]*%s*,%s*b%s*,"),
+        string.format("FAIL D1: 'b' (2nd in triple comma) not renamed:\n%s", result_d))
+    assert(not result_d:match("local%s+[%a_][%w_]*%s*,%s*[%a_][%w_]*%s*,%s*c[^%w_]"),
+        string.format("FAIL D2: 'c' (3rd in triple comma) not renamed:\n%s", result_d))
+    assert_loadable("comma_d", result_d)
+
+    -- Test E: Full pipeline with all modules enabled
+    local orig_target = config.target
+    config.target = "lua"
+    disable_all()
+    for _, key in ipairs({"variable_renaming"}) do
+        config.set(MODULE_PATHS[key], true)
+    end
+    local source_e = [[
+local ok, err = pcall(function() return 1 end)
+print(ok, err)
+]]
+    local ok_e, result_e = pcall(function() return Pipeline.process(source_e) end)
+    assert(ok_e, string.format("FAIL E1: pipeline error: %s", tostring(result_e):sub(1, 150)))
+    assert(not result_e:match("%f[%w_]err%f[^%w_]"),
+        string.format("FAIL E2: 'err' survived full pipeline:\n%s", result_e))
+    assert_loadable("comma_e", result_e)
+
+    config.target = orig_target
 end)
 
 -- ─── Main ──────────────────────────────────────────────────────────────────────
