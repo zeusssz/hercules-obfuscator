@@ -17,7 +17,7 @@ local fixtures = require("test_fixtures")
 
 local ALL_MODULES = {
     "VirtualMachine","antitamper","control_flow","StringToExpressions",
-    "string_encoding","WrapInFunction","variable_renaming","garbage_code",
+    "string_encoding","constant_encoding","WrapInFunction","variable_renaming","garbage_code",
     "opaque_predicates","function_inlining","dynamic_code","bytecode_encoding",
     "compressor","watermark"
 }
@@ -27,6 +27,7 @@ local MODULE_PATHS = {
     control_flow="settings.control_flow.enabled",
     StringToExpressions="settings.StringToExpressions.enabled",
     string_encoding="settings.string_encoding.enabled",
+    constant_encoding="settings.constant_encoding.enabled",
     WrapInFunction="settings.WrapInFunction.enabled",
     variable_renaming="settings.variable_renaming.enabled",
     garbage_code="settings.garbage_code.enabled",

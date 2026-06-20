@@ -236,14 +236,14 @@ You can modify or add new modules to the `modules/` directory to create addition
 
 ## Testing
 
-A comprehensive end-to-end test suite verifies **all 2^14 − 1 = 16,383 module combinations** against a realistic Lua fixture (FNV-1a hashing, JSON builder, escape sequences, closures, method chains, and multi-line table constructors). Each test runs actual obfuscation via `Pipeline.process()` and verifies the output matches expected results.
+A comprehensive end-to-end test suite verifies **all 2^15 − 1 = 32,767 module combinations** against a realistic Lua fixture (FNV-1a hashing, JSON builder, escape sequences, closures, method chains, and multi-line table constructors). Each test runs actual obfuscation via `Pipeline.process()` and verifies the output matches expected results.
 
 ### Supported Targets
 
 | Target | Modules | Notes |
 |--------|---------|-------|
-| Lua 5.4 | 14/14 | Full support including VirtualMachine and bytecode_encoding |
-| Luau | 12/14 | VirtualMachine and bytecode_encoding disabled (incompatible bytecode) |
+| Lua 5.4 | 15/15 | Full support including VirtualMachine and bytecode_encoding |
+| Luau | 13/15 | VirtualMachine and bytecode_encoding disabled (incompatible bytecode) |
 
 ### Python Parallel Runner (recommended for full sweep)
 
@@ -285,7 +285,7 @@ lua hercules.lua script.lua --target luau -cf -se -vr -gci -opi -st -wif -fi -dc
 Interactive test suite with selective test groups:
 
 ```bash
-# Quick mode: baseline + 14 single modules + 64 core combos (~5s)
+# Quick mode: baseline + single modules
 lua test.lua --quick
 
 # Full combination sweep (single process)
@@ -316,13 +316,13 @@ lua test.lua --help
 
 | Suite | What it tests | Combinations |
 |-------|--------------|--------------|
-| `quick` | Baseline + 14 singles + 64 core combos | 79 tests |
-| `full_combinations` | All non-empty module subsets | 16,383 combos |
-| `single_<module>` | Each module individually | 14 tests |
-| `fixture_sweep_*` | All combos against one fixture | 16,383 each |
+| `quick` | Baseline + single modules | 18 tests |
+| `full_combinations` | All non-empty module subsets | 32,767 combos |
+| `single_<module>` | Each module individually | 15 tests |
+| `fixture_sweep_*` | All combos against one fixture | 32,767 each |
 | `config_get_set` | Config API validation | 16 tests |
 
-**Working modules (14/14):** VirtualMachine, antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming, StringToExpressions
+**Working modules (15/15):** VirtualMachine, antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, constant_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming, StringToExpressions
 
 ---
 ![image](https://github.com/user-attachments/assets/83c72548-5a4b-4326-b40e-6380f16f5a97)

@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 -- test.lua — End-to-end test suite for Hercules Obfuscator
 -- Tests ONLY output equivalence: obfuscated code must produce the same output as the original.
--- Tests ALL 2^14 = 16384 module combinations against all fixtures.
+-- Tests ALL module combinations against all fixtures.
 -- Run from src/:  lua test.lua
 
 -- ─── Polyfills for Lua 5.4 (math.ldexp/frexp removed in 5.3+) ─────────────────
@@ -21,6 +21,7 @@ end
 
 -- ─── Dependencies ──────────────────────────────────────────────────────────────
 local config    = require("config")
+local manifest  = require("manifest")
 local Pipeline  = require("pipeline")
 local fixtures  = require("test_fixtures")
 
@@ -52,13 +53,14 @@ local function capture_output(code)
     return normalize_output(table.concat(output, "\n")), nil
 end
 
--- ─── All 14 Modules (must match config settings) ───────────────────────────────
+-- ─── All Modules (must match config settings) ───────────────────────────────────
 local ALL_MODULES = {
     "VirtualMachine",
     "antitamper",
     "control_flow",
     "StringToExpressions",
     "string_encoding",
+    "constant_encoding",
     "WrapInFunction",
     "variable_renaming",
     "garbage_code",
@@ -69,8 +71,8 @@ local ALL_MODULES = {
     "compressor",
     "watermark",
 }
-local NUM_MODULES = #ALL_MODULES  -- 14
-local NUM_COMBOS  = 2 ^ NUM_MODULES  -- 16384
+local NUM_MODULES = #ALL_MODULES
+local NUM_COMBOS  = 2 ^ NUM_MODULES
 
 -- Config path map
 local MODULE_PATHS = {
@@ -79,6 +81,7 @@ local MODULE_PATHS = {
     control_flow        = "settings.control_flow.enabled",
     StringToExpressions = "settings.StringToExpressions.enabled",
     string_encoding     = "settings.string_encoding.enabled",
+    constant_encoding   = "settings.constant_encoding.enabled",
     WrapInFunction      = "settings.WrapInFunction.enabled",
     variable_renaming   = "settings.variable_renaming.enabled",
     garbage_code        = "settings.garbage_code.enabled",
@@ -195,6 +198,52 @@ local function disable_all()
     end
 end
 
+local function enable_preset_methods(preset_key)
+    disable_all()
+    local selected = {}
+    for _, preset in ipairs(manifest.presets) do
+        if preset.key == preset_key then
+            for _, method_key in ipairs(preset.methods or {}) do
+                selected[method_key] = true
+            end
+            break
+        end
+    end
+    for _, method in ipairs(manifest.modules) do
+        config.set(
+            "settings." .. method.config_key .. ".enabled",
+            selected[method.key] and not manifest.is_incompatible(method, config.target)
+        )
+    end
+end
+
+local function make_object()
+    return setmetatable({}, {
+        __index = function(t, key)
+            local value = function() return make_object() end
+            rawset(t, key, value)
+            return value
+        end,
+        __call = function() return make_object() end,
+    })
+end
+
+local function capture_with_env(code, env)
+    local output = {}
+    env.print = function(...)
+        local args = { ... }
+        for i, v in ipairs(args) do args[i] = tostring(v) end
+        output[#output + 1] = table.concat(args, "\t")
+    end
+    env._G = env
+    setmetatable(env, { __index = _G })
+    local fn, load_err = load(code, "=maximum_smoke", "t", env)
+    if not fn then return nil, "compile error: " .. tostring(load_err) end
+    local ok, err = pcall(fn)
+    if not ok then return nil, tostring(err) end
+    return normalize_output(table.concat(output, "\n")), nil
+end
+
 -- Phase 0: Quick mode — baseline + single modules + combos (output-only verification)
 register("quick_combo", function()
     -- Baseline (no modules)
@@ -206,7 +255,7 @@ register("quick_combo", function()
         assert(out == f.expected, string.format("baseline %s mismatch: got %q, expected %q", f.name, out, f.expected))
     end
 
-    -- Single modules (14)
+    -- Single modules
     for _, mod in ipairs(ALL_MODULES) do
         disable_all()
         config.set(MODULE_PATHS[mod], true)
@@ -222,7 +271,7 @@ register("quick_combo", function()
     end
 end)
 
--- Phase 1: FULL — All 2^14 combinations against all fixtures (output-only verification)
+-- Phase 1: FULL — All module combinations against all fixtures (output-only verification)
 register("full_combinations", function()
     local total = 0
     local pass_combos = 0
@@ -377,7 +426,112 @@ register("baseline_no_modules", function()
     end
 end)
 
--- Phase 3: Single module semantics (each of 14 modules individually)
+register("maximum_smoke_lua_fixture", function()
+    local orig_target = config.target
+    config.target = "lua"
+    enable_preset_methods("maximum")
+    math.randomseed(12345)
+    local result = Pipeline.process(fixtures.main_script.code)
+    local out, err = capture_output(result)
+    config.target = orig_target
+    assert(err == nil, string.format("maximum lua exec error: %s", tostring(err)))
+    assert(out == fixtures.main_script.expected, string.format("maximum lua mismatch got %q expected %q", out, fixtures.main_script.expected))
+end)
+
+register("maximum_smoke_glua_stub", function()
+    local orig_target = config.target
+    config.target = "glua"
+    enable_preset_methods("maximum")
+    math.randomseed(12345)
+
+    local source = [[
+hook.Add("PlayerSpawn", "SmokeHook", function(ply)
+    if not IsValid(ply) then return end
+    ply:SetNWFloat("spawn_time", CurTime())
+end)
+ENT = ENT or {}
+ENT.Type = "anim"
+function ENT:Initialize()
+    self:SetModel("models/props_c17/oildrum001.mdl")
+    self:PhysicsInit(SOLID_VPHYSICS)
+end
+if SERVER then
+    util.AddNetworkString("SmokeNet")
+    net.Receive("SmokeNet", function(len, ply) print("recv", ply:Nick()) end)
+end
+local crc = util.CRC("glua_smoke")
+print("glua-ok", crc, CurTime())
+]]
+    local result = Pipeline.process(source)
+    local env = {
+        hook = { Add = function() end },
+        util = { AddNetworkString = function() end, CRC = function() return "crc" end },
+        net = { Receive = function() end, Start = function() end, SendToServer = function() end },
+        IsValid = function(v) return v ~= nil end,
+        CurTime = function() return 123 end,
+        Color = function() return make_object() end,
+        Vector = function() return make_object() end,
+        Angle = function() return make_object() end,
+        SERVER = true,
+        CLIENT = false,
+        ENT = {},
+        SOLID_VPHYSICS = 1,
+    }
+    local out, err = capture_with_env(result, env)
+    config.target = orig_target
+    assert(err == nil, string.format("maximum glua stub error: %s", tostring(err)))
+    assert(out == "glua-ok\tcrc\t123", string.format("maximum glua stub mismatch: %q", tostring(out)))
+end)
+
+register("maximum_smoke_luau_stub", function()
+    local orig_target = config.target
+    config.target = "luau"
+    enable_preset_methods("maximum")
+    math.randomseed(12345)
+
+    local source = [[
+local game = { GetService = function(_, name) return { Name = name } end }
+local Instance = { new = function(class) return { ClassName = class } end }
+local workspace = {}
+local Players = game:GetService("Players")
+local part = Instance.new("Part")
+part.Name = "Smoke"
+part.Parent = workspace
+print("luau-ok", Players.Name, part.Name)
+]]
+    local result = Pipeline.process(source)
+    local env = {
+        game = { GetService = function(_, name) return { Name = name } end },
+        Instance = { new = function(class) return { ClassName = class } end },
+        workspace = {},
+        task = { spawn = function(fn) return fn() end, wait = function() end },
+        Vector3 = { new = function() return make_object() end },
+        CFrame = { new = function() return make_object() end, Angles = function() return make_object() end },
+    }
+    local out, err = capture_with_env(result, env)
+    config.target = orig_target
+    assert(err == nil, string.format("maximum luau stub error: %s", tostring(err)))
+    assert(out == "luau-ok\tPlayers\tSmoke", string.format("maximum luau stub mismatch: %q", tostring(out)))
+
+    local probe = io.popen("command -v luau 2>/dev/null")
+    local luau = probe and probe:read("*l") or nil
+    if probe then probe:close() end
+    if luau and luau ~= "" then
+        local tmp = os.tmpname() .. ".luau"
+        local handle = assert(io.open(tmp, "w"))
+        handle:write(result)
+        handle:close()
+        local runner = io.popen(string.format("%q %q 2>&1", luau, tmp))
+        local luau_output = runner and runner:read("*a") or ""
+        local ok = runner and runner:close()
+        os.remove(tmp)
+        assert(ok, string.format("maximum luau interpreter failed:\n%s", luau_output))
+        assert(normalize_output(luau_output):match("luau%-ok%s+Players%s+Smoke"),
+            string.format("maximum luau interpreter mismatch:\n%s", luau_output))
+    end
+end)
+
+-- Phase 3: Single module semantics
 for m = 1, NUM_MODULES do
     local mod = ALL_MODULES[m]
     register("single_" .. mod, function()

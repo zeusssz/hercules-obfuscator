@@ -80,8 +80,22 @@ end
 	add(Parts.Deserializer)
 	add(Parts.Wrapper_1)
 	local k = "if"
-	for i, v in pairs(used_opcodes) do
-		local op = used_opcodes[v]
+	local dispatch_ops = {}
+	for _, v in pairs(used_opcodes) do
+		dispatch_ops[#dispatch_ops + 1] = v
+	end
+	for i = #dispatch_ops, 2, -1 do
+		local j = math.random(1, i)
+		dispatch_ops[i], dispatch_ops[j] = dispatch_ops[j], dispatch_ops[i]
+	end
+	local fake_handlers = math.random(2, 5)
+	for i = 1, fake_handlers do
+		local fake_op = 100 + math.random(1, 9000)
+		add(k .. " (S == " .. fake_op .. ") then\n")
+		add("local _hx" .. i .. "=" .. math.random(10, 999) .. "; _hx" .. i .. "=(_hx" .. i .. "*3)%997")
+		k = "elseif"
+	end
+	for _, op in ipairs(dispatch_ops) do
 		add(k .. " (S == " .. op .. ") then\n")
 		add(GetOpcodeCode(op))
 		k = "elseif"
