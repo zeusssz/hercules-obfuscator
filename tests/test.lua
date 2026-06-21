@@ -1338,9 +1338,7 @@ local function main()
                     table.insert(filtered, t)
                 end
             else
-                if not t.name:match("^fixture_sweep_") then
-                    table.insert(filtered, t)
-                end
+                table.insert(filtered, t)
             end
         end
     end
