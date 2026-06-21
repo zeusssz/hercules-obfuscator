@@ -14,32 +14,25 @@ end end
 local config = require("config")
 local Pipeline = require("pipeline")
 local fixtures = require("test_fixtures")
+local test_support = require("test_support")
 
-local ALL_MODULES = {
-    "VirtualMachine","antitamper","control_flow","StringToExpressions",
-    "string_encoding","constant_encoding","WrapInFunction","variable_renaming","garbage_code",
-    "opaque_predicates","function_inlining","dynamic_code","bytecode_encoding",
-    "compressor","watermark"
-}
-local MODULE_PATHS = {
-    VirtualMachine="settings.VirtualMachine.enabled",
-    antitamper="settings.antitamper.enabled",
-    control_flow="settings.control_flow.enabled",
-    StringToExpressions="settings.StringToExpressions.enabled",
-    string_encoding="settings.string_encoding.enabled",
-    constant_encoding="settings.constant_encoding.enabled",
-    WrapInFunction="settings.WrapInFunction.enabled",
-    variable_renaming="settings.variable_renaming.enabled",
-    garbage_code="settings.garbage_code.enabled",
-    opaque_predicates="settings.opaque_predicates.enabled",
-    function_inlining="settings.function_inlining.enabled",
-    dynamic_code="settings.dynamic_code.enabled",
-    bytecode_encoding="settings.bytecode_encoding.enabled",
-    compressor="settings.compressor.enabled",
-    watermark="settings.watermark_enabled",
-}
-
+local TEST_MODULES = test_support.get_modules()
 local ALL_FIXTURES = fixtures.get_all()
+
+if arg and arg[1] then
+    local selected = {}
+    for _, fixture in ipairs(ALL_FIXTURES) do
+        if fixture.name == arg[1] then
+            selected[#selected + 1] = fixture
+            break
+        end
+    end
+    if #selected == 0 then
+        io.stderr:write("unknown fixture: " .. tostring(arg[1]) .. "\n")
+        os.exit(2)
+    end
+    ALL_FIXTURES = selected
+end
 
 local function normalize_output(s)
     if not s then return s end
@@ -48,7 +41,7 @@ local function normalize_output(s)
               :gsub("(%d+)%.(0+)", "%1")
 end
 
-local function capture_output(code)
+local function capture_loaded(fn)
     local output = {}
     local orig_print = _G.print
     _G.print = function(...)
@@ -56,11 +49,7 @@ local function capture_output(code)
         for i, v in ipairs(args) do args[i] = tostring(v) end
         table.insert(output, table.concat(args, "\t"))
     end
-    local ok, err = pcall(function()
-        local f, load_err = load(code, "=test", "t")
-        if not f then error("compile error: " .. load_err) end
-        f()
-    end)
+    local ok, err = pcall(fn)
     _G.print = orig_print
     if not ok then return nil, tostring(err) end
     return normalize_output(table.concat(output, "\n")), nil
@@ -71,10 +60,7 @@ for line in io.lines() do
     local mask = tonumber(line)
     if not mask then break end
 
-    for i = 1, #ALL_MODULES do
-        local bit = (mask >> (i-1)) & 1
-        config.set(MODULE_PATHS[ALL_MODULES[i]], bit == 1)
-    end
+    test_support.set_all_modules(config, TEST_MODULES, mask)
 
     math.randomseed(mask * 1000 + 1)
 
@@ -93,14 +79,14 @@ for line in io.lines() do
             combo_ok = false
             break
         end
-        local load_ok = load(result, "=test", "t") ~= nil
-        if not load_ok then
+        local loaded = load(result, "=test", "t")
+        if not loaded then
             io.write(string.format("F:%d:%d:invalid_lua\n", mask, fidx))
             io.flush()
             combo_ok = false
             break
         end
-        local out, exec_err = capture_output(result)
+        local out, exec_err = capture_loaded(loaded)
         if exec_err then
             io.write(string.format("F:%d:%d:exec_error\n", mask, fidx))
             io.flush()

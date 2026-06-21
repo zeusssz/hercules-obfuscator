@@ -24,6 +24,7 @@ local config    = require("config")
 local manifest  = require("manifest")
 local Pipeline  = require("pipeline")
 local fixtures  = require("test_fixtures")
+local test_support = require("test_support")
 
 -- ─── Normalize Output ──────────────────────────────────────────────────────────
 -- Lua 5.4 prints floats as "4.0" while Lua 5.1 would print "4".
@@ -35,7 +36,7 @@ local function normalize_output(s)
 end
 
 -- ─── Capture Output ────────────────────────────────────────────────────────────
-local function capture_output(code)
+local function capture_loaded(fn)
     local output = {}
     local orig_print = _G.print
     _G.print = function(...)
@@ -43,75 +44,39 @@ local function capture_output(code)
         for i, v in ipairs(args) do args[i] = tostring(v) end
         table.insert(output, table.concat(args, "\t"))
     end
-    local ok, err = pcall(function()
-        local f, load_err = load(code, "=test", "t")
-        if not f then error("compile error: " .. load_err) end
-        f()
-    end)
+    local ok, err = pcall(fn)
     _G.print = orig_print
     if not ok then return nil, tostring(err) end
     return normalize_output(table.concat(output, "\n")), nil
 end
 
--- ─── All Modules (must match config settings) ───────────────────────────────────
-local ALL_MODULES = {
-    "VirtualMachine",
-    "antitamper",
-    "control_flow",
-    "StringToExpressions",
-    "string_encoding",
-    "constant_encoding",
-    "WrapInFunction",
-    "variable_renaming",
-    "garbage_code",
-    "opaque_predicates",
-    "function_inlining",
-    "dynamic_code",
-    "bytecode_encoding",
-    "compressor",
-    "watermark",
-}
+local function capture_output(code)
+    local f, load_err = load(code, "=test", "t")
+    if not f then return nil, "compile error: " .. tostring(load_err) end
+    return capture_loaded(f)
+end
+
+-- ─── All Modules (manifest bit order + synthetic watermark bit) ────────────────
+local TEST_MODULES = test_support.get_modules()
+local ALL_MODULES = {}
+for _, module in ipairs(TEST_MODULES) do
+    ALL_MODULES[#ALL_MODULES + 1] = module.name
+end
 local NUM_MODULES = #ALL_MODULES
 local NUM_COMBOS  = 2 ^ NUM_MODULES
 
--- Config path map
-local MODULE_PATHS = {
-    VirtualMachine      = "settings.VirtualMachine.enabled",
-    antitamper          = "settings.antitamper.enabled",
-    control_flow        = "settings.control_flow.enabled",
-    StringToExpressions = "settings.StringToExpressions.enabled",
-    string_encoding     = "settings.string_encoding.enabled",
-    constant_encoding   = "settings.constant_encoding.enabled",
-    WrapInFunction      = "settings.WrapInFunction.enabled",
-    variable_renaming   = "settings.variable_renaming.enabled",
-    garbage_code        = "settings.garbage_code.enabled",
-    opaque_predicates   = "settings.opaque_predicates.enabled",
-    function_inlining   = "settings.function_inlining.enabled",
-    dynamic_code        = "settings.dynamic_code.enabled",
-    bytecode_encoding   = "settings.bytecode_encoding.enabled",
-    compressor          = "settings.compressor.enabled",
-    watermark           = "settings.watermark_enabled",
-}
+local MODULE_PATHS = test_support.get_module_paths(TEST_MODULES)
 
 local function set_all_modules(mask)
-    for i = 1, NUM_MODULES do
-        local bit = (mask >> (i - 1)) & 1
-        config.set(MODULE_PATHS[ALL_MODULES[i]], bit == 1)
-    end
+    test_support.set_all_modules(config, TEST_MODULES, mask)
 end
 
 local function mask_to_modules(mask)
-    local mods = {}
-    for i = 1, NUM_MODULES do
-        if (mask >> (i - 1)) & 1 == 1 then
-            mods[#mods + 1] = ALL_MODULES[i]
-        end
-    end
-    return mods
+    return test_support.mask_to_modules(TEST_MODULES, mask)
 end
 
 local function modules_to_label(mods)
-    return table.concat(mods, "+")
+    return test_support.modules_to_label(mods)
 end
 
 -- ─── Colors ────────────────────────────────────────────────────────────────────
@@ -193,9 +158,7 @@ local function extract_group(name)
 end
 
 local function disable_all()
-    for _, key in ipairs(ALL_MODULES) do
-        config.set(MODULE_PATHS[key], false)
-    end
+    test_support.disable_all(config, TEST_MODULES)
 end
 
 local function enable_preset_methods(preset_key)
@@ -244,6 +207,24 @@ local function capture_with_env(code, env)
     return normalize_output(table.concat(output, "\n")), nil
 end
 
+local function shell_quote(value)
+    return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
+
+local function run_shell_command(command)
+    local handle = io.popen(command .. " 2>&1")
+    if not handle then
+        return false, "popen failed", nil
+    end
+
+    for line in handle:lines() do
+        print(line)
+    end
+
+    local ok, exit_type, code = handle:close()
+    return ok == true, exit_type, code
+end
+
 -- Phase 0: Quick mode — baseline + single modules + combos (output-only verification)
 register("quick_combo", function()
     -- Baseline (no modules)
@@ -264,7 +245,7 @@ register("quick_combo", function()
             assert(ok, string.format("single %s %s: pipeline error: %s", mod, f.name, tostring(result)))
             local load_ok, load_err = load(result, "=test", "t")
             assert(load_ok, string.format("single %s %s: invalid Lua: %s", mod, f.name, load_err))
-            local out, err = capture_output(result)
+            local out, err = capture_loaded(load_ok)
             assert(err == nil, string.format("single %s %s: exec error: %s", mod, f.name, err))
             assert(out == f.expected, string.format("single %s %s: mismatch got %q expected %q", mod, f.name, out, f.expected))
         end
@@ -273,145 +254,22 @@ end)
 
 -- Phase 1: FULL — All module combinations against all fixtures (output-only verification)
 register("full_combinations", function()
-    local total = 0
-    local pass_combos = 0
-    local fail_combos = 0
-    local total_tests = (NUM_COMBOS - 1) * #ALL_FIXTURES
-    -- Adaptive progress: verbose = every combo, otherwise every ~500 fixtures
-    local progress_interval = VERBOSE and 1 or math.max(1, math.floor(500 / #ALL_FIXTURES))
-    local next_progress = progress_interval
-    local start_time = os.clock()
-
-    local fail_by_module = {}
-    for _, m in ipairs(ALL_MODULES) do fail_by_module[m] = 0 end
-    local fail_by_pair = {}
-    local fail_first_fixture = {}
-
-    local max_fail_details = 50
-    local fail_details = {}
-
-    for mask = 1, NUM_COMBOS - 1 do
-        local mods = mask_to_modules(mask)
-        local label = modules_to_label(mods)
-        set_all_modules(mask)
-
-        -- Seed random deterministically so obfuscation output is reproducible
-        math.randomseed(mask * 1000 + 1)
-
-        local combo_ok = true
-        local first_fail_fixture = nil
-        local first_fail_reason = nil
-
-        for _, f in ipairs(ALL_FIXTURES) do
-            total = total + 1
-
-            if total >= next_progress then
-                local pct = (total / total_tests) * 100
-                local elapsed = os.clock() - start_time
-                local rate = total / elapsed
-                local eta = (total_tests - total) / rate
-                io.write(string.format("\r  [%5.1f%%] %d/%d  (%.0f tests/s, ETA: %s) ",
-                    pct, total, total_tests, rate, format_eta(eta)))
-                io.flush()
-                next_progress = next_progress + progress_interval
-            end
-
-            local ok, result = pcall(function() return Pipeline.process(f.code) end)
-            if not ok then
-                combo_ok = false
-                first_fail_fixture = f.name
-                first_fail_reason = "pipeline error"
-                break
-            end
-
-            if type(result) ~= "string" then
-                combo_ok = false
-                first_fail_fixture = f.name
-                first_fail_reason = "result not string"
-                break
-            end
-
-            local load_ok, load_err = load(result, "=test", "t")
-            if not load_ok then
-                combo_ok = false
-                first_fail_fixture = f.name
-                first_fail_reason = "invalid Lua"
-                break
-            end
-
-            local out, exec_err = capture_output(result)
-            if exec_err then
-                combo_ok = false
-                first_fail_fixture = f.name
-                first_fail_reason = "exec error"
-                break
-            end
-
-            if out ~= f.expected then
-                combo_ok = false
-                first_fail_fixture = f.name
-                first_fail_reason = "output mismatch"
-                break
-            end
+    local python = os.getenv("PYTHON_BIN") or "python3"
+    for _, f in ipairs(ALL_FIXTURES) do
+        local command = string.format(
+            "%s tests/fixture_sweep_parallel.py %s",
+            shell_quote(python),
+            shell_quote(f.name)
+        )
+        local ok, exit_type, code = run_shell_command(command)
+        if ok ~= true then
+            error(string.format(
+                "full combination sweep failed for %s (%s %s)",
+                f.name,
+                tostring(exit_type),
+                tostring(code)
+            ))
         end
-
-        if combo_ok then
-            pass_combos = pass_combos + 1
-        else
-            fail_combos = fail_combos + 1
-            for _, m in ipairs(mods) do
-                fail_by_module[m] = fail_by_module[m] + 1
-            end
-            if #mods >= 2 then
-                for i = 1, #mods - 1 do
-                    for j = i + 1, #mods do
-                        local pair = mods[i] .. "+" .. mods[j]
-                        fail_by_pair[pair] = (fail_by_pair[pair] or 0) + 1
-                    end
-                end
-            end
-            fail_first_fixture[label] = first_fail_fixture .. " (" .. first_fail_reason .. ")"
-            if #fail_details < max_fail_details then
-                fail_details[#fail_details + 1] = string.format("  [%s] first fail: %s — %s", label, first_fail_fixture, first_fail_reason)
-            end
-        end
-    end
-
-    local elapsed = os.clock() - start_time
-    io.write(string.format("\r  [100.0%%] %d/%d  (%.0f tests/s, %.1fs)  \n\n",
-        total, total_tests, total / elapsed, elapsed))
-
-    io.write(string.format("\n  Passed: %d / %d  |  Failed: %d / %d\n",
-        pass_combos, NUM_COMBOS - 1, fail_combos, NUM_COMBOS - 1))
-    io.write(string.format("  Total fixture executions: %d\n\n", total))
-
-    io.write("  Failures by module:\n")
-    for _, m in ipairs(ALL_MODULES) do
-        if fail_by_module[m] > 0 then
-            io.write(string.format("    %-22s %d combos\n", m, fail_by_module[m]))
-        end
-    end
-
-    io.write("\n  Top failing pairs:\n")
-    local sorted_pairs = {}
-    for pair, count in pairs(fail_by_pair) do
-        sorted_pairs[#sorted_pairs + 1] = { pair = pair, count = count }
-    end
-    table.sort(sorted_pairs, function(a, b) return a.count > b.count end)
-    for i = 1, math.min(20, #sorted_pairs) do
-        io.write(string.format("    %-45s %d combos\n", sorted_pairs[i].pair, sorted_pairs[i].count))
-    end
-
-    io.write(string.format("\n  Sample failed combos (first %d):\n", #fail_details))
-    for _, detail in ipairs(fail_details) do
-        io.write(detail .. "\n")
-    end
-    if fail_combos > max_fail_details then
-        io.write(string.format("  ... and %d more\n", fail_combos - max_fail_details))
-    end
-
-    if fail_combos > 0 then
-        error(string.format("%d combinations failed out of %d", fail_combos, NUM_COMBOS - 1))
     end
 end)
 
@@ -543,15 +401,11 @@ for m = 1, NUM_MODULES do
             assert(type(result) == "string", string.format("%s %s: result not string", mod, f.name))
             local load_ok, load_err = load(result, "=test", "t")
             assert(load_ok, string.format("%s %s: invalid Lua: %s", mod, f.name, load_err))
-            local out, exec_err = capture_output(result)
+            local out, exec_err = capture_loaded(load_ok)
             assert(exec_err == nil, string.format("%s %s: exec error: %s", mod, f.name, exec_err))
             assert(out == f.expected, string.format("%s %s: mismatch got %q expected %q", mod, f.name, out, f.expected))
         end
     end)
-end
-
-local function shell_quote(value)
-    return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
 end
 
 -- Phase 4: Fixture-specific full combination sweep (--fixture <name>)
@@ -563,7 +417,7 @@ local function register_fixture_sweep(fixture_name, _fixture)
             shell_quote(python),
             shell_quote(fixture_name)
         )
-        local ok, exit_type, code = os.execute(command)
+        local ok, exit_type, code = run_shell_command(command)
         if ok ~= true then
             error(string.format(
                 "fixture sweep failed for %s (%s %s)",
@@ -1480,14 +1334,13 @@ local function main()
             table.insert(filtered, t)
         else
             if quick then
-                if t.name == "quick_combo" or t.name == "baseline_no_modules" or
-                   t.name == "config_get_set" then
-                    table.insert(filtered, t)
-                elseif t.name:match("^single_") then
+                if t.name == "quick_combo" or t.name == "config_get_set" then
                     table.insert(filtered, t)
                 end
             else
-                table.insert(filtered, t)
+                if not t.name:match("^fixture_sweep_") then
+                    table.insert(filtered, t)
+                end
             end
         end
     end
