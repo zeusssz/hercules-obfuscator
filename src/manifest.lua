@@ -51,7 +51,7 @@ manifest.version = 1
 manifest.output = {
     suffix = "_obfuscated.lua",
     watermark_enabled = true,
-    watermark_text = "--[Obfuscated by Hercules v2.0.0 | hercules-obfuscator.xyz/discord | hercules-obfuscator.xyz/source]\n",
+    watermark_text = "--[Obfuscated by Hercules v2.1.0 | hercules-obfuscator.xyz/discord | hercules-obfuscator.xyz/source]\n",
     final_print = true,
 }
 
