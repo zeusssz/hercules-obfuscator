@@ -1,5 +1,6 @@
 import math
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -9,7 +10,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TOTAL_MASKS = 2**14 - 1
+
+# 14 manifest modules plus synthetic watermark bit.
+TOTAL_MASKS = 2**15 - 1
 MODULES = [
     "VirtualMachine",
     "antitamper",
@@ -24,6 +27,7 @@ MODULES = [
     "dynamic_code",
     "bytecode_encoding",
     "compressor",
+    "constant_encoding",
     "watermark",
 ]
 
@@ -35,18 +39,19 @@ def main():
 
     fixture = sys.argv[1]
     workers = max(1, int(os.getenv("HERCULES_LUA_TEST_WORKERS", str(os.cpu_count() or 1))))
-    chunk_size = max(1, int(os.getenv("HERCULES_LUA_TEST_CHUNK_SIZE", "64")))
-    lua_bin = os.getenv("LUA_BIN", "lua5.4")
+    chunk_size = max(1, int(os.getenv("HERCULES_LUA_TEST_CHUNK_SIZE", "16")))
+    lua_bin = os.getenv("LUA_BIN") or shutil.which("lua5.4") or "lua"
+    total_masks = min(TOTAL_MASKS, max(1, int(os.getenv("HERCULES_LUA_TEST_MAX_MASK", str(TOTAL_MASKS)))))
 
-    chunks = list(make_chunks(chunk_size))
+    chunks = list(make_chunks(chunk_size, total_masks))
     done = 0
     passed = 0
     failures = []
     started = time.monotonic()
-    next_progress = min(500, TOTAL_MASKS)
+    next_progress = min(500, total_masks)
 
     print(
-        f"  {fixture}: {TOTAL_MASKS} combos, {workers} workers, chunk size {chunk_size}",
+        f"  {fixture}: {total_masks} combos, {workers} workers, chunk size {chunk_size}",
         flush=True,
     )
 
@@ -64,18 +69,15 @@ def main():
                 passed += chunk_pass
                 failures.extend(chunk_failures)
 
-                if done >= next_progress or done == TOTAL_MASKS:
-                    print_progress(fixture, done, started)
+                if done >= next_progress or done == total_masks:
+                    print_progress(fixture, done, started, total_masks)
                     while next_progress <= done:
                         next_progress += 500
 
     elapsed = time.monotonic() - started
     rate = done / elapsed if elapsed > 0 else 0
-    print(
-        f"\r  {fixture}: {done}/{TOTAL_MASKS} combos done "
-        f"(100.0%, {rate:.0f} combos/s, {elapsed:.1f}s)"
-    )
-    print(f"  {fixture}: {passed}/{TOTAL_MASKS} combos pass")
+    print(f"\r  {fixture}: {done}/{total_masks} combos done (100.0%, {rate:.0f} combos/s, {elapsed:.1f}s)")
+    print(f"  {fixture}: {passed}/{total_masks} combos pass")
 
     if failures:
         print(f"  {fixture}: {len(failures)} combinations failed")
@@ -88,10 +90,10 @@ def main():
     return 0
 
 
-def make_chunks(chunk_size):
+def make_chunks(chunk_size, total_masks):
     start = 1
-    while start <= TOTAL_MASKS:
-        end = min(TOTAL_MASKS, start + chunk_size - 1)
+    while start <= total_masks:
+        end = min(total_masks, start + chunk_size - 1)
         yield start, end
         start = end + 1
 
@@ -117,16 +119,22 @@ def parse_result(path, start, end):
     passed = 0
     failures = []
     for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
         fields = line.split("\t", 2)
         if len(fields) < 2:
             continue
         if fields[0] == "pass":
             passed = int(fields[1])
-        elif fields[0] not in {"fail"}:
+        elif fields[0] == "fail":
+            continue
+        elif fields[0].isdigit():
             mask = int(fields[0])
             reason = fields[1]
             detail = fields[2] if len(fields) > 2 else ""
             failures.append((mask, reason, detail))
+        else:
+            failures.append((start, "worker result parse error", line[:250]))
 
     if passed + len(failures) != end - start + 1:
         failures.append((start, "worker result mismatch", f"{passed} pass, {len(failures)} fail"))
@@ -134,14 +142,14 @@ def parse_result(path, start, end):
     return start, end, passed, failures
 
 
-def print_progress(fixture, done, started):
+def print_progress(fixture, done, started, total_masks):
     elapsed = time.monotonic() - started
     rate = done / elapsed if elapsed > 0 else 0
-    remaining = TOTAL_MASKS - done
+    remaining = total_masks - done
     eta = remaining / rate if rate > 0 else math.inf
-    pct = (done / TOTAL_MASKS) * 100
+    pct = (done / total_masks) * 100
     print(
-        f"\r  {fixture}: {done}/{TOTAL_MASKS} combos done "
+        f"\r  {fixture}: {done}/{total_masks} combos done "
         f"({pct:.1f}%, {rate:.0f} combos/s, ETA: {format_eta(eta)}) ",
         end="",
         flush=True,

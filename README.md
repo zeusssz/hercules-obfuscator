@@ -50,7 +50,7 @@ You may also use the [Website](https://hercules-obfuscator.xyz/) to obfuscate yo
 Obfuscation is not a foolproof method for protecting your code! Always consider additional security measures depending on your use case.
 
 >[!NOTE]
-Hercules is very much still in development and may not be the best yet, but we are committed to making it one of the best. Hercules is currently on version: `2.0.1`
+Hercules is very much still in development and may not be the best yet, but we are committed to making it one of the best. Hercules is currently on version: `2.1.0`
 ---
 
 ## Features
@@ -236,93 +236,16 @@ You can modify or add new modules to the `modules/` directory to create addition
 
 ## Testing
 
-A comprehensive end-to-end test suite verifies **all 2^14 − 1 = 16,383 module combinations** against a realistic Lua fixture (FNV-1a hashing, JSON builder, escape sequences, closures, method chains, and multi-line table constructors). Each test runs actual obfuscation via `Pipeline.process()` and verifies the output matches expected results.
+Hercules includes a comprehensive automated testing infrastructure covering module validation, compatibility checks, configuration testing, and exhaustive module-combination verification.
 
-### Supported Targets
+For detailed testing documentation, including:
 
-| Target | Modules | Notes |
-|--------|---------|-------|
-| Lua 5.4 | 14/14 | Full support including VirtualMachine and bytecode_encoding |
-| Luau | 12/14 | VirtualMachine and bytecode_encoding disabled (incompatible bytecode) |
+* Python parallel test runner
+* Lua test runner
+* Supported targets
+* Luau validation
+* Coverage information
+* Full combination sweeps
+* Test suite architecture
 
-### Python Parallel Runner (recommended for full sweep)
-
-Fast parallel execution using multiple Lua worker processes:
-
-```bash
-# Full combination sweep with auto-detected workers (Lua target)
-python3 test_py.py
-
-# Explicit worker count
-python3 test_py.py --jobs 8
-
-# Luau target (12 modules, validated with luau binary)
-python3 test_py.py --target luau
-
-# Run both Lua and Luau tests
-python3 test_py.py --target both
-```
-
-### Luau Support
-
-The obfuscator supports generating code for [Luau](https://luau.org/) (Roblox's Lua dialect):
-
-```bash
-# Obfuscate for Luau target
-lua hercules.lua script.lua --target luau -cf -se -vr -gci -opi -st -wif -fi -dc -at
-
-# Output: script_obfuscated.luau
-```
-
-**Luau-specific adaptations:**
-- VirtualMachine and bytecode_encoding modules are automatically disabled
-- `load()` calls in source code are converted to `loadstring()`
-- Polyfills for `math.ldexp`/`math.frexp` are prepended to output
-- Antitamper checks only functions available in Luau (no `loadfile`, `dofile`, `debug.*`, `os.exit`)
-
-### Lua Test Runner (recommended for quick checks)
-
-Interactive test suite with selective test groups:
-
-```bash
-# Quick mode: baseline + 14 single modules + 64 core combos (~5s)
-lua test.lua --quick
-
-# Full combination sweep (single process)
-lua test.lua --test full_combinations --verbose
-
-# Run all tests
-lua test.lua --verbose
-
-# Test a specific fixture against all combinations
-lua test.lua --test fixture_sweep_main_script --verbose
-
-# Run only single module tests
-lua test.lua --group single --verbose
-
-# Baseline only (no modules)
-lua test.lua --test baseline_no_modules --verbose
-
-# List all available tests
-lua test.lua --list
-
-# Show help
-lua test.lua --help
-```
-
-**All commands must be run from the `src/` directory.**
-
-### Test Coverage
-
-| Suite | What it tests | Combinations |
-|-------|--------------|--------------|
-| `quick` | Baseline + 14 singles + 64 core combos | 79 tests |
-| `full_combinations` | All non-empty module subsets | 16,383 combos |
-| `single_<module>` | Each module individually | 14 tests |
-| `fixture_sweep_*` | All combos against one fixture | 16,383 each |
-| `config_get_set` | Config API validation | 16 tests |
-
-**Working modules (14/14):** VirtualMachine, antitamper, bytecode_encoding, opaque_predicates, function_inlining, dynamic_code, string_encoding, garbage_code, control_flow, compressor, WrapInFunction, watermark, variable_renaming, StringToExpressions
-
----
-![image](https://github.com/user-attachments/assets/83c72548-5a4b-4326-b40e-6380f16f5a97)
+See **[TESTING.md](tests/README.md)**.

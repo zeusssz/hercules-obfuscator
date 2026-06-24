@@ -225,7 +225,7 @@ local function test_dummy_module_internal_detection()
 end
 
 local function test_dummy_module_cli_export()
-    local lua = os.getenv("LUA_BIN") or "lua5.4"
+    local lua = os.getenv("LUA_BIN") or "lua"
     local command = 'cd src && HERCULES_MANIFEST_EXTRA="../tests/extra_manifest.lua" ' .. lua .. ' hercules.lua --manifest-json'
     local handle = io.popen(command)
     assert(handle, "failed to run manifest export command")

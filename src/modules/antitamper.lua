@@ -72,10 +72,10 @@ function AntiTamper.process(code)
     local debug_keys = '{"getinfo","getlocal","getupvalue","traceback","sethook","setupvalue"}'
     if config.target == "luau" then
         NATIVE_FUNCS = NATIVE_FUNCS_LUAU
-        debug_keys = '{"info","traceback"}'
+        debug_keys = '{}'
     elseif config.target == "glua" then
         NATIVE_FUNCS = NATIVE_FUNCS_GLUA
-        debug_keys = '{"getinfo","traceback"}'
+        debug_keys = '{}'
     end
 
     -- Capture the current state of critical functions as the baseline
