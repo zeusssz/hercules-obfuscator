@@ -127,13 +127,14 @@ local function printManifestJson()
     }, ",") .. "}")
 end
 
+-- Ogre horizontal fitting (https://patorjk.com/software/taag/#p=moreopts&f=Ogre&t=Hercules++v2.1%0A&x=none&v=4&h=1&w=80&we=false)
 local BANNER = colors.blue .. [[                                                                                     
-                           _                   ____    _ 
-  /\  /\___ _ __ ___ _   _| | ___  ___  __   _|___ \  / |
- / /_/ / _ \ '__/ __| | | | |/ _ \/ __| \ \ / / __) | | |
-/ __  /  __/ | | (__| |_| | |  __/\__ \  \ V / / __/ _| |
-\/ /_/ \___|_|  \___|\__,_|_|\___||___/   \_/ |_____(_)_|                        
-                                       ]] .. colors.reset
+                                _                      ____      _ 
+  /\  /\ ___  _ __  ___  _   _ | |  ___  ___   __   __|___ \    / |
+ / /_/ // _ \| '__|/ __|| | | || | / _ \/ __|  \ \ / /  __) |   | |
+/ __  /|  __/| |  | (__ | |_| || ||  __/\__ \   \ V /  / __/  _ | |
+\/ /_/  \___||_|   \___| \__,_||_| \___||___/    \_/  |_____|(_)|_|              
+                                       ]] .. colors.reset 
 
 local function runSanityCheck(original_code, obfuscated_code)
     local function captureOutput(code)
