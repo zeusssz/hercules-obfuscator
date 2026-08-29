@@ -347,6 +347,18 @@ manifest.modules = {
         incompatible_with = {},
         description = "Enable compressor",
     },
+    {
+        key = "parser",
+        config_key = "Parser",
+        name = "Parser",
+        module = "Parser",
+        enabled = true,
+        bit_position = 13,
+        pipeline_order = 0,
+        cli = { short = "-p", long = "--parser" },
+        incompatible_with = {},
+        description = "Parse input into an AST (Luau parser transpiled to Lua). Off by default; downstream modules consume the AST via Parser.parse.",
+    },
 }
 
 local function copy(value)

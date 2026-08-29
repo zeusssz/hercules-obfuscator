@@ -2,6 +2,12 @@
 local config = require("config")
 local manifest = require("manifest")
 
+-- Load the Parser subsystem eagerly. Its transpiled body snapshots the original
+-- standard library into an isolated environment at load time; executing real
+-- obfuscated payloads in-process can replace globals (e.g. the Virtual Machine
+-- output rebinds `_G.tostring`), so the parser must load before any user code.
+require("Parser")
+
 local Watermarker = require("modules/watermark")
 
 local Pipeline = {}

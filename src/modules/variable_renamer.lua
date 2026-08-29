@@ -1,3 +1,23 @@
+-- modules/variable_renamer.lua
+-- AST-based variable and builtin renaming.
+--
+-- Previously this module used fragile string scanning. It now parses the input
+-- into Parser's .kind AST, mutates it (renaming binding tables in place and
+-- aliasing builtin usages), and renders it back to Lua source.
+--
+-- Because ExprLocal references share the exact binding table object of their
+-- declaration, renaming `binding.name` renames a variable everywhere it is
+-- referenced, exactly within its lexical scope - no scope analysis is needed
+-- and strings, comments, table keys, and property accesses are structurally
+-- impossible to touch by mistake.
+--
+-- Public API: VariableRenamer.process(code, options)
+--   options.min_length / options.max_length (8..12 unless overridden)
+--   options.target ("lua" | "luau" | "glua")
+
+local Ast = require("Parser/Ast")
+local Parser = require("Parser")
+
 local VariableRenamer = {}
 
 -- Lua built-in functions that should be renamed
@@ -57,196 +77,74 @@ local function make_name_generator(min_len, max_len, reserved_names)
     end
 end
 
--- Skip over a string starting at pos (which should be a quote or open bracket)
-local function skip_string(code, pos)
-    if pos > #code then return pos end
-    local c = code:sub(pos, pos)
-    if c == '"' or c == "'" then
-        local q = c
-        pos = pos + 1
-        while pos <= #code do
-            local ch = code:sub(pos, pos)
-            if ch == "\\" then pos = pos + 2
-            elseif ch == q then return pos + 1
-            else pos = pos + 1 end
-        end
-        return pos
-    elseif c == "[" then
-        local bracket = code:match("^%[(=*)%[", pos)
-        if bracket then
-            local close = "]" .. string.rep("=", #bracket) .. "]"
-            local _, end_pos = code:find(close, pos + #bracket + 2, true)
-            return end_pos and end_pos + 1 or pos
-        end
-    end
-    return pos
+-- Node kinds whose fields hold local binding tables.
+local function is_binding_carrier(kind)
+    return kind == "StatLocal"
+        or kind == "StatLocalFunction"
+        or kind == "ExprFunction"
+        or kind == "StatFor"
+        or kind == "StatForIn"
 end
 
--- Skip over a comment starting at pos (pos points to first '-')
-local function skip_comment(code, pos)
-    if pos > #code then return pos end
-    if code:sub(pos, pos + 1) == "--" then
-        if code:sub(pos + 2, pos + 2) == "[" then
-            local bracket = code:match("^%[(=*)%[", pos + 2)
-            if bracket then
-                local close = "]" .. string.rep("=", #bracket) .. "]"
-                local _, end_pos = code:find(close, pos + 4 + #bracket, true)
-                if end_pos then
-                    -- Find end of this line or end of code
-                    local nl = code:find("\n", end_pos)
-                    return nl and nl + 1 or #code + 1
-                end
-            end
-        end
-        local nl = code:find("\n", pos)
-        return nl and nl + 1 or #code + 1
+-- Extract the binding tables introduced by a carrier node. Returns a list.
+local function carrier_bindings(node)
+    if node.kind == "StatLocal" then
+        return node.vars
+    elseif node.kind == "StatLocalFunction" then
+        return { node.name }
+    elseif node.kind == "ExprFunction" then
+        return node.args
+    elseif node.kind == "StatFor" then
+        if node.var then return { node.var } end
+        return {}
+    elseif node.kind == "StatForIn" then
+        return node.vars
     end
-    return pos
+    return {}
 end
 
--- Find the next occurrence of a keyword (as a whole word) in code, skipping strings and comments
-local function find_keyword(code, keyword, start_pos)
-    local pos = start_pos
-    local pattern = "()%f[%w_]" .. keyword .. "%f[^%w_]"
-    local found = {}
-    while pos <= #code do
-        local ch = code:sub(pos, pos)
-        -- Skip strings
-        if ch == '"' or ch == "'" or (ch == "[" and code:sub(pos, pos + 1) == "[[") then
-            pos = skip_string(code, pos)
-            goto continue
+-- Flatten an assignment/definition target expression into a dotted name such as
+-- "print" or "math.floor"; returns nil for non-identifier targets (t[k] = v).
+local function flatten_target(node)
+    if node.kind == "ExprGlobal" then
+        return node.name
+    elseif node.kind == "ExprIndexName" then
+        local base = flatten_target(node.expr)
+        if base then return base .. "." .. node.index end
+    elseif node.kind == "ExprIndexExpr" then
+        local base = flatten_target(node.expr)
+        if base and node.index.kind == "ExprConstantString" then
+            return base .. "." .. node.index.value
         end
-        -- Skip comments
-        if code:sub(pos, pos + 1) == "--" then
-            pos = skip_comment(code, pos)
-            goto continue
-        end
-        -- Check for keyword
-        local remaining = code:sub(pos)
-        if remaining:match("^%f[%w_]" .. keyword .. "%f[^%w_]") then
-            return pos, pos + #keyword
-        end
-        pos = pos + 1
-        ::continue::
     end
-    return nil, nil
+    return nil
 end
 
--- Replace all occurrences of keyword with replacement, skipping strings and comments
-local function replace_keyword(code, keyword, replacement)
-    local result = ""
-    local pos = 1
-    while pos <= #code do
-        local ch = code:sub(pos, pos)
-        -- Copy strings as-is
-        if ch == '"' or ch == "'" or (ch == "[" and code:sub(pos, pos + 1) == "[[") then
-            local end_pos = skip_string(code, pos)
-            result = result .. code:sub(pos, end_pos - 1)
-            pos = end_pos
-            goto continue
+-- A builtin called as `base.name`, looked up in `seen` (map of builtin -> true).
+local function bind_builtin_expr(builtins_by_full, node)
+    if node.kind == "ExprGlobal" then
+        if not node.name:match("%.") and builtins_by_full[node.name] then
+            return node.name
         end
-        -- Copy comments as-is
-        if code:sub(pos, pos + 1) == "--" then
-            local end_pos = skip_comment(code, pos)
-            result = result .. code:sub(pos, end_pos - 1)
-            pos = end_pos
-            goto continue
+        return nil
+    elseif node.kind == "ExprIndexName" then
+        local base = node.expr
+        if node.op ~= Ast.INDEX_COLON
+            and type(base) == "table" and base.kind == "ExprGlobal" then
+            local key = base.name .. "." .. node.index
+            if builtins_by_full[key] then return key end
         end
-        -- Check for keyword
-        local remaining = code:sub(pos)
-        if remaining:match("^%f[%w_]" .. keyword .. "%f[^%w_]") then
-            result = result .. replacement
-            pos = pos + #keyword
-            goto continue
+        return nil
+    elseif node.kind == "ExprIndexExpr" then
+        local base, idx = node.expr, node.index
+        if type(base) == "table" and base.kind == "ExprGlobal"
+            and type(idx) == "table" and idx.kind == "ExprConstantString" then
+            local key = base.name .. "." .. idx.value
+            if builtins_by_full[key] then return key end
         end
-        result = result .. ch
-        pos = pos + 1
-        ::continue::
+        return nil
     end
-    return result
-end
-
--- Parse local variable declarations from code
--- Returns a map of var_name -> true
--- @param target optional target language ("lua", "luau", "glua")
-local function parse_local_vars(code, target)
-    local vars = {}
-    local pos = 1
-    while pos <= #code do
-        local ch = code:sub(pos, pos)
-        if ch == '"' or ch == "'" or (ch == "[" and code:sub(pos, pos + 1) == "[[") then
-            pos = skip_string(code, pos)
-            goto continue
-        end
-        if code:sub(pos, pos + 1) == "--" then
-            pos = skip_comment(code, pos)
-            goto continue
-        end
-        local remaining = code:sub(pos)
-        -- Match: local name [= ...] or local name1, name2 [= ...]
-        local m_start, m_end = remaining:find("^local%s+")
-        if m_start then
-            -- Parse variable names
-            local var_str = ""
-            local vpos = pos + m_end  -- convert from remaining-relative to code-absolute
-            local paren_depth = 0
-            local bracket_depth = 0
-            while vpos <= #code do
-                local vc = code:sub(vpos, vpos)
-                if vc == "(" then paren_depth = paren_depth + 1
-                elseif vc == ")" then
-                    if paren_depth == 0 then break end
-                    paren_depth = paren_depth - 1
-                elseif vc == "[" then bracket_depth = bracket_depth + 1
-                elseif vc == "]" then bracket_depth = bracket_depth - 1
-                elseif vc == "=" and paren_depth == 0 and bracket_depth == 0 then
-                    break
-                elseif vc == "\n" and paren_depth == 0 then
-                    break
-                end
-                if target == "luau" and vc == ":" and paren_depth == 0 and bracket_depth == 0 then
-                    -- Luau type annotation: skip type tokens (e.g. `: string`, `: PlayerData`, `: {x: number}`)
-                    vpos = vpos + 1
-                    local type_depth = 0
-                    while vpos <= #code do
-                        local tc = code:sub(vpos, vpos)
-                        if tc == "{" or tc == "[" or tc == "(" then
-                            type_depth = type_depth + 1
-                        elseif tc == "}" or tc == "]" or tc == ")" then
-                            if type_depth == 0 then break end
-                            type_depth = type_depth - 1
-                        elseif (tc == "=" or tc == "\n") and type_depth == 0 then
-                            break
-                        end
-                        vpos = vpos + 1
-                    end
-                    -- Don't add colon or type tokens to var_str
-                else
-                    var_str = var_str .. vc
-                    vpos = vpos + 1
-                end
-            end
-            -- Extract individual variable names
-            -- Handle `local function name(params)` — only name is a local var, not params
-            if var_str:match("^function%s+") then
-                local fname = var_str:match("^function%s+([%a_][%w_]*)")
-                if fname and not RESERVED[fname] and not vars[fname] then
-                    vars[fname] = true
-                end
-            else
-                for var in var_str:gmatch("[%a_][%w_]*") do
-                    if not RESERVED[var] and not vars[var] then
-                        vars[var] = true
-                    end
-                end
-            end
-            pos = vpos
-            goto continue
-        end
-        pos = pos + 1
-        ::continue::
-    end
-    return vars
+    return nil
 end
 
 function VariableRenamer.process(code, options)
@@ -268,10 +166,34 @@ function VariableRenamer.process(code, options)
         builtins = filtered
     end
 
-    -- Step 1: Find all local variable names
-    local local_vars = parse_local_vars(code, target)
+    local ok, parsed = Parser.parse(code)
+    if not ok then
+        -- Not valid (or parseable) Lua: leave the input untouched rather than
+        -- risking a destructive partial transformation.
+        return code
+    end
+    local root = parsed.root
+
+    -- Step 1: Collect every local binding and its declaration name.
+    local bindings = {}
+    local seen_bindings = {}
+    local local_names = {}
+    Ast.each(root, function(node)
+        if is_binding_carrier(node.kind) then
+            for _, b in ipairs(carrier_bindings(node)) do
+                if type(b) == "table" and b.name and not seen_bindings[b] then
+                    seen_bindings[b] = true
+                    table.insert(bindings, b)
+                    local_names[b.name] = true
+                end
+            end
+        end
+    end)
+
+    -- Step 2: Reserve all original local names and builtin simple names so the
+    -- generator never emits a name that collides with an untouched identifier.
     local reserved_names = {}
-    for name in pairs(local_vars) do
+    for name in pairs(local_names) do
         reserved_names[name] = true
     end
     for _, builtin in ipairs(builtins) do
@@ -280,242 +202,115 @@ function VariableRenamer.process(code, options)
     end
     local gen_name = make_name_generator(min_len, max_len, reserved_names)
 
-    -- Step 2: Create rename map for local variables
+    -- Step 3: Create rename map for local variables and apply it in place.
+    -- Distinct names are collected in discovery order so aliases below draw
+    -- from an equally-shuffled stream as the legacy implementation.
     local rename_map = {}
-    for var_name in pairs(local_vars) do
-        rename_map[var_name] = gen_name()
+    local seen_names = {}
+    for _, b in ipairs(bindings) do
+        local name = b.name
+        if not seen_names[name] then
+            seen_names[name] = true
+            rename_map[name] = gen_name()
+        end
+        b.name = rename_map[name]
     end
 
-    -- Step 3: Find builtins used in code and create rename map
-    local builtin_map = {}
-    local used_builtins = {}
+    -- Step 4: Find builtins used in code and create alias map.
+    -- A builtin whose name is defined or reassigned by the code (a global
+    -- function definition, or an assignment target such as `print = nil` or
+    -- `string.format = f`) must NOT be aliased: the alias would capture the
+    -- value from before the reassignment and silently change behavior.
+    local blocked = {}
+    Ast.each(root, function(node)
+        if node.kind == "StatAssign" then
+            for _, v in ipairs(node.vars) do
+                local full = flatten_target(v)
+                if full then blocked[full] = true end
+            end
+        elseif node.kind == "StatCompoundAssign" then
+            local full = flatten_target(node.var)
+            if full then blocked[full] = true end
+        elseif node.kind == "StatFunction" then
+            local full = flatten_target(node.name)
+            if full then blocked[full] = true end
+        end
+    end)
+    local function is_blocked(builtin)
+        if blocked[builtin] then return true end
+        local base = builtin:match("^([^.]+)%.")
+        if base then
+            if blocked[base] then return true end
+            local prefix = base:gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%1") .. "%."
+            for name in pairs(blocked) do
+                if name:match("^" .. prefix) then
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    local builtins_by_full = {}
     for _, builtin in ipairs(builtins) do
-        if code:find(builtin, 1, true) then
-            local new_name = gen_name()
-            builtin_map[builtin] = new_name
-            table.insert(used_builtins, {original = builtin, new_name = new_name})
-        end
+        builtins_by_full[builtin] = true
     end
-
-    -- Step 4: Apply replacements
-    -- Strategy: scan character by character, protect strings/comments with placeholders,
-    -- replace keywords in unprotected code, restore
-    local function protect_and_replace(source, renames)
-        if next(renames) == nil then return source end
-
-        -- Collect all strings and comments, replace with placeholders
-        local protected = {}
-        local idx = 0
-        local parts = {}
-        local pos = 1
-
-        while pos <= #source do
-            local ch = source:sub(pos, pos)
-            -- Long strings [[...]] or [=*[...]*=]
-            if ch == "[" then
-                local eq = source:match("^%[(=*)%[", pos)
-                if eq then
-                    local close_str = "]" .. string.rep("=", #eq) .. "]"
-                    local _, end_pos = source:find(close_str, pos + #eq + 2, true)
-                    if end_pos then
-                        idx = idx + 1
-                        local ph = string.format("\001STR%d\001", idx)
-                        protected[ph] = source:sub(pos, end_pos)
-                        table.insert(parts, ph)
-                        pos = end_pos + 1
-                        goto continue
-                    end
-                end
-            end
-            -- Short strings "..." or '...'
-            if ch == '"' or ch == "'" then
-                local end_pos = skip_string(source, pos)
-                if end_pos and end_pos > pos then
-                    idx = idx + 1
-                    local ph = string.format("\001STR%d\001", idx)
-                    protected[ph] = source:sub(pos, end_pos - 1)
-                    table.insert(parts, ph)
-                    pos = end_pos
-                    goto continue
-                end
-            end
-            -- Long comments --[=[...]=]
-            if ch == "-" and source:sub(pos + 1, pos + 1) == "-" then
-                if source:sub(pos + 2, pos + 2) == "[" then
-                    local eq = source:match("^%[(=*)%[", pos + 2)
-                    if eq then
-                        local close_str = "]" .. string.rep("=", #eq) .. "]"
-                        local _, end_pos = source:find(close_str, pos + #eq + 4, true)
-                        if end_pos then
-                            -- Include trailing newline in comment
-                            local nl = source:find("\n", end_pos)
-                            local comment_end = nl and nl + 1 or end_pos + 1
-                            idx = idx + 1
-                            local ph = string.format("\001STR%d\001", idx)
-                            protected[ph] = source:sub(pos, comment_end - 1)
-                            table.insert(parts, ph)
-                            pos = comment_end
-                            goto continue
-                        end
-                    end
-                end
-                -- Line comment --...
-                local nl = source:find("\n", pos)
-                local comment_end = nl and nl or #source
-                idx = idx + 1
-                local ph = string.format("\001STR%d\001", idx)
-                protected[ph] = source:sub(pos, comment_end)
-                table.insert(parts, ph)
-                pos = comment_end + 1
-                goto continue
-            end
-            -- Regular character
-            table.insert(parts, ch)
-            pos = pos + 1
-            ::continue::
-        end
-
-        local result = table.concat(parts)
-
-        -- Protect dot-notation (.name) and colon-notation (:name) property names
-        -- from renaming. These are string keys, not variable references.
-        -- e.g. game.Players.LocalPlayer — Players and LocalPlayer after '.' are
-        -- property accesses (equivalent to ["Players"]["LocalPlayer"]), NOT variables.
-        -- IMPORTANT: use %f[%.%:] frontier to exclude '..name' (concatenation) and
-        -- '::name' where the separator is preceded by another . or :
-        local prop_ph = {}
-        local prop_n = 0
-        result = result:gsub("%f[%.%:]([%.%:])%s*([%a_][%w_]*)", function(sep, name)
-            prop_n = prop_n + 1
-            local ph = string.format("\001PROP%d\001", prop_n)
-            prop_ph[ph] = sep .. name
-            return ph
-        end)
-
-        -- Protect table constructor keys from renaming.
-        -- In {Key = value}, 'Key' is a literal identifier (equivalent to ["Key"] = value),
-        -- NOT a variable reference. {Key = patterns (unambiguous table keys) and
-        -- ,Key = / ;Key = patterns inside table constructors only are protected.
-        -- Comma-separated variables in local declarations (e.g. local a, b = ...)
-        -- must NOT be treated as table keys, so brace-depth tracking is used.
-        -- Shorthand {Key} (no =) and computed keys {[Key] = value} are NOT protected.
-        local tblk_ph = {}
-        local tblk_n = 0
-
-        -- Step 1: Protect {Key = (unambiguous table keys at any brace depth)
-        result = result:gsub("({)%s*([%a_][%w_]*)%s*=", function(sep, key)
-            tblk_n = tblk_n + 1
-            local ph = string.format("\001TBLK%d\001", tblk_n)
-            tblk_ph[ph] = key
-            return sep .. ph .. "="
-        end)
-
-        -- Step 2: Protect ,Key = and ;Key = only inside table constructors (depth > 0)
-        -- Character-by-character scan with brace-depth tracking avoids false
-        -- positives in comma-separated local declarations (local a, b = ...).
-        local tbuf = {}
-        local tpos = 1
-        local depth = 0
-        while tpos <= #result do
-            local tc = result:sub(tpos, tpos)
-            if tc == "{" then
-                depth = depth + 1
-                table.insert(tbuf, tc)
-                tpos = tpos + 1
-            elseif tc == "}" then
-                depth = math.max(0, depth - 1)
-                table.insert(tbuf, tc)
-                tpos = tpos + 1
-            elseif depth > 0 and (tc == "," or tc == ";") then
-                local key = result:sub(tpos + 1):match("^%s*([%a_][%w_]*)%s*=")
-                if key then
-                    tblk_n = tblk_n + 1
-                    local ph = string.format("\001TBLK%d\001", tblk_n)
-                    tblk_ph[ph] = key
-                    table.insert(tbuf, tc)
-                    tpos = tpos + 1
-                    while tpos <= #result and result:sub(tpos, tpos):match("^%s$") do
-                        table.insert(tbuf, result:sub(tpos, tpos))
-                        tpos = tpos + 1
-                    end
-                    table.insert(tbuf, ph)
-                    tpos = tpos + #key
-                    while tpos <= #result and result:sub(tpos, tpos):match("^%s$") do
-                        table.insert(tbuf, result:sub(tpos, tpos))
-                        tpos = tpos + 1
-                    end
-                else
-                    table.insert(tbuf, tc)
-                    tpos = tpos + 1
-                end
-            else
-                table.insert(tbuf, tc)
-                tpos = tpos + 1
+    local builtin_map = {} -- full builtin name -> alias name
+    local used_builtins = {}
+    local seen = {}
+    Ast.each(root, function(node)
+        local key = bind_builtin_expr(builtins_by_full, node)
+        if key and not seen[key] then
+            seen[key] = true
+            if not is_blocked(key) then
+                local new_name = gen_name()
+                builtin_map[key] = new_name
+                table.insert(used_builtins, { original = key, new_name = new_name })
             end
         end
-        result = table.concat(tbuf)
+    end)
 
-        -- Sort renames by length (longest first) to avoid partial replacements
-        local sorted = {}
-        for k, v in pairs(renames) do
-            table.insert(sorted, {key = k, val = v})
-        end
-        table.sort(sorted, function(a, b) return #a.key > #b.key end)
-
-        -- Apply replacements using gsub with word boundaries
-        for _, entry in ipairs(sorted) do
-            local kw = entry.key:gsub("%%", "%%%%"):gsub("%.", "%%.")
-            result = result:gsub("(%f[%w_])" .. kw .. "(%f[^%w_])", function(before, after)
-                return before .. entry.val .. after
-            end)
-        end
-
-        -- Restore table key placeholders first (they were protected last)
-        for ph, original in pairs(tblk_ph) do
-            result = result:gsub(ph, original, 1)
-        end
-
-        -- Restore property name placeholders (must be before string/comment restore
-        -- because property placeholders may precede string placeholders in the string)
-        for ph, original in pairs(prop_ph) do
-            result = result:gsub(ph, original, 1)
-        end
-
-        -- Restore protected content
-        for ph, original in pairs(protected) do
-            result = result:gsub(ph, function() return original end, 1)
-        end
-
-        return result
+    -- Step 5: Replace expression-position builtin usages with alias references.
+    -- Assignment targets (StatAssign.vars, StatCompoundAssign.var) and global
+    -- function definitions (StatFunction.name) are NOT expression usages and
+    -- must never be aliased - doing so would change what the code assigns to.
+    local alias_bindings = {}
+    for _, entry in ipairs(used_builtins) do
+        alias_bindings[entry.original] = Ast.bind(entry.new_name)
     end
+    Ast.rewrite(root, function(node)
+        local key = bind_builtin_expr(builtins_by_full, node)
+        if key and alias_bindings[key] then
+            return Ast.local_ref(alias_bindings[key])
+        end
+        return nil
+    end, {
+        exclude = {
+            StatAssign = { vars = true },
+            StatCompoundAssign = { var = true },
+            StatFunction = { name = true },
+        },
+    })
 
-    -- Combine all renames
-    local all_renames = {}
-    for k, v in pairs(builtin_map) do
-        all_renames[k] = v
-    end
-    for k, v in pairs(rename_map) do
-        all_renames[k] = v
-    end
-
-    local result = protect_and_replace(code, all_renames)
-
-    -- Step 5: Prepend local declarations for renamed builtins
+    -- Step 6: Prepend alias declarations, e.g.
+    --   local a, b = print, math.floor
     if #used_builtins > 0 then
-        local decl_parts = {}
-        local assign_parts = {}
+        local vars, values = {}, {}
         for _, entry in ipairs(used_builtins) do
-            table.insert(decl_parts, entry.new_name)
-            table.insert(assign_parts, entry.new_name .. "=" .. entry.original)
+            table.insert(vars, alias_bindings[entry.original])
+            local base, index = entry.original:match("^([^.]+)%.(.+)$")
+            if base then
+                table.insert(values, Ast.index_name(Ast.global(base), index, false))
+            else
+                table.insert(values, Ast.global(entry.original))
+            end
         end
-        -- Always add semicolon after assignments to prevent Lua from parsing
-        -- "X=print\n(function..." as "X = print(function...)" across lines
-        -- (line comments do NOT terminate multi-line expressions in Lua)
-        result = "local " .. table.concat(decl_parts, ",") .. "\n" ..
-                   table.concat(assign_parts, ";") .. ";\n" .. result
+        table.insert(root.body, 1, Ast.local_(vars, values))
     end
 
-    return result
+    -- Render back to source. Lua-family targets cannot use `x op= v`, so lower
+    -- compound assignments; Luau keeps the `x op= v` spelling the parser saw.
+    return Ast.render(root, { lower_compound = target ~= "luau" })
 end
 
 return VariableRenamer
