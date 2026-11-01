@@ -1,4 +1,5 @@
 local StringEncoder = {}
+local longBracketEnd = require("modules/long_brackets")
 
 local function generateRandomName(len)
     len = len or math.random(8, 12)
@@ -100,27 +101,18 @@ end
     while pos <= #code do
         local ch = code:sub(pos, pos)
 
-        if ch == "[" and code:sub(pos + 1, pos + 1) == "[" then
-            local _, end_pos = code:find("]]", pos + 2, true)
-            if end_pos then
-                table.insert(parts, code:sub(pos, end_pos))
-                pos = end_pos + 1
-            else
-                table.insert(parts, ch)
-                pos = pos + 1
-            end
+        -- Long strings and comments are opaque, even with = delimiters.
+        local long_end = ch == "[" and longBracketEnd(code, pos)
+        if long_end then
+            table.insert(parts, code:sub(pos, long_end))
+            pos = long_end + 1
             goto continue
         end
 
         if ch == "-" and code:sub(pos + 1, pos + 1) == "-" then
-            local nl = code:find("\n", pos)
-            if nl then
-                table.insert(parts, code:sub(pos, nl))
-                pos = nl + 1
-            else
-                table.insert(parts, code:sub(pos))
-                pos = #code + 1
-            end
+            local comment_end = longBracketEnd(code, pos + 2) or code:find("\n", pos) or #code
+            table.insert(parts, code:sub(pos, comment_end))
+            pos = comment_end + 1
             goto continue
         end
 
