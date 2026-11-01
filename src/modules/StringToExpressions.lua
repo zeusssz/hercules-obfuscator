@@ -1,4 +1,5 @@
 local StringToExpressions = {}
+local longBracketEnd = require("modules/long_brackets")
 local math_methods = {
     addSub = function(char, base1, base2)
         local base = math.random(base1, base2)
@@ -44,18 +45,12 @@ function StringToExpressions.process(script_content, base1, base2)
     while pos <= #script_content do
         local ch = script_content:sub(pos, pos)
 
-        -- Skip long strings
-        if ch == "[" and script_content:sub(pos + 1, pos + 1) == "[" then
-            local eq = script_content:match("^%[%[(=*)%[", pos)
-            if eq then
-                local close = "]" .. string.rep("=", #eq) .. "]"
-                local _, end_pos = script_content:find(close, pos + #eq + 2, true)
-                if end_pos then
-                    table.insert(parts, script_content:sub(pos, end_pos))
-                    pos = end_pos + 1
-                    goto continue
-                end
-            end
+        -- Long strings are opaque, including [=[...]=] and higher levels.
+        local long_end = ch == "[" and longBracketEnd(script_content, pos)
+        if long_end then
+            table.insert(parts, script_content:sub(pos, long_end))
+            pos = long_end + 1
+            goto continue
         end
 
         -- Handle short strings
@@ -139,28 +134,12 @@ function StringToExpressions.process(script_content, base1, base2)
             goto continue
         end
 
-        -- Skip comments
+        -- Long comments may span lines and use arbitrary = delimiters.
         if ch == "-" and script_content:sub(pos + 1, pos + 1) == "-" then
-            if script_content:sub(pos + 2, pos + 2) == "[" then
-                local eq = script_content:match("^%[%[(=*)%[", pos + 2)
-                if eq then
-                    local close = "]" .. string.rep("=", #eq) .. "]"
-                    local _, end_pos = script_content:find(close, pos + #eq + 4, true)
-                    if end_pos then
-                        table.insert(parts, script_content:sub(pos, end_pos))
-                        pos = end_pos + 1
-                        goto continue
-                    end
-                end
-            end
-            local nl = script_content:find("\n", pos)
-            if nl then
-                table.insert(parts, script_content:sub(pos, nl))
-                pos = nl + 1
-            else
-                table.insert(parts, script_content:sub(pos))
-                pos = #script_content + 1
-            end
+            local comment_end = longBracketEnd(script_content, pos + 2)
+                or script_content:find("\n", pos) or #script_content
+            table.insert(parts, script_content:sub(pos, comment_end))
+            pos = comment_end + 1
             goto continue
         end
 
